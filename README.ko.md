@@ -10,6 +10,18 @@ duckmind는 작은 로봇 오리에게 자기만의 마음을 줍니다. 자기�
 > 후원을 받지 않았습니다. Microduck은 Pollen Robotics의 이름입니다. duckmind는 Pollen의 오픈 소스
 > 코드, 로봇 모델, 정책을 사용하며, 이것들은 설치할 때 원래 배포처에서 내려받습니다.
 
+## 살펴보기
+
+<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="duckmind 시뮬레이터 화면" width="880"></p>
+
+| <img src="docs/media/clips/walk.webp" width="220" alt="걷기"> | <img src="docs/media/clips/bow.webp" width="220" alt="인사"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="엎드리기"> |
+|:---:|:---:|:---:|
+| 걷기 | 인사 | 엎드리기 |
+| <img src="docs/media/clips/spin.webp" width="220" alt="빙글 돌기"> | <img src="docs/media/clips/flip.webp" width="220" alt="앞구르기"> | <img src="docs/media/clips/getup.webp" width="220" alt="넘어졌다 일어나기"> |
+| 빙글 돌기 | 앞구르기 | 넘어졌다 일어나기 |
+
+모든 스크린샷과 영상: [docs/media](docs/media/README.md) (Pollen의 Microduck 3D 모델이 나오므로 라이선스는 CC BY-NC-SA 4.0). 오리가 할 수 있는 모든 동작의 분류 목록(영어): [docs/motions.md](docs/motions.md).
+
 ## 현재 상태
 
 - **시뮬레이터: 작동합니다.** 오리가 여러분의 컴퓨터 안에서 살고, 자라고, 시뮬레이션된 집을

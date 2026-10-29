@@ -11,6 +11,18 @@ duckmind は、小さなロボットのアヒルに自分の心を持たせま�
 > オープンソースのコード、ロボットモデル、ポリシーを使います。これらはセットアップのときに
 > 上流の配布元からダウンロードします。
 
+## 見てみる
+
+<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="duckmind シミュレーターの画面" width="880"></p>
+
+| <img src="docs/media/clips/walk.webp" width="220" alt="歩く"> | <img src="docs/media/clips/bow.webp" width="220" alt="おじぎ"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="伏せる"> |
+|:---:|:---:|:---:|
+| 歩く | おじぎ | 伏せる |
+| <img src="docs/media/clips/spin.webp" width="220" alt="くるっと回る"> | <img src="docs/media/clips/flip.webp" width="220" alt="前転"> | <img src="docs/media/clips/getup.webp" width="220" alt="転んで起き上がる"> |
+| くるっと回る | 前転 | 転んで起き上がる |
+
+スクリーンショットと動画の一覧：[docs/media](docs/media/README.md)（Pollen の Microduck 3D モデルが写っているため、ライセンスは CC BY-NC-SA 4.0）。アヒルができる動きの分類一覧（英語）：[docs/motions.md](docs/motions.md)。
+
 ## 現状
 
 - **シミュレーター：動きます。** アヒルはあなたのパソコンの中で暮らし、成長し、

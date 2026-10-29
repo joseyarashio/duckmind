@@ -9,6 +9,18 @@ duckmind 让一只小机器鸭有自己的心：它是谁、它的心情、它�
 > Microduck 是 Pollen Robotics 的名称。duckmind 会用到 Pollen 的开源代码、机器人模型和策略，
 > 这些都是安装时从上游来源下载的。
 
+## 看看它
+
+<p align="center"><img src="docs/media/screens/main-desktop.zh-Hant.webp" alt="duckmind 模拟器画面" width="880"></p>
+
+| <img src="docs/media/clips/walk.webp" width="220" alt="走路"> | <img src="docs/media/clips/bow.webp" width="220" alt="鞠躬"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="趴低"> |
+|:---:|:---:|:---:|
+| 走路 | 鞠躬 | 趴低 |
+| <img src="docs/media/clips/spin.webp" width="220" alt="转圈"> | <img src="docs/media/clips/flip.webp" width="220" alt="翻跟斗"> | <img src="docs/media/clips/getup.webp" width="220" alt="摔倒后站起来"> |
+| 转圈 | 翻跟斗 | 摔倒后站起来 |
+
+全部截图和短片：[docs/media](docs/media/README.md)（授权是 CC BY-NC-SA 4.0，因为画面里有 Pollen 的 Microduck 3D 模型）。小鸭会做的所有动作，分类列表（繁体中文）：[docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)；英文版：[docs/motions.md](docs/motions.md)。
+
 ## 现状
 
 - **模拟器：可以用。** 小鸭会在你的电脑里生活、长大、在模拟的家里走动，也会记得人。

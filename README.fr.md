@@ -12,6 +12,18 @@ s'ouvre dans le navigateur.
 > utilise le code open source, le modèle du robot et les politiques de Pollen, que
 > vous téléchargez depuis leurs sources d'origine pendant l'installation.
 
+## Le voir
+
+<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="La page du simulateur duckmind" width="880"></p>
+
+| <img src="docs/media/clips/walk.webp" width="220" alt="Marcher"> | <img src="docs/media/clips/bow.webp" width="220" alt="Révérence"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="Se coucher"> |
+|:---:|:---:|:---:|
+| Marcher | Révérence | Se coucher |
+| <img src="docs/media/clips/spin.webp" width="220" alt="Tourner"> | <img src="docs/media/clips/flip.webp" width="220" alt="Roulade"> | <img src="docs/media/clips/getup.webp" width="220" alt="Se relève après une chute"> |
+| Tourner | Roulade | Se relève après une chute |
+
+Toutes les captures et les clips : [docs/media](docs/media/README.md) (licence CC BY-NC-SA 4.0, car ils montrent le modèle 3D Microduck de Pollen). Tout ce que le canard sait faire, par catégorie (en anglais) : [docs/motions.md](docs/motions.md).
+
 ## État
 
 - **Simulateur : fonctionne.** Le canard vit, grandit, se promène dans une maison

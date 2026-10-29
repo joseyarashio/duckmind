@@ -12,6 +12,18 @@ en el navegador.
 > el código abierto, el modelo del robot y las políticas de Pollen, que se descargan
 > de sus fuentes originales durante la instalación.
 
+## Míralo
+
+<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="La página del simulador de duckmind" width="880"></p>
+
+| <img src="docs/media/clips/walk.webp" width="220" alt="Caminar"> | <img src="docs/media/clips/bow.webp" width="220" alt="Reverencia"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="Agacharse"> |
+|:---:|:---:|:---:|
+| Caminar | Reverencia | Agacharse |
+| <img src="docs/media/clips/spin.webp" width="220" alt="Girar"> | <img src="docs/media/clips/flip.webp" width="220" alt="Voltereta"> | <img src="docs/media/clips/getup.webp" width="220" alt="Se levanta tras caer"> |
+| Girar | Voltereta | Se levanta tras caer |
+
+Todas las capturas y clips: [docs/media](docs/media/README.md) (licencia CC BY-NC-SA 4.0, porque muestran el modelo 3D Microduck de Pollen). Todo lo que sabe hacer el pato, por tipos (en inglés): [docs/motions.md](docs/motions.md).
+
 ## Estado
 
 - **Simulador: funciona.** El pato vive, crece, camina por una casa simulada y

@@ -12,6 +12,18 @@ browser.
 > open-source code, robot model and policies, which you download from their upstream
 > sources during setup.
 
+## See it
+
+<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="The duckmind simulator page" width="880"></p>
+
+| <img src="docs/media/clips/walk.webp" width="220" alt="Walk"> | <img src="docs/media/clips/bow.webp" width="220" alt="Bow"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="Lie low"> |
+|:---:|:---:|:---:|
+| Walk | Bow | Lie low |
+| <img src="docs/media/clips/spin.webp" width="220" alt="Spin"> | <img src="docs/media/clips/flip.webp" width="220" alt="Flip"> | <img src="docs/media/clips/getup.webp" width="220" alt="Gets back up"> |
+| Spin | Flip | Gets back up |
+
+All screenshots and clips: [docs/media](docs/media/README.md) (licensed CC BY-NC-SA 4.0, because they show Pollen's Microduck 3D model). Everything the duck can do, sorted by kind: [docs/motions.md](docs/motions.md).
+
 ## Status
 
 - **Simulator:** works. The duck lives, grows, walks around a simulated home, and

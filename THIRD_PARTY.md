@@ -22,6 +22,10 @@ were checked against their primary sources on 2026-10-29.
   image. `python -m duckmind.setup_cmd` prints the licence and downloads the `microduck_rl`
   checkout only after the user types "yes" (or passes `--accept-mesh-licence`).
   The simulator page shows the attribution in all six languages.
+- **The screenshots and clips in `docs/media/` are CC BY-NC-SA 4.0, not Apache-2.0.**
+  They are renders of the simulator, so they show the Microduck 3D model (Pollen
+  Robotics, CC BY-NC-SA 4.0). They are shared under the same licence, with attribution,
+  for non-commercial use only. See [docs/media/README.md](docs/media/README.md).
 - **The MJCF robot descriptions are Apache-2.0.** Upstream `LICENSE-MODELS.md` says:
   "Everything else in this repository, including the MJCF robot descriptions
   (`.xml`), the export configs (`config_mjcf_*.json`, `config.json`) and the Onshape
