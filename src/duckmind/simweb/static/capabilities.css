@@ -1,0 +1,56 @@
+/* R1/R2 evidence panel: use the simulator's existing ink-and-paper tokens. */
+.capability-cta { margin-top: 12px; text-decoration: none; }
+.capabilities { scroll-margin-top: 78px; }
+.capabilities .section-head { max-width: 920px; }
+.cap-intro { max-width: 760px; margin: 8px 0 0; font-size: 16px; }
+.cap-boundary { display: block; max-width: 100%; margin: 0 0 14px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; background: var(--yellow); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+.cap-updated { margin: 0 0 14px; color: var(--muted); font: 12px/1.5 var(--font-mono); }
+.cap-skill-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 14px 0 18px; }
+.cap-skill-card { min-height: 112px; width: 100%; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; text-align: left; white-space: normal; }
+.cap-skill-card[aria-pressed="true"] { background: var(--yellow); box-shadow: 5px 5px 0 var(--magenta); transform: translate(-2px, -2px); }
+.cap-skill-name { font: 900 18px/1.15 var(--font-display); }
+.cap-skill-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.cap-selection { display: grid; grid-template-columns: minmax(130px, .25fr) minmax(220px, .75fr); align-items: center; gap: 8px 14px; margin: 0 0 14px; padding: 14px; }
+.cap-selection label { font-weight: 800; }
+.cap-selection .hint { grid-column: 2; margin: 0; }
+.cap-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.cap-version-card { min-width: 0; padding: 14px; }
+.cap-version-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.cap-version-title h3 { font: 900 21px/1.1 var(--font-display); }
+.cap-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.cap-count { display: inline-flex; border: 2px solid var(--ink); padding: 4px 7px; background: var(--cream); font: 700 12px/1.3 var(--font-mono); }
+.cap-rec { margin: 0 0 10px; font-weight: 800; }
+.cap-video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.cap-video-column { min-width: 0; padding: 14px; background: var(--ink); color: var(--on-dark); border: 2px solid var(--ink); box-shadow: 7px 7px 0 var(--cyan); }
+.cap-video-column.r2 { box-shadow: 7px 7px 0 var(--magenta); }
+.cap-video-column h3 { margin: 0 0 10px; color: var(--yellow); font: 900 24px/1.1 var(--font-display); }
+.cap-video-item { min-width: 0; padding: 10px 0; border-top: 1px solid var(--on-dark-2); }
+.cap-video-item:first-of-type { border-top: 0; padding-top: 0; }
+.cap-video-item video { display: block; width: 100%; max-height: 400px; aspect-ratio: 16 / 9; background: var(--ink-deep); border: 2px solid var(--white); }
+.cap-play-pair { display: block; width: 100%; margin: 8px 0 0; background: var(--yellow); color: var(--ink); font-weight: 900; }
+.cap-play-pair:disabled { opacity: .55; cursor: not-allowed; }
+.cap-video-caption { margin: 7px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+.cap-video-error { margin: 8px 0 0; padding: 10px; background: var(--rose-soft); color: var(--ink); border: 2px solid var(--magenta); font-weight: 800; }
+.cap-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cap-error[hidden], .cap-video-error[hidden] { display: none; }
+.cap-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
+.cap-reason { color: var(--ink); background: var(--yellow); border: 1px solid var(--yellow); padding: 2px 5px; font-size: 11px; }
+.cap-empty { margin: 0; padding: 14px; border: 2px dashed var(--on-dark-2); color: var(--on-dark-2); }
+.cap-error { margin: 12px 0 0; padding: 10px; background: var(--rose-soft); border: 2px solid var(--magenta); font-weight: 700; }
+.cap-status { border: 2px solid var(--ink); padding: 3px 7px; font: 800 11px/1.25 var(--font-body); }
+.cap-status.regressed { background: var(--magenta); color: var(--ink); }
+.cap-status.candidate { background: var(--green); color: var(--white); }
+.cap-status.limited { background: var(--orange); color: var(--ink); }
+.cap-status.unverified { background: var(--cream); color: var(--ink); }
+@media (max-width: 980px) {
+  .cap-skill-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .cap-skill-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cap-skill-card { min-height: 104px; padding: 9px; white-space: normal; }
+  .cap-results, .cap-video-grid { grid-template-columns: 1fr; }
+  .cap-selection { grid-template-columns: 1fr; }
+  .cap-selection .hint { grid-column: 1; }
+  .cap-video-column { padding: 11px; }
+  .capabilities { scroll-margin-top: 16px; }
+}

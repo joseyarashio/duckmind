@@ -1,0 +1,28 @@
+/* 聲音遊戲（神經鴨原型, a:sound 2026-09-28): the strip under the 3D view (neuro_sound.js).
+ * docs/simulator-style.md: the stage strip's own look (.stage-stim), tokens only — no new
+ * colours, no rounded corners, no soft shadows. (The integration moves these rules into
+ * style.css beside .stage-stim.) */
+.sound-stim { border-top: 1px dashed var(--on-dark-3); }
+.sound-stim .sound-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sound-stim .sound-group + .sound-group,
+.sound-stim .sound-group + .btn { margin-left: 4px; }
+.sound-range { display: inline-flex; align-items: center; gap: 6px; color: var(--on-dark-2); }
+.sound-range output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--on-dark); min-width: 4.6em; }
+.sound-range input[type="range"] { width: 96px; }
+.sound-read { display: flex; flex-wrap: wrap; gap: 6px 12px; flex: 1 0 100%; min-height: 0; color: var(--on-dark); font-weight: 600; }
+.sound-read:empty { display: none; }
+.sound-read .chip { white-space: normal; }
+.sound-read .chip::before { border-color: var(--on-dark); }
+.chip.sound-chip::before { background: var(--on-dark-3); }
+.chip.sound-chip.on::before { background: var(--green); }
+.chip.sound-chip.warn::before { background: var(--magenta); }
+.chip.sound-chip.muted { color: var(--on-dark-2); }
+#soundNote[hidden] { display: none; }
+@media (max-width: 760px) {
+  .sound-stim .btn.small { min-height: 44px; padding: 4px 10px; font-size: 13.5px; }
+  .sound-range input[type="range"] { height: 44px; width: 120px; }
+}
+@media (pointer: coarse) {
+  .sound-stim .btn.small { min-height: 44px; }
+  .sound-range input[type="range"] { height: 44px; }
+}

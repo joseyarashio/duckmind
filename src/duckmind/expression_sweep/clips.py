@@ -1,0 +1,118 @@
+"""Duck Core clips as 50 Hz head/mouth command streams, exactly as a clip player sends them.
+
+Pure Python on purpose: Duck Core stays dependency-free, and the GPU sweep converts
+these lists into tensors. Offsets are from HOME, the same semantics robotd gives
+``robot.head``; ``mouth`` is ``robot.mouth``'s opening fraction. A clip name is Duck Core's
+(``content.CLIPS``) or one of the sweep-only looks (:mod:`.looks`).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from itertools import product
+
+from duckmind.duckcore import content
+from duckmind.expression_sweep import looks
+
+CONTROL_HZ = 50
+HEAD_JOINTS = ("neck_pitch", "head_pitch", "head_yaw", "head_roll")
+# Engine range: amplitude = stage cap (≤0.6 conservative, ≤1.0 adult) × 0.8..1.0;
+# tempo = quirk 0.85..1.15 × arousal 0.8..1.2 (× 0.8 conservative).
+AMPLITUDES = (0.35, 0.6, 0.8, 1.0)
+TEMPOS = (0.7, 1.0, 1.4)
+SIDES = (1, -1)
+
+
+@dataclass(frozen=True)
+class Variant:
+    clip: str
+    amplitude: float
+    tempo: float
+    side: int
+
+    @property
+    def key(self) -> str:
+        return f"{self.clip}@a{self.amplitude:g}/t{self.tempo:g}/{'L' if self.side > 0 else 'R'}"
+
+
+def frames(clip: str) -> list[tuple[int, dict[str, float]]]:
+    """A clip's keyframes: Duck Core's own first, then the sweep-only looks."""
+    if clip in content.CLIPS:
+        return content.CLIPS[clip]
+    if clip in looks.CLIPS:
+        return looks.CLIPS[clip]
+    raise KeyError(f"unknown clip {clip!r}")
+
+
+def clip_digest(clip: str) -> str:
+    """Everything that shapes this clip's commands: frames, envelope, signs and HOME.
+
+    Sweep evidence is kept per clip, so adding or editing one clip leaves the others'
+    results valid.
+    """
+    blob = json.dumps(
+        {
+            "frames": frames(clip),
+            "envelope": content.SEATED_ENVELOPE,
+            "sign": content.JOINT_SIGN,
+            "home": content.HEAD_HOME,
+        },
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
+
+
+def variants(clips: tuple[str, ...] | None = None) -> list[Variant]:
+    names = clips or tuple(sorted(content.CLIPS))
+    return [
+        Variant(clip, amplitude, tempo, side)
+        for clip, amplitude, tempo, side in product(names, AMPLITUDES, TEMPOS, SIDES)
+    ]
+
+
+def duration_s(variant: Variant) -> float:
+    return frames(variant.clip)[-1][0] / 1000.0 / variant.tempo
+
+
+def capture_ticks(variant: Variant) -> tuple[int, ...]:
+    """Control ticks after the clip starts at which a look takes its frames (none for others)."""
+    return tuple(
+        round(ms / 1000.0 / variant.tempo * CONTROL_HZ)
+        for ms in looks.CAPTURES_MS.get(variant.clip, ())
+    )
+
+
+def trajectory(
+    variant: Variant, *, lead_s: float = 0.5, tail_s: float = 1.5
+) -> dict[str, list[float]]:
+    """Per-tick offsets from HOME (radians) and mouth opening (0..1).
+
+    ``lead_s`` of HOME before the clip lets the policy settle; ``tail_s`` after it shows
+    whether the head returns and the body stays up.
+    """
+    keyframes = frames(variant.clip)
+    clip_s = duration_s(variant)
+    ticks = round((lead_s + clip_s + tail_s) * CONTROL_HZ)
+    out: dict[str, list[float]] = {name: [] for name in (*HEAD_JOINTS, "mouth")}
+    for tick in range(ticks):
+        t = tick / CONTROL_HZ - lead_s
+        if 0.0 <= t <= clip_s:
+            frame = content.frame_at(keyframes, t * 1000.0 * variant.tempo)
+            scaled = {k: v * variant.amplitude if k != "m" else v for k, v in frame.items()}
+        else:
+            scaled = {}
+        targets = content.head_targets(scaled, variant.side)
+        for name in HEAD_JOINTS:
+            out[name].append(targets[name] - content.HEAD_HOME[name])
+        out["mouth"].append(targets["mouth"])
+    return out
+
+
+def peak_offsets(variant: Variant) -> dict[str, float]:
+    """Largest |offset| per joint: what the envelope has to allow for this variant."""
+    stream = trajectory(variant, lead_s=0.0, tail_s=0.0)
+    return {
+        name: max((abs(value) for value in values), default=0.0) for name, values in stream.items()
+    }

@@ -1,0 +1,186 @@
+{
+ "format": 1,
+ "scenario_id": "call_name",
+ "scenario_hash": "7a489cb1526e8d5374de803d5e0d419918d6e078bdacc488e4f37b68b1a2fff8",
+ "complete": true,
+ "inputs": {
+  "format": 1,
+  "scenario": "call_name",
+  "temperament": "hatchling",
+  "seed": 11,
+  "length_s": 9.0,
+  "tail_s": 6.0,
+  "duck": {
+   "name": "蛋黃",
+   "genome_seed": 3341,
+   "gd": 7,
+   "voice_seed": 2282912503,
+   "voice_bank_version": 5,
+   "at_m": [
+    0.0,
+    0.0
+   ]
+  },
+  "model": "gemini-3.8-live",
+  "tool_schema": {
+   "version": "tools-1",
+   "hash": "eab9e6f92cf7f578"
+  },
+  "soul": {
+   "version": "soul-2",
+   "sha256": "d647012ca3f17b8ab4f1b68d39818b4f2b611b856cedce114b855da8ddb5514e"
+  },
+  "session": {
+   "context_period_s": 5.0,
+   "image_period_s": 1.0,
+   "hold_audio_s": 2.0
+  },
+  "setup": {
+   "response_modalities": [
+    "AUDIO"
+   ],
+   "input_transcription": true,
+   "output_transcription": true,
+   "compression": true,
+   "vad": {
+    "start": "START_SENSITIVITY_HIGH",
+    "end": "END_SENSITIVITY_LOW",
+    "prefix_ms": 300,
+    "silence_ms": 500
+   },
+   "media_resolution": null
+  },
+  "say": [
+   {
+    "t": 2.0,
+    "utterance": "call_name",
+    "sha256": "ac2d22ae3da957e5c8cac0c1ebd2f0387839f12ce0c7f7a9393e189b6307a857",
+    "who": "mom",
+    "at_m": [
+     2.0,
+     0.5
+    ]
+   }
+  ],
+  "duck_calls": [],
+  "images": [],
+  "context": [
+   {
+    "t": 0.0,
+    "behaviour": "坐著看四周",
+    "valence": 0.15,
+    "drives": {
+     "social": 0.6,
+     "curiosity": 0.5,
+     "fear": 0.1,
+     "energy": 0.85,
+     "play": 0.6,
+     "comfort": 0.5,
+     "boredom": 0.3,
+     "sleep_pressure": 0.15
+    },
+    "known_people": [],
+    "in_view": [],
+    "notes": []
+   }
+  ]
+ },
+ "meta": {
+  "opens": [
+   {
+    "t": 0.0,
+    "resume": false
+   }
+  ],
+  "audio_out_bytes": 0,
+  "audio_out_span_s": [],
+  "run_id": "call_name__hatchling__s11",
+  "faults": 0,
+  "wall_s": 15.9,
+  "commit": "6e5006a+dirty",
+  "sdk": "google-genai 2.27.0",
+  "python": "3.12.13",
+  "recorded_utc": "2026-10-29T12:48:38+00:00"
+ },
+ "events": [
+  {
+   "t": 1.435,
+   "kind": "opened",
+   "data": {
+    "resumed": false
+   }
+  },
+  {
+   "t": 1.436,
+   "kind": "resumption",
+   "data": {
+    "resumable": true
+   }
+  },
+  {
+   "t": 2.134,
+   "kind": "vad",
+   "data": {
+    "type": "START",
+    "offset_s": 2.12
+   }
+  },
+  {
+   "t": 5.667,
+   "kind": "input_text",
+   "data": {
+    "text": "蛋黃, 過來這裡。"
+   }
+  },
+  {
+   "t": 5.667,
+   "kind": "vad",
+   "data": {
+    "type": "END",
+    "offset_s": 4.2
+   }
+  },
+  {
+   "t": 6.096,
+   "kind": "tool_call",
+   "data": {
+    "calls": [
+     {
+      "id": "call_793678",
+      "name": "vocalize",
+      "args": {
+       "tags": [
+        {
+         "tag": "greet",
+         "level": 0.5
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "t": 6.096,
+   "kind": "generation_complete"
+  },
+  {
+   "t": 6.1,
+   "kind": "turn_complete"
+  },
+  {
+   "t": 6.1,
+   "kind": "usage",
+   "data": {
+    "total": 2399,
+    "prompt": 2378,
+    "response": 21,
+    "thoughts": 155,
+    "by_modality": {
+     "TEXT": 1882,
+     "AUDIO": 268
+    }
+   }
+  }
+ ]
+}

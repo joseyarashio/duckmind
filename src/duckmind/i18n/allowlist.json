@@ -1,0 +1,19 @@
+{
+ "what": "Words the page may show without a catalog key (tests/test_i18n_page_text.py). Only data and names: everything a viewer reads as words goes through the catalogs.",
+ "names": [
+  "蛋黃",
+  "阿勇",
+  "怯怯",
+  "慢慢",
+  "啾啾",
+  "小鴨"
+ ],
+ "names_why": "Names the family gives and the demo ducks' names are data: never translated (CLAUDE.md). 「小鴨」 is listed as the new-duck dialog's default name and the name shown before the first answer (i18n:integrate-main, 2026-09-28: the foundation's proposal — a name, kept — while the owner's decision is open). Only a text that is nothing but names passes: 「小鴨」 as a word inside other words still needs a key.",
+ "strings": [
+  "繁體中文",
+  "日本語",
+  "简体中文",
+  "한국어"
+ ],
+ "strings_why": "The language picker shows every language by its own name, in every language (i18n.js)."
+}

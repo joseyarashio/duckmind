@@ -1,0 +1,94 @@
+/* duckmind i18n: the language picker and the type for each script.
+   Design standard: docs/simulator-style.md — tokens only, square corners, ink borders,
+   hard offset shadows; no new colours (the two SVG colours below are --ink and --white).
+   i18n.js mounts the picker into any element with [data-i18n-picker]:
+     <label class="lang-picker"><span class="lang-picker-icon"></span><select class="lang-select">…</select></label>
+   It shows each language by its own name (繁體中文 / English / 日本語 / Español / 简体中文 / 한국어). */
+
+/* ---------- type per script: Anton stays for Latin display words; CJK words use the Noto family
+   of their script at 900 (i18n.js loads JP / SC / KR only when that language is on). ---------- */
+html:lang(ja) {
+  --font-display: "Anton", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-body: "DM Sans", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+}
+html:lang(zh-Hans) {
+  --font-display: "Anton", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: "DM Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+html:lang(ko) {
+  --font-display: "Anton", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "DM Sans", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+/* Korean keeps its words whole when a line wraps (Korean typography), and still never overflows. */
+html:lang(ko) body { word-break: keep-all; overflow-wrap: break-word; }
+/* Korean and Japanese display words in Noto 900 need no extra tracking; Latin keeps Anton's. */
+html:lang(ko) .display,
+html:lang(ja) .display { letter-spacing: 0; }
+/* The pseudo-locale (tests: ?lang=pseudo) marks every catalog text ⟦…⟧; nothing else changes. */
+
+/* ---------- the picker (the design standard's select, like .btn.small) ---------- */
+.lang-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ink);
+}
+.lang-picker-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M2 10h16M10 2c3 3.2 3 12.8 0 16M10 2c-3 3.2-3 12.8 0 16'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M2 10h16M10 2c3 3.2 3 12.8 0 16M10 2c-3 3.2-3 12.8 0 16'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.lang-select {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--white) url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23101018'/%3E%3C/svg%3E") right 9px center / 10px 6px no-repeat;
+  color: var(--ink);
+  font: 700 13px/1.2 var(--font-body);
+  letter-spacing: 0.02em;
+  padding: 5px 27px 5px 9px;
+  min-height: 32px;
+  max-width: 12em;
+  box-shadow: 2px 2px 0 var(--ink);
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s, background-color 0.12s;
+}
+.lang-select:hover { background-color: var(--yellow); }
+.lang-select:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
+.lang-select:focus { outline: none; box-shadow: 3px 3px 0 var(--orange); }
+.lang-select:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.lang-select option { color: var(--ink); background: var(--white); font-weight: 600; }
+.lang-select option:disabled { color: var(--muted); }
+
+/* in the top bar: the last item, at the right end (a row of its own when the bar is full) */
+.topbar .lang-slot { display: flex; margin-left: auto; }
+
+/* on the dark top bar: white frame and words, no shadow (like .topbar .btn.small) */
+.topbar .lang-picker { color: var(--on-dark); }
+.topbar .lang-select {
+  background-color: transparent;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23ffffff'/%3E%3C/svg%3E");
+  color: var(--on-dark);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: none;
+}
+.topbar .lang-select:hover {
+  background-color: var(--yellow);
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23101018'/%3E%3C/svg%3E");
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.topbar .lang-select:focus { box-shadow: 3px 3px 0 var(--orange); }
+
+/* touch: every control at least 44 px high (design standard §6) */
+@media (pointer: coarse) {
+  .lang-select { min-height: 44px; padding-block: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lang-select { transition: none; }
+}

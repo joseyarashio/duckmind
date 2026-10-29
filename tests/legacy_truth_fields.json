@@ -1,0 +1,45 @@
+{
+  "about": "Transitional truth (phase-4 design A10, A12, §6; §15 risk 7): what LegacyWorld tells Duck Core that no real body or eye could know, kept only so that a v4_1 duck behaves bit-for-bit as v4 did. Checked by tests/test_legacy_truth_fields.py against duckmind.world.legacy.LEGACY_TRUTH. This list may only shrink (lower LISTED_AT_MOST with it); phase 5 empties it: 5f turns the TV's false touch into a touch the duck cannot tell from a hand, duck-body sends only the last righting try, the nest is found by the eye, docking follows the pose error the eye measures, and a walk's odometry comes from the legs (phase 5a reads it). The last two were added by the phase-4 review (2026-09-28): they were already in LegacyWorld, unlisted.",
+  "items": [
+    {
+      "id": "sense.touch.legacy_phantom",
+      "field": "legacy_phantom",
+      "where": "src/duckmind/world/legacy.py",
+      "probe": "legacy_phantom",
+      "until": "phase 5f",
+      "why": "The TV's sound mistaken for a scratch on the head arrives as sense.touch marked legacy_phantom: true, so Duck Core takes v4's phantom branch (no praise, no liked place, no settling). A real ear cannot say its alarm was false."
+    },
+    {
+      "id": "body.righting per try",
+      "field": null,
+      "where": "src/duckmind/world/legacy.py",
+      "probe": "_righting_try",
+      "until": "phase 5",
+      "why": "LegacyWorld sends one body.righting per self-righting try (ok false for the failed ones); duck-body reports only how it ended. Duck Core uses the count of tries to tell a hard righting from one a hand cut short, as v4 did."
+    },
+    {
+      "id": "sense.sighting from bel_pose",
+      "field": null,
+      "where": "src/duckmind/world/legacy.py",
+      "probe": "bel_pose",
+      "until": "phase 5",
+      "why": "The nest look is answered from the pose Duck Core believes it has (bel_pose in the duck.look command): in LegacyWorld the truth is the belief. A camera answers from where the duck really is."
+    },
+    {
+      "id": "body.dock from bel_err_mm",
+      "field": null,
+      "where": "src/duckmind/world/legacy.py",
+      "probe": "bel_err_mm",
+      "until": "phase 5",
+      "why": "Without the nest marker the dock's chance falls with the pose error Duck Core believes it has (bel_err_mm in the duck.dock command, a field phase 4 added; spec §7.1 has none), as v4's nest.dock_try did. A real dock only knows whether its contacts touched."
+    },
+    {
+      "id": "walk.done.odom from expect",
+      "field": null,
+      "where": "src/duckmind/world/legacy.py",
+      "probe": "_odom",
+      "until": "phase 5a",
+      "why": "walk.done.odom is the duck's own prediction (expect minus bel_from, scaled by the time walked), not what the legs measured. Duck Core does not read it in phase 4; phase 5a starts updating its belief from odom, so it must come from the body by then."
+    }
+  ]
+}

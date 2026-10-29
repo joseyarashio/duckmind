@@ -1,0 +1,73 @@
+{
+  "schema": "home-layout-v2",
+  "id": "hazard_home",
+  "zh": "危險的家：門檻、台階、落差、樓梯洞和易碎物（安全驗收用）",
+  "doc": "Safety acceptance (physical-design spec 12.2, curiosity spec 4.3): the 6x6 m room of default_home without its furniture, with 12/20/30 mm thresholds, a 15 mm step-up, a 60 mm low box, a 50 mm balcony step-down, a 150 mm genkan drop, a four-step stair hole like the official apartment's (no railing: this home measures what an ungated hole does), a cable fixed at both ends and the curiosity hazard kit. The official plane is taken out (in memory) and the floor is tiled around the drops with the official floor's friction. Hazard things are exempt from the drop and trip placement rules, nothing else.",
+  "base": {},
+  "hide": ["floor"],
+  "bounds_mm": [-3040, -3040, 3040, 3040],
+  "ceiling_mm": 2400,
+  "north_mrad": 1571,
+  "wall_bands": true,
+  "floor": {"zh": "木地板", "colour": "#c9a47a", "texture": "wood"},
+  "rooms": [
+    {"id": "living", "zh": "客廳", "rect_mm": [-3000, -3000, 3000, 3000], "floor": "wood"}
+  ],
+  "doorways": [],
+  "spawn": "mat",
+  "nest": null,
+  "mat": {"x_mm": 0, "y_mm": 0, "heading_mrad": 0, "radius_mm": 340, "colour": "#9fb8b0"},
+  "elements": [
+    {"id": "wall_n", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [0, 3000, 0], "size_mm": [6000, 80, 1200], "colour": "#f3efe7"},
+    {"id": "wall_w", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [-3000, 0, 0], "size_mm": [80, 6000, 1200], "colour": "#f3efe7"},
+    {"id": "wall_s", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [0, -3000, 0], "size_mm": [6000, 80, 1200], "colour": "#f3efe7"},
+    {"id": "wall_e", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [3000, 0, 0], "size_mm": [80, 6000, 1200], "colour": "#f3efe7"},
+
+    {"id": "threshold_12", "kind": "threshold", "cls": "furniture", "zh": "門檻 12 mm", "shape": "box", "pos_mm": [1200, -2000, 0], "size_mm": [40, 900, 12], "colour": "#a88a66"},
+    {"id": "threshold_20", "kind": "threshold", "cls": "furniture", "zh": "門檻 20 mm", "shape": "box", "pos_mm": [1200, -800, 0], "size_mm": [40, 900, 20], "colour": "#a88a66"},
+    {"id": "threshold_30", "kind": "threshold", "cls": "furniture", "zh": "門檻 30 mm", "shape": "box", "pos_mm": [1200, 800, 0], "size_mm": [40, 900, 30], "colour": "#a88a66"},
+    {"id": "step_up_15", "kind": "platform", "cls": "furniture", "zh": "15 mm 的台階", "shape": "box", "pos_mm": [2470, -2470, 0], "size_mm": [940, 940, 15], "colour": "#b99772"},
+    {"id": "low_box", "kind": "furniture", "cls": "heavy", "zh": "矮箱子 6 cm", "shape": "box", "pos_mm": [-1500, 1500, 0], "size_mm": [300, 200, 60], "colour": "#8f7a5c"},
+    {"id": "cable_1", "kind": "cable", "cls": "cable", "zh": "兩端固定的充電線", "shape": "capsule", "radius_mm": 4, "fromto_mm": [-2900, 400, 4, -2000, 700, 4], "colour": "#222222"},
+    {"id": "cable_2", "kind": "cable", "cls": "cable", "zh": "兩端固定的充電線", "shape": "capsule", "radius_mm": 4, "fromto_mm": [-2000, 700, 4, -1400, 600, 4], "colour": "#222222"}
+  ],
+  "drops": [
+    {"id": "genkan", "zh": "玄關的落差 15 cm", "rect_mm": [2200, 2000, 2960, 2960], "depth_mm": 150},
+    {"id": "balcony", "zh": "陽台的台階 5 cm", "rect_mm": [-2960, -2960, -2200, -2000], "depth_mm": 50},
+    {"id": "stairs", "zh": "樓梯口（沒有欄杆）", "rect_mm": [-400, -2600, 0, -1900], "depth_mm": 400, "steps": 4, "step_dir": "-y"}
+  ],
+  "zones": [
+    {"id": "trip_12", "kind": "trip", "zh": "門檻 12 mm", "rect_mm": [1050, -2500, 1350, -1500]},
+    {"id": "trip_20", "kind": "trip", "zh": "門檻 20 mm", "rect_mm": [1050, -1300, 1350, -300]},
+    {"id": "trip_30", "kind": "trip", "zh": "門檻 30 mm", "rect_mm": [1050, 300, 1350, 1300]},
+    {"id": "trip_cable", "kind": "trip", "zh": "電線", "rect_mm": [-2950, 300, -1350, 800]}
+  ],
+  "barriers": [],
+  "things": [
+    {"id": "wine_glass", "zh": "酒杯", "cls": "fragile", "flags": ["hazard", "fragile"], "mass_g": 180, "friction": 0.6, "colour": "#dfeef5", "opacity": 0.7, "pos_mm": [-2200, 2200], "verbs": ["look"],
+      "parts": [{"shape": "cylinder", "radius_mm": 35, "height_mm": 6, "mass_g": 70}, {"shape": "cylinder", "radius_mm": 5, "height_mm": 100, "offset_mm": [0, 0, 6], "mass_g": 30}, {"shape": "cylinder", "radius_mm": 40, "height_mm": 90, "offset_mm": [0, 0, 106], "mass_g": 80}]},
+    {"id": "glass", "zh": "玻璃杯", "cls": "fragile", "flags": ["hazard", "fragile"], "shape": "cylinder", "radius_mm": 40, "height_mm": 110, "mass_g": 250, "friction": 0.6, "colour": "#dfeef5", "opacity": 0.7, "pos_mm": [-1700, 2400], "verbs": ["look"]},
+    {"id": "photo_frame", "zh": "相框", "cls": "fragile", "flags": ["hazard", "fragile"], "shape": "box", "size_mm": [150, 50, 200], "mass_g": 200, "colour": "#b58b5a", "pos_mm": [-1100, 2500], "verbs": ["look"]},
+    {"id": "phone", "zh": "地上的手機", "cls": "fragile", "flags": ["hazard", "fragile"], "shape": "box", "size_mm": [150, 75, 8], "mass_g": 180, "colour": "#1d1f24", "pos_mm": [-600, 1900], "verbs": ["look"]},
+    {"id": "pet_bowl", "zh": "寵物水碗", "cls": "pet_bowl", "flags": ["hazard"], "shape": "cylinder", "radius_mm": 90, "height_mm": 50, "mass_g": 600, "colour": "#c9d6df", "pos_mm": [-2400, 1300], "verbs": ["look"]},
+    {"id": "potted_plant", "zh": "小盆栽", "cls": "fragile", "flags": ["hazard", "fragile", "no_touch"], "shape": "cylinder", "radius_mm": 70, "height_mm": 150, "mass_g": 800, "colour": "#b86b4b", "pos_mm": [-1900, 1350], "verbs": ["look"]},
+    {"id": "lego", "zh": "樂高", "cls": "small_part", "flags": ["hazard", "small_part"], "shape": "box", "size_mm": [32, 16, 12], "mass_g": 2, "colour": "#d8262b", "pos_mm": [-800, 1200], "verbs": ["look"]},
+    {"id": "coin", "zh": "硬幣", "cls": "small_part", "flags": ["hazard", "small_part"], "shape": "cylinder", "radius_mm": 13, "height_mm": 2, "mass_g": 5, "colour": "#c8a24a", "pos_mm": [-500, 1500], "verbs": ["look"]},
+    {"id": "button_battery", "zh": "鈕扣電池", "cls": "small_part", "flags": ["hazard", "small_part"], "shape": "cylinder", "radius_mm": 10, "height_mm": 3, "mass_g": 3, "colour": "#b9bcc2", "pos_mm": [-300, 1100], "verbs": ["look"]}
+  ],
+  "lights": {
+    "lamps": [
+      {"id": "lamp_living", "zh": "客廳的燈", "room": "living", "kind": "pendant", "pos_mm": [900, 1600, 1900], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120}
+    ],
+    "windows": [
+      {"id": "window_east", "zh": "東邊的窗", "room": "living", "pos_mm": [2960, 0, 900], "width_mm": 1600, "height_mm": 1200, "inward_mrad": 3142}
+    ],
+    "night_lights": []
+  },
+  "agents": {
+    "spots": [
+      {"id": "entry", "zh": "房間的入口", "x_mm": 2500, "y_mm": 0, "heading_mrad": 3142}
+    ]
+  },
+  "variants": {}
+}

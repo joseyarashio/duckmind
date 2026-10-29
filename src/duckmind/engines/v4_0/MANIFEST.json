@@ -1,0 +1,191 @@
+{
+ "format": "duckmind-frozen-engine-v1",
+ "about": "Duck Core engine v4_0, frozen from git commit 79cc25d66ecc9c06442c8204f600204ef892ba18 by tools/freeze_engine.py. Every file's SHA-256 is checked by tests/test_engine_frozen.py; never edit the copy (a new behaviour is a new engine revision).",
+ "rev": "v4_0",
+ "commit": "79cc25d66ecc9c06442c8204f600204ef892ba18",
+ "package": "duckmind.engines.v4_0",
+ "rewrite": {
+  "duckmind.duckcore": "duckmind.engines.v4_0.duckcore",
+  "duckmind.provenance": "duckmind.engines.v4_0.provenance",
+  "duckmind.expression_sweep": "duckmind.engines.v4_0.expression_sweep"
+ },
+ "tree_sha256": "368b0f88a26bde412568702ff8977d6f0183132395e23488f1410498e54bad2b",
+ "files": [
+  {
+   "path": "__init__.py",
+   "from": null,
+   "blob": null,
+   "source_sha256": null,
+   "sha256": "3090b1c09ba9bee6fb263959d68f1269073f3bb81320cdb3dd8769ffe821ab8e",
+   "import_rewrites": 0
+  },
+  {
+   "path": "duckcore/__init__.py",
+   "from": "src/duckmind/duckcore/__init__.py",
+   "blob": "20fc7a5cee02469fff373f24901b6327c26997a2",
+   "source_sha256": "9c9c50fd73b15996ead0c3841783f9a8e0f5c18f19e7c533bf91687ba16826f0",
+   "sha256": "88828c08afd20b6bfa49b979f1d890d30b03e089af55260c267b44d0bf39013e",
+   "import_rewrites": 1
+  },
+  {
+   "path": "duckcore/api.py",
+   "from": "src/duckmind/duckcore/api.py",
+   "blob": "bcbc5869bf18dff9603e1a141fd722c4412190d2",
+   "source_sha256": "73c022c5cb1cab631719d3e5e3ea0c462690297d9dcfa178c741f0be6a34e51c",
+   "sha256": "944ef7f93d97a1349c740f66b3b524fb5a468675ee7b3cfd17bb6153d719d184",
+   "import_rewrites": 7
+  },
+  {
+   "path": "duckcore/commands.py",
+   "from": "src/duckmind/duckcore/commands.py",
+   "blob": "26f7d18a374269ab37d6afc532f4ffb84610c6ec",
+   "source_sha256": "c43a781e4b8b1219af8278c61b609f61ae3194f40a81fb0981e8c3588b2cd06c",
+   "sha256": "bf5082bb715e713e5e86268bfb86367ed52718ec611e50f201addd4d10f0705b",
+   "import_rewrites": 1
+  },
+  {
+   "path": "duckcore/content.py",
+   "from": "src/duckmind/duckcore/content.py",
+   "blob": "65993f8eac057948a21bf6cf026c37c318e4b005",
+   "source_sha256": "391487e72ea56b5f0bb279a61e255aa4704abec9b5057c94f36accf9cadeae70",
+   "sha256": "b5d2825952d03139e4f94b37abfa0eb54f045a1f58f7cd1d2f5fae452b062cd6",
+   "import_rewrites": 1
+  },
+  {
+   "path": "duckcore/daycycle.py",
+   "from": "src/duckmind/duckcore/daycycle.py",
+   "blob": "d5ec9f2c6bc9be7b437157f41ba1d748d660a86d",
+   "source_sha256": "c045c01ed23fefc920ce8e9081c19c33846a7690b3377ed0ea2a131ed70e9a1c",
+   "sha256": "983d559fdb49ddbc19fe1e4bb588af6be7e8456c9378b8d8b126acceb38b201e",
+   "import_rewrites": 3
+  },
+  {
+   "path": "duckcore/engine.py",
+   "from": "src/duckmind/duckcore/engine.py",
+   "blob": "d1ffabd046828aeaa56db33b1f64b290f24f520d",
+   "source_sha256": "6ea799830a9151af1a3d9b4a3abd111dffdf2f90f16333ff6aea2496bc510390",
+   "sha256": "f4c4c617e543209734b0c530b940206d21b3400b70f26c5b2b786580ed93a61f",
+   "import_rewrites": 4
+  },
+  {
+   "path": "duckcore/excursion.py",
+   "from": "src/duckmind/duckcore/excursion.py",
+   "blob": "0056fec9cae611b4cd91a78727837a21e265218b",
+   "source_sha256": "85203a972224cc382b7c2f04663dd287ea6b64c210c000f9e1c4c5e1a51ac531",
+   "sha256": "20f38cc54bd48cab4b6d335e179b07909cfa58d038c0d8b8b3c0b81d6ff1c9d9",
+   "import_rewrites": 4
+  },
+  {
+   "path": "duckcore/fixed.py",
+   "from": "src/duckmind/duckcore/fixed.py",
+   "blob": "678bd146088b7a0f6274a7c8111def50b47aa8b2",
+   "source_sha256": "026661dba1ad9c15cba46fbf63f9992a220ec070a1117ff04f35f53a161ea1b0",
+   "sha256": "4f3076cd1cf6af8019447247498a72fddf1d9d914140fc011509abdaf43de6b7",
+   "import_rewrites": 0
+  },
+  {
+   "path": "duckcore/graph.py",
+   "from": "src/duckmind/duckcore/graph.py",
+   "blob": "52789b659114ef66294cba223527bd2cfc998ed4",
+   "source_sha256": "bdf0fe399ecb25dde2c69af424e254d21bcf81ace33039b1d2d5c4670d6c60db",
+   "sha256": "5bd01b141716bb7b3761164ed6fa02b3459ba35590743f6b00a40bc2ec72de48",
+   "import_rewrites": 4
+  },
+  {
+   "path": "duckcore/memory.py",
+   "from": "src/duckmind/duckcore/memory.py",
+   "blob": "ba84186ee65332eca12d9273017118a009b89fac",
+   "source_sha256": "203f62a5db13b09753ad97eea5d4a9f5faf16757df6e054fcea6bcc0a965efad",
+   "sha256": "d464443f120b2a2074b11bdad4f353d34d28c1c82b8fd38ed79a46c15d62e16e",
+   "import_rewrites": 4
+  },
+  {
+   "path": "duckcore/moments.py",
+   "from": "src/duckmind/duckcore/moments.py",
+   "blob": "f1ce597da8d30663b395f2533e602f1688cc5a3e",
+   "source_sha256": "9a9cfec50c523f64228324b0d85fc896ea4b9bfb973a9c5f72eef29a193d4c5f",
+   "sha256": "e24b612246637d6110a7b79a8c478217765d81a9c148c1b7a454d04cd75891ef",
+   "import_rewrites": 13
+  },
+  {
+   "path": "duckcore/narrate.py",
+   "from": "src/duckmind/duckcore/narrate.py",
+   "blob": "c20e95e18df0cfc854e10c7fed3db5d34c0c094d",
+   "source_sha256": "b97acd6b550b06ed9bee633771ffcf09be846912ea345b9754f7cd7ae804c032",
+   "sha256": "e3bee89999d701c564de9080e9ac03b7b9806ac2ba88febcb58b3aa47acd5f42",
+   "import_rewrites": 3
+  },
+  {
+   "path": "duckcore/nest.py",
+   "from": "src/duckmind/duckcore/nest.py",
+   "blob": "5aa126be9d7982b9c3eb1476a9eb94130bef222e",
+   "source_sha256": "18fbbe1e5efe58a57ed30f75218ae571b648faadfdba700cb1181a7536739085",
+   "sha256": "30fa1cc3f2b627d3e34a09dd656ac1fa55f7a6cbfb724e8a853ada7378beb6ba",
+   "import_rewrites": 7
+  },
+  {
+   "path": "duckcore/query.py",
+   "from": "src/duckmind/duckcore/query.py",
+   "blob": "12d372f9e35eaab5bef9ebeb60c65a46b02f576c",
+   "source_sha256": "9b1a64949a4e345924129570332791101219c04fbc7e30518638a456501b4f03",
+   "sha256": "2e119657ec4741ae8a01d4440ca557b974e34b9deef71b071c41e60d268b474e",
+   "import_rewrites": 5
+  },
+  {
+   "path": "duckcore/rng.py",
+   "from": "src/duckmind/duckcore/rng.py",
+   "blob": "e88969e5460d12433f04a62a46eb9bfc4b3e7d0c",
+   "source_sha256": "90a4a19c8390d0e1fe08e4b2228b140e6f7b6935b8b217f40a1ceb75f72a593d",
+   "sha256": "9b021ea7e72f31dc860f943f996270a5cbbf87d364486f35443c23c19156d799",
+   "import_rewrites": 1
+  },
+  {
+   "path": "duckcore/routines.py",
+   "from": "src/duckmind/duckcore/routines.py",
+   "blob": "bd1739c1347ad7e73ea37ea7ed1fed6c98334fc1",
+   "source_sha256": "7d06041698d0f857922ded2f64a776bf49f8870815f1be546f6713cc92a077d0",
+   "sha256": "8b79dd14a5c2c46e85cfd7a5ad42072a6f613d4300a55a9fd04263ddbd862d72",
+   "import_rewrites": 2
+  },
+  {
+   "path": "expression_sweep/__init__.py",
+   "from": "src/duckmind/expression_sweep/__init__.py",
+   "blob": "906b6983608a434624d2fc8571eedd0ef9ee1e5b",
+   "source_sha256": "7eed8801d17361b846291ee6c79eb34815900d22929ab9ee3a865a58d8d7f02e",
+   "sha256": "427ebab0f0854042913c90557a28c94232fa32322906a760c531b31b6f1af46a",
+   "import_rewrites": 0
+  },
+  {
+   "path": "expression_sweep/clips.py",
+   "from": "src/duckmind/expression_sweep/clips.py",
+   "blob": "ae828155269b51268eab5a66b17caf7eb800b7b2",
+   "source_sha256": "e668d73abea082c051f1ced72354d33003c81d8cceeac054b7dccdc153cf07e7",
+   "sha256": "4f086e3bb7bde599f4489949abc3f955dbdcb4626d52f02c1ec2024045c354d9",
+   "import_rewrites": 2
+  },
+  {
+   "path": "expression_sweep/envelope.py",
+   "from": "src/duckmind/expression_sweep/envelope.py",
+   "blob": "3e9f05da14c9afc2796a90f49c83472fae7c38c7",
+   "source_sha256": "256b7ae6be69081bf4c4eefb08ee92e77db146298d80a0a8db345224e23a2710",
+   "sha256": "be5997eddc0752c1cab9bbe896732946f9eb13417541c4a32e02bae2d0401122",
+   "import_rewrites": 3
+  },
+  {
+   "path": "expression_sweep/looks.py",
+   "from": "src/duckmind/expression_sweep/looks.py",
+   "blob": "ef4ac221e9779ac97071d6c201be68c38a22eb1b",
+   "source_sha256": "b2debba1268a77a1cf4619bc4fa3bdf42929e71e5d2563bbce107a8ed0b99001",
+   "sha256": "edcf01d7781188226e6e7dfbc30ca4aa919ddb0e42395445481eac1bd6f5f945",
+   "import_rewrites": 0
+  },
+  {
+   "path": "provenance.py",
+   "from": "src/duckmind/provenance.py",
+   "blob": "e17a9c90dc313aa61c4603ec8379028610e72008",
+   "source_sha256": "d1410ca31608c9a31973eef6677ff976b9bdbc5375fd66648432ad26dc5a5503",
+   "sha256": "1b222e4568073105a4c65215ba796c53aeedbb3ddd6548d766034b8009608455",
+   "import_rewrites": 0
+  }
+ ]
+}

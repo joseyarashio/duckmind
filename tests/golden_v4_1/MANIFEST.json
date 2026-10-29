@@ -1,0 +1,68 @@
+{
+ "format": "duckmind-golden-v4_1-manifest-v1",
+ "about": "Five small v4_1 sessions (Duck Core v4_1 living in LegacyWorld v1), recorded by tools/record_golden_v4_1.py and replayed by tests/test_golden_v4_1.py on every run.",
+ "rule": "A v4_1 duck is Duck Core and LegacyWorld v1 together. If these heads move, every saved v4_1 duck's history moves: freeze v4_1 with LegacyWorld v1 first (tools/freeze_engine.py), give the changed engine a new ENGINE_REV and the changed world a new header v, and record that revision's own golden sessions (docs/design/phase4-boundary.md §11). Never re-record these.",
+ "engine": {
+  "engine_rev": "v4_1",
+  "table_hash": "d56679edadd377a9",
+  "legacy_world_v": 1
+ },
+ "recorded_at": "2026-09-28T11:49:27+08:00",
+ "sessions": [
+  {
+   "id": "v41_page_nest_s61",
+   "kind": "page",
+   "file": "v41_page_nest_s61.json.gz",
+   "sha256": "2c2292a0ac12a0cd4f6a630f669c1d92b7333c6b0c2b6e4f5d1ae17cdaca817c",
+   "head": "114504f8f4c3bdbb20524462e23bdcca32d8251e50854c6413a2e79612b5028a",
+   "events": 4594,
+   "inputs": 96,
+   "world_percepts": 359,
+   "world_digest": "71ca3b9ab63c89b577ae93505954b03f2585221186f2d09b274cf23711e4204e"
+  },
+  {
+   "id": "v41_stress_nest_s43",
+   "kind": "stress",
+   "file": "v41_stress_nest_s43.json.gz",
+   "sha256": "f7a9d3c4f964ee297d9c911408ce9fbccb765aecff7218f4b0bcf2211d00add5",
+   "head": "a9a0cef1d087d2bd2566f6b0955f0568b38ee0c631a89f38532ae0af406af613",
+   "events": 3197,
+   "inputs": 82,
+   "world_percepts": 89,
+   "world_digest": "597e96ee3fc308528f372b563f1506805b2617ff58afd23e979a13aea38f8dbb"
+  },
+  {
+   "id": "v41_v2_i3",
+   "kind": "v2",
+   "file": "v41_v2_i3.json.gz",
+   "sha256": "e4e41858b52511a7c3adbef4c61211c7053c528f6d544c723781f8af9b326b4b",
+   "head": "1473d6bd53b18f856e6dc813696aac5bf1004473b91698d381bbbf90ac7c8f1f",
+   "events": 8583,
+   "inputs": 1,
+   "world_percepts": 1313,
+   "world_digest": "56b722aff8fb7e92cd32d01b04275b1b806ba1e204cf1d7a072babbbcd94bc87"
+  },
+  {
+   "id": "v41_legacy_i1",
+   "kind": "legacy",
+   "file": "v41_legacy_i1.json.gz",
+   "sha256": "39d33977df6166938ea23dbbb6131045efa9961f33067a99780d95c286b1180e",
+   "head": "5af9da30993388e59249d08462e10aeb0e8a0db13474e212fa4deb9ecaaa49df",
+   "events": 2603,
+   "inputs": 1,
+   "world_percepts": 280,
+   "world_digest": "760939a7ece32ef1d4e2d8eeea71e9276867ab7eacbc0500789d49d6e6b390a5"
+  },
+  {
+   "id": "v41_moved_g07",
+   "kind": "moved",
+   "file": "v41_moved_g07.json.gz",
+   "sha256": "48ca2deaccceb19a5861f18058b4ef6e99b4c739256f8f17b58a3c818a63c35b",
+   "head": "3028bb2b20f0ef8ef03a2ea1141087c2984859ae48c68363269b644beeefad54",
+   "events": 6921,
+   "inputs": 39,
+   "world_percepts": 190,
+   "world_digest": "1d5c4ee2cc92509add6536b2e2c296fb4abc534758493f7646e7a4599010dd97"
+  }
+ ]
+}

@@ -1,0 +1,245 @@
+{
+  "about": "How often each god's-eye name is used in src/duckmind/duckcore/ today, per file (physical-design spec §2.2 rules R1 and R4, §8.10; survey_godseye.md). Recorded on 2026-09-27 at the start of phase 0 from the v4-final tree. Checked by tests/test_forbidden_identifiers.py, whose CATALOGUE gives each name's spec id and reason. A count may only go down: lower it here when it does; never raise one. Lowered on 2026-09-27 by phase 4 (the ten outcome dice and five outcome rates left Duck Core for LegacyWorld and its header; `struggle` left the catalogue: it is Duck Core's own decision).",
+  "counts": {
+    "ROOM_*": {
+      "engine.py": 4
+    },
+    "WALL_MARGIN_MM": {
+      "engine.py": 2
+    },
+    "PROBE_MM": {
+      "engine.py": 2
+    },
+    "TURN_ROOM_MM": {
+      "engine.py": 2
+    },
+    "_blocked": {
+      "engine.py": 1
+    },
+    "_blocker": {
+      "engine.py": 5
+    },
+    "_turn_away": {
+      "engine.py": 3
+    },
+    "_room_to_turn": {
+      "engine.py": 4
+    },
+    "_plan_walk": {
+      "engine.py": 2
+    },
+    "_arc_turn": {
+      "engine.py": 2
+    },
+    "_plan_leg_toward": {
+      "engine.py": 1,
+      "excursion.py": 2,
+      "nest.py": 2
+    },
+    "_turn_home_fits": {
+      "engine.py": 2,
+      "excursion.py": 1
+    },
+    "_pose_turns_home": {
+      "engine.py": 4,
+      "moments.py": 2
+    },
+    "CELL_MM": {
+      "excursion.py": 11
+    },
+    "CELLS_PER_SIDE": {
+      "excursion.py": 7
+    },
+    "cell_mm": {
+      "content.py": 1,
+      "excursion.py": 1
+    },
+    "cell_of": {
+      "engine.py": 1,
+      "excursion.py": 4
+    },
+    "cell_center": {
+      "excursion.py": 5
+    },
+    "CENTERS": {
+      "excursion.py": 2
+    },
+    "pick_target": {
+      "excursion.py": 2
+    },
+    "mark_seen": {
+      "excursion.py": 2
+    },
+    "pose_along": {
+      "engine.py": 2
+    },
+    "_along": {
+      "engine.py": 12,
+      "moments.py": 2
+    },
+    "pose_now": {
+      "api.py": 1,
+      "engine.py": 1
+    },
+    "pos_x": {
+      "engine.py": 9,
+      "excursion.py": 7,
+      "moments.py": 1,
+      "nest.py": 4
+    },
+    "pos_y": {
+      "engine.py": 8,
+      "excursion.py": 8,
+      "moments.py": 1,
+      "nest.py": 4
+    },
+    ".heading": {
+      "engine.py": 5,
+      "moments.py": 2,
+      "nest.py": 1
+    },
+    "_pose": {
+      "engine.py": 9,
+      "excursion.py": 2
+    },
+    "_pose_list": {
+      "engine.py": 9,
+      "nest.py": 1
+    },
+    "pose_err_mm": {
+      "engine.py": 8,
+      "excursion.py": 1,
+      "nest.py": 8
+    },
+    "dist_from_nest_mm": {
+      "engine.py": 1
+    },
+    "dist_to_mm": {
+      "engine.py": 1
+    },
+    "leash_mm": {
+      "api.py": 2,
+      "engine.py": 3,
+      "excursion.py": 5
+    },
+    "_end_check": {
+      "excursion.py": 2
+    },
+    "_arrived": {
+      "excursion.py": 2
+    },
+    "good_here": {
+      "engine.py": 3,
+      "excursion.py": 1
+    },
+    "active_spots": {
+      "api.py": 2,
+      "engine.py": 4,
+      "excursion.py": 2,
+      "moments.py": 1
+    },
+    "AVOID_RADIUS_MM": {
+      "engine.py": 4
+    },
+    "dist_mm": {
+      "api.py": 1,
+      "excursion.py": 1,
+      "narrate.py": 1,
+      "nest.py": 16
+    },
+    "backoff_mm": {
+      "content.py": 1,
+      "nest.py": 1
+    },
+    "approach_mm": {
+      "content.py": 1,
+      "nest.py": 1
+    },
+    "funnel_mm": {
+      "content.py": 1,
+      "nest.py": 2
+    },
+    "_home_for_battery": {
+      "nest.py": 3
+    },
+    "_place_on_nest": {
+      "engine.py": 1,
+      "nest.py": 1
+    },
+    "FRONT_MM": {
+      "excursion.py": 3
+    },
+    "ACTUAL_SPEED_MM": {
+      "engine.py": 3,
+      "nest.py": 1
+    },
+    "ACTUAL_YAW_RATIO": {
+      "engine.py": 12
+    },
+    "_actual_speed_mm": {
+      "engine.py": 9
+    },
+    "door_xy": {
+      "content.py": 1,
+      "excursion.py": 1
+    },
+    "family_spot": {
+      "content.py": 4,
+      "excursion.py": 2,
+      "moments.py": 5,
+      "narrate.py": 1
+    },
+    "前面是牆": {
+      "narrate.py": 1
+    },
+    "看著門口": {
+      "api.py": 1,
+      "content.py": 3,
+      "daycycle.py": 1
+    },
+    "_place_on_mat": {
+      "engine.py": 3
+    },
+    "_night": {
+      "engine.py": 6,
+      "moments.py": 1,
+      "nest.py": 1
+    },
+    "fall_ppm_per_s": {},
+    "fall_ppm_per_start": {},
+    "righting_ppm": {},
+    "stand_ppm": {},
+    "dock_ppm": {},
+    "BATTERY_DRAIN_PER_MIN": {
+      "engine.py": 4,
+      "nest.py": 4
+    },
+    "CHARGE_PER_MIN": {
+      "engine.py": 3,
+      "nest.py": 1
+    },
+    "nest_charge_per_min": {
+      "api.py": 4,
+      "engine.py": 4,
+      "nest.py": 1
+    },
+    "_charge_per_min": {
+      "engine.py": 4
+    },
+    "fall": {},
+    "fall.at": {},
+    "righting": {},
+    "stand.try": {},
+    "dock.try": {},
+    "play.meters": {},
+    "play.skill": {},
+    "false_alarm.tv": {},
+    "detect.touch": {},
+    "detect.hold": {},
+    "oracle": {},
+    "trunk": {},
+    "trunk_z": {},
+    "qpos": {},
+    "xpos": {}
+  }
+}

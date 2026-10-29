@@ -1,0 +1,858 @@
+"""Plain-language (Traditional Chinese) descriptions of L1 events for the feed and citations."""
+
+from __future__ import annotations
+
+import math
+
+from duckmind.duckcore import content
+from duckmind.duckcore.memory import (
+    is_stale,
+    mapping,
+    num,
+    righting_outcome,
+    seq,
+    spot_area,
+    spot_place,
+)
+from duckmind.provenance import Event
+
+CATEGORY = {
+    "sense": "感知",
+    "owner": "主人",
+    "pad": "手把",
+    "duck": "小鴨",
+    "voice": "聲音",
+    "growth": "成長",
+    "learning": "學習",
+    "memory": "記憶",
+    "care": "照顧",
+    "rare": "驚喜",
+    "power": "電源",
+    "body": "身體",
+    "env": "環境",
+    "sim": "模擬",
+    "keepsake": "紀念",
+    "walk": "身體",  # walk.done: the body's answer to a walk command (phase 4)
+}
+
+
+REFLEX_ZH = {
+    "greet_stand": "主人打招呼的反射",
+    "name_stand": "聽到名字的反射",
+    "name_turn": "轉身找聲音的反射",
+    "noise_alert": "大聲響的反射",
+    "touch_settle": "被摸時的反射",
+    "released": "可以動了",
+    "woken": "被叫醒",
+    "set_upright": "被扶起來",
+    "fresh_battery": "換了新電池",
+    "unplugged": "拔掉電線",
+    "cooled": "涼下來了",
+    "set_down": "放到地上",
+    "morning": "早上 7 點",
+    "rested": "睡飽了",
+    "hardware": "可以自己走了",
+    "invited": "主人叫牠去走走",
+}
+POSTURE_ZH = {"sit": "坐下", "stand": "站著", "walk": "走路", "fallen": "跌倒"}
+POSTURE_REASON_ZH = {
+    "idle": "自己想",
+    "stand_limit": "站了一會兒",
+    "greet_stand": "主人打招呼",
+    "name_stand": "聽到名字",
+    "noise_alert": "聽到大聲響",
+    "touch_settle": "被摸得很舒服",
+    "tired": "累了",
+    "battery": "電量低",
+    "night": "晚上了",
+    "nap": "想睡了",
+    "hot": "太熱",
+    "picked_up": "被抱起來",
+    "held": "被扶住",
+    "gamepad": "手把要帶牠玩",
+    "power_off": "關機",
+    "floor_off": "放回桌上",
+    "restless": "想起來走走",
+    "set_off": "出發走走",
+    "walk_on": "走完一段，再走一段",
+    "righted": "自己翻回來",
+    "set_upright": "被扶起來",
+    "released": "可以動了，起來看看",
+    "woken": "醒了，起來看看",
+    "fresh_battery": "換了新電池，起來看看",
+    "unplugged": "拔掉電線，起來走走",
+    "cooled": "涼下來了，起來看看",
+    "set_down": "放到地上，起來看看",
+    "morning": "早上了，起床",
+    "rested": "睡飽了，起來看看",
+    "hardware": "可以自己走了",
+    "stood": "站起來看看",
+    "invited": "主人叫牠去走走",
+    "home": "要走回窩",
+    "dock": "坐進窩裡",
+    "dock_retry": "沒坐準，站起來再試一次",
+    "circle": "坐進窩裡",
+    "excursion": "出門走走",
+    "excursion_end": "走完一趟，坐下休息",
+    "wait": "先停一下",
+    "stranded": "走不動了",
+    "placed": "被放回窩裡",
+    "bedtime": "準備睡覺",
+    "alone": "家裡沒人",
+    "pause": "停下來看看",
+    "reseat": "坐回窩裡",
+    "moment": "一段小插曲",
+}
+# The tricks the family teaches (bridge-v2), in words (as the page's command buttons say them).
+TRICK_ZH = {
+    "lie_down": "趴下",
+    "spin": "轉圈",
+    "bow": "鞠躬",
+    "shake": "甩一甩",
+    "flip": "翻跟斗",
+}
+# The gamepad's skills (body.play), in words.
+SKILL_ZH = {
+    "walk": "走路",
+    "kick_left": "左腳踢球",
+    "kick_right": "右腳踢球",
+    "roulade": "翻滾",
+    "bow": "鞠躬",
+    "sit_toggle": "坐下又站起來",
+}
+WALK_BLOCK_ZH = {
+    "off": "關機中",
+    "night": "晚上不走",
+    "battery": "電量低",
+    "tethered": "插著電線",
+    "too_young": "還太小",
+    "no_pickup_sensor": "沒有抱起偵測",
+    "unvalidated": "還沒通過物理驗證",
+    "hot": "太熱",
+    "nap": "在睡覺",
+    "quiet": "安靜中",
+    "lockout": "安靜中",
+    "stop": "被扶住",
+    "yield": "手把在操作",
+    "tired": "累了",
+    "unplaced": "剛被抱起來",
+    "stranded": "走不動了",
+    "charging": "在窩裡充電",
+    "alone": "家裡沒人",
+    "bedtime": "準備睡覺",
+    "dawn": "剛睡醒",
+    "family_quiet": "最近沒聽到家人",
+    "going_home": "電量快到回窩的線",
+    "stand_backoff": "剛剛站不起來",
+    "solo_done": "家人還在睡，逛夠了",
+    "door": "剛聽到開關門",
+    "nest_trouble": "窩附近跌倒好幾次",
+}
+NAP_END_ZH = {
+    "rested": "睡飽了",
+    "family": "被叫醒",
+    "touch": "被摸醒",
+    "name": "聽到名字醒來",
+    "noise": "被聲音吵醒",
+    "battery": "換了新電池，醒來",
+    "morning": "早上 7 點，起床了",
+    "hello": "主人打招呼，醒來了",
+    "praise": "被誇獎，醒來了",
+    "clock": "早上了，自己醒來",
+    "anticipate": "快到你們回家的時間，醒來等門",
+    "cue": "聽到家人起床，醒來了",
+    "reunion": "你們回來了，醒來迎接",
+}
+PHASE_ZH = {
+    "night": "晚上睡覺",
+    "dawn": "剛睡醒",
+    "solo": "家人還在睡",
+    "family": "家人在家",
+    "alone": "家裡沒人",
+    "wind_down": "準備睡覺",
+}
+FAMILY_ZH = {
+    "awake": "家人醒著在家",
+    "asleep": "家人在睡覺",
+    "away": "家人出門了",
+    "unknown": "不確定家裡有沒有人",
+}
+CUE_ZH = {
+    "voice": "人聲",
+    "steps": "腳步聲",
+    "door": "開關門",
+    "person": "看到人",
+    "person:contact": "有人在身邊",  # (someone did something to it: a touch, a lift, a word)
+    "phone_in": "手機回來",
+    "phone_out": "手機離開",
+    "tv_voice": "電視的聲音",
+}
+BY_ZH = {
+    "door": "開關門",
+    "quiet": "很久沒聲音",
+    "clock": "時間",
+    "person": "看到人",
+    "voice": "人聲",
+    "steps": "腳步聲",
+    "phone_out": "手機都離開了",
+    "app": "家人手機的按鈕",
+}
+HOME_REASON_ZH = {
+    "home_base": "走一趟回來，回窩歇一下",
+    "battery": "電快不夠了，回窩充電",
+    "alone": "家裡沒人，回窩休息",
+    "bedtime": "晚上了，回窩睡覺",
+    "tired": "累了，回窩睡一下",
+    "solo_done": "家人還在睡，回窩等",
+    "retry": "再試一次回窩",
+    "leash": "走到範圍邊緣了，回窩",
+}
+STRAND_ZH = {
+    "battery": "電量到 30%，走不動了：坐下來等人抱回窩",
+    "dock_failed": "試了三次都沒坐進窩：坐在窩旁邊等人幫忙",
+    "bedtime": "晚上來不及回窩：在原地坐下睡",
+}
+NEED_ZH = {
+    "carry_me_home": "我走不動了，可以抱我回窩嗎？",
+    "nest_help": "我進不去窩，可以幫我放進去嗎？",
+    "help": "我跌倒了，翻不回來，可以扶我一下嗎？",
+    "bedtime": "我來不及走回窩，就在這裡睡了；可以抱我回窩嗎？",
+}
+PREDICT_ZH = {
+    "sees_you_off": "你們要出門了",
+    "comes_when_called": "叫我的人在你們常待的地方",
+    "neat_dock": "這次一次就能坐進窩裡",
+    "shortcut_home": "直直走回窩比較近",
+    "smart_detour": "繞過那個跌倒過的地方就沒事",
+    "family_spot": "你們在常待的地方",
+    "early_bed": "我可以自己回窩、一次坐好",
+    "patrol": "我最喜歡的地方都還在",
+    "remembers_play_spot": "昨天玩的地方就在那邊",
+    "quick_orient": "那個聲音是有人要過來",
+    "peekaboo_ahead": "手會從那一邊出現",
+}
+SELF_ZH = {
+    "new_place": "去了一個最近沒去的地方",
+    "babble_answered": "我牙牙學語，有人回應我",
+    "settled_for_touch": "被摸的時候坐下來享受",
+    "snuggle": "依偎一下",
+    "long_nap": "好好地睡了一覺",
+}
+WALK_PURPOSE_ZH = {
+    "home": "往窩走",
+    "dock": "走進窩",
+    "circle": "坐進窩裡",
+    "leave": "走出窩",
+    "social": "走去找家人",
+    "zoomies": "快步暴衝",
+}
+SETTING_ZH = {
+    ("docked", True): "插上電線（不耗電、慢慢充電）",
+    ("docked", False): "拔掉電線，改用電池",
+    ("ntp_ok", True): "時間已校正（成長日照常前進）",
+    ("ntp_ok", False): "時間沒校正（成長日先暫停）",
+    ("hot", True): "模擬過熱（休息姿勢、很少出聲）",
+    ("hot", False): "溫度恢復正常",
+    ("conservative", True): "保守模式開（動作小一點、走短一點）",
+    ("conservative", False): "保守模式關",
+    ("battery_help", True): "家人會幫牠換電池",
+    ("battery_help", False): "沒人幫忙換電池（沒電就關機）",
+    ("tv_on", True): "電視打開",
+    ("tv_on", False): "電視關掉",
+    ("pickup_detect", True): "模擬：裝上抱起偵測",
+    ("pickup_detect", False): "模擬：拿掉抱起偵測",
+    ("motion_validated", True): "模擬：站立和走路通過物理驗證",
+    ("motion_validated", False): "模擬：站立和走路還沒通過驗證",
+}
+
+
+# Phase 4 (Duck Core only learns the world from inputs): its commands to the body (``duck.act``,
+# ``duck.walk``) and the body's answers (percepts), in words.
+FELL_DURING_ZH = {
+    "walk": "走路時",
+    "posture": "換姿勢時",
+    "still": "站著不動時",
+    "curio": "玩東西時",
+    "dock": "坐進窩時",
+    "look": "轉頭看時",
+}
+WALK_DONE_ZH = {
+    "time": "這一段走完了",
+    "fell": "這一段因為跌倒停了",
+    "lifted": "被抱起來，這一段停了",
+    "preempt": "這一段被打斷了",
+    "deadline": "這一段走到時間上限，停了",
+    "stall": "卡住走不動，這一段停了",
+    "stumble": "絆了一下，這一段停了",
+    "reflex_near": "前面有東西，停下來",
+    "reflex_drop": "前面有落差，停下來",
+    "reflex_touch": "碰到東西，停下來",
+    "reflex_unloaded": "腳下空了，停下來",
+    "reflex_dark": "太暗了，停下來",
+    "veto_look": "還沒看清楚前面，先不走",
+    "veto_dark": "太暗了，先不走",
+    "veto_head": "頭的姿勢不對，先不走",
+}
+STOP_WHY_ZH = {
+    "picked_up": "被抱起來",
+    "held": "被扶住",
+    "power_off": "關機",
+    "gamepad": "手把要帶牠玩",
+    "set_upright": "被扶起來",
+    "placed": "被放回窩裡",
+}
+SENSOR_ZH = {"ear": "耳朵", "camera": "鏡頭", "ble": "手機藍牙", "contact": "有人跟牠互動"}
+
+
+def _act_text(p: object) -> str:
+    """``duck.act``: what it asked its body to do (the answer is its own record)."""
+    payload = mapping(p)
+    cmd = str(payload.get("cmd"))
+    if cmd == "duck.posture":
+        want = POSTURE_ZH.get(str(payload.get("want")), str(payload.get("want")))
+        return f"請身體{want}"
+    if cmd == "duck.dock":
+        return f"請身體坐進窩（估計位置差 {int(num(payload.get('bel_err_mm'))) // 10} 公分）"
+    if cmd == "duck.look":
+        return "轉頭找窩的標籤" if payload.get("kind") == "seek_nest" else "轉頭看看"
+    if cmd == "duck.stop":
+        why = STOP_WHY_ZH.get(str(payload.get("why")), str(payload.get("why") or ""))
+        what = "這一段走路" if payload.get("act_id") else "自己翻身"
+        return f"請身體停下{what}（{why}）" if why else f"請身體停下{what}"
+    if cmd == "duck.curio":
+        return "請身體做好奇心的下一步"
+    return f"請身體：{cmd}"
+
+
+def _where(pose: object) -> str:
+    """（在墊子旁邊，0.2, 0.1 m） for a [x, y, heading] pose, or nothing."""
+    items = seq(pose)
+    if len(items) < 2:
+        return ""
+    x, y = num(items[0]), num(items[1])
+    return f"（在{spot_area(x, y)}，{x:.1f}, {y:.1f} m）"
+
+
+def _fell_text(p: object) -> str:
+    payload = mapping(p)
+    after = payload.get("after_s")
+    walked = f"走路第 {after} 秒" if after is not None else ""
+    return f"{walked}跌倒了{_where(payload.get('at'))}，側躺著，等一下會試著翻回來"
+
+
+def _posture_text(p: object) -> str:
+    payload = mapping(p)
+    posture = str(payload.get("posture"))
+    before = str(payload.get("from"))
+    why = POSTURE_REASON_ZH.get(str(payload.get("reason")), str(payload.get("reason")))
+    if posture == "stand" and before == "walk":
+        text = f"停下腳步，站著（{why}）"
+    elif posture == "stand":
+        text = f"站起來了（{why}）"
+    elif posture == "sit" and before == "fallen" and payload.get("reason") == "righted":
+        text = "跌倒後自己翻回來，坐好了"
+    elif posture == "sit" and before == "fallen" and payload.get("reason") == "set_upright":
+        text = "被扶起來，坐好了（還在地上）"
+    elif posture == "sit" and before == "fallen":
+        text = f"被扶起來，坐好了（{why}）"
+    elif posture == "sit":
+        text = f"坐下了（{why}）"
+    elif posture == "fallen" and payload.get("reason") == "fell":
+        # Duck Core's own record of its fall (phase 4): v4's body.fell sentence
+        return _fell_text(payload)
+    else:
+        text = f"{POSTURE_ZH.get(posture, posture)}（{why}）"
+    cut = mapping(payload.get("walk_cut"))
+    if cut:
+        text += f"；這趟只走了 {cut.get('after_s')} 秒"
+    return text
+
+
+def category(event: Event) -> str:
+    return event.kind.split(".", 1)[0]
+
+
+def describe(event: Event) -> str:
+    kind = event.kind
+    p = event.payload
+    if kind == "sim.hatched":
+        return f"孵化：{p.get('name')}（種子 {p.get('seed')}）"
+    if kind == "power.on":
+        return "開機" + (
+            f"（離開約 {p.get('absence_h')} 小時）" if p.get("absence_h") is not None else ""
+        )
+    if kind == "power.battery_swap":
+        who = "家人" if p.get("by") == "family" else "有人"
+        return f"{who}幫我換上新電池（原本 {p.get('before')}%）"
+    if kind == "power.off":
+        return {"owner": "關機", "battery_empty": "電池用完，坐下關機"}.get(
+            str(p.get("reason")), "關機"
+        ) + f"（這次醒了 {p.get('awake_min')} 分鐘）"
+    if kind == "sense.touch":
+        where = "頭頂" if p.get("where") == "crown" else "嘴巴"
+        path = "聽覺" if p.get("path") == "ear" else "關節負載"
+        return f"有人摸了{where}（{path}偵測，約 {num(p.get('latency_ms')) / 1000:.1f} 秒後察覺）"
+    if kind == "sense.hold_head":
+        return "有人扶住我的頭"
+    if kind == "sense.pickup":
+        return "被抱起來"
+    if kind == "sim.bridged":
+        return "從現在起，牠的成長只算神經鴨真的遇到的事"
+    if kind == "sense.poke":
+        return "被戳了一下"
+    if kind == "sense.company":
+        return "有人在身邊陪著"
+    if kind == "sense.play":
+        return f"玩了 {p.get('minutes')} 分鐘"
+    if kind == "sense.dock":
+        return "坐上充電座充電"
+    if kind == "sense.explore":
+        return "發現一個新的地方或東西"
+    if kind == "sense.nudge":
+        if p.get("why") == "nap":
+            return "有人輕輕拍拍我，讓我小睡一下"
+        return "有人輕輕把我叫醒"
+    if kind == "sense.set_upright":
+        return "有人把跌倒的我扶起來"
+    if kind == "sense.name_heard":
+        return "好像聽到我的名字（電視開著，不太確定）" if p.get("tv_on") else "聽到有人叫我的名字"
+    if kind == "sense.hand_near":
+        return "手" + ("慢慢" if p.get("speed") == "slow" else "很快地") + "靠近"
+    if kind == "owner.hello":
+        return "主人手機：你好"
+    if kind == "owner.good":
+        return "主人手機：乖"
+    if kind == "owner.enough":
+        return "主人手機：夠了"
+    if kind == "owner.not_that":
+        return "主人手機：不是那個"
+    if kind == "sense.teach_trick":
+        trick = TRICK_ZH.get(str(p.get("trick")), "把戲")
+        if p.get("outcome") == "done":
+            return f"主人教我「{trick}」，我做到了"
+        if p.get("outcome") == "gave_up":
+            return f"主人教我「{trick}」，我試了一下，沒做完"
+        return f"主人教我「{trick}」，這次我沒有做"
+    if kind == "owner.trick_good":
+        trick = TRICK_ZH.get(str(p.get("trick")), "把戲")
+        return f"主人說我「{trick}」做得乖"
+    if kind == "owner.trick_not_that":
+        trick = TRICK_ZH.get(str(p.get("trick")), "把戲")
+        return f"主人說我的「{trick}」不對"
+    if kind == "owner.release":
+        return "主人手機：好了，可以動了"
+    if kind == "owner.walk":
+        return "主人手機：去走走"
+    if kind == "pad.good":
+        return "手把十字鍵左：乖"
+    if kind == "pad.guest_mode":
+        return "訪客模式 4 小時"
+    if kind == "pad.play_start":
+        return "手把開始駕駛（我讓位，只在旁邊看）"
+    if kind == "pad.play_end":
+        return f"手把陪玩結束：{p.get('minutes')} 分鐘、約 {p.get('meters')} 公尺"
+    if kind == "body.play":
+        skill = p.get("skill")
+        if skill is None and "minute" in p:  # phase 4: one record per minute of play
+            return f"身體正在被手把帶著走（這一分鐘約 {p.get('meters')} 公尺）"
+        return f"身體正在被手把帶著：{SKILL_ZH.get(str(skill), '一個動作')}"
+    if kind == "duck.decision":
+        verb = content.VERB_BY_ID.get(str(p.get("verb")))
+        if p.get("rule") == "reflex-v1":
+            trigger = REFLEX_ZH.get(str(p.get("trigger")), "反射")
+            if verb is None:
+                return f"{trigger}：這次留在原地（第 {p.get('counter')} 次抽籤）"
+            return f"{trigger}：決定「{verb.zh}」（第 {p.get('counter')} 次抽籤）"
+        if p.get("rule") == "outing-v1":
+            chance = int(num(mapping(p.get("probabilities")).get("stand_up"))) * 100 // 10000
+            return f"坐不住了，起來走走（這一分鐘的機率 {chance}%，第 {p.get('counter')} 次抽籤）"
+        if p.get("rule") == "outing-v2" and p.get("from") == "standing":
+            return "已經站起來了，就出門走一小趟"
+        if p.get("rule") in {"outing-v2", "nest-leave-v1"}:
+            chance = int(num(mapping(p.get("probabilities")).get("stand_up"))) * 100 // 10000
+            where = "離開窩，" if p.get("rule") == "nest-leave-v1" else ""
+            return f"{where}出門走一小趟（這一分鐘的機率 {chance}%，第 {p.get('counter')} 次抽籤）"
+        if p.get("rule") == "home-base-v1":
+            chance = int(num(mapping(p.get("probabilities")).get("go_home"))) * 100 // 10000
+            what = "回窩歇一下" if p.get("verb") == "go_home" else "先在這裡坐一下"
+            return f"走完一趟：{what}（回窩的機率 {chance}%，第 {p.get('counter')} 次抽籤）"
+        return f"決定做「{verb.zh if verb else p.get('verb')}」（第 {p.get('counter')} 次抽籤）"
+    if kind == "duck.posture":
+        return _posture_text(p)
+    if kind == "duck.walk":
+        seconds = p.get("seconds")
+        away = {
+            "wall": "（前面是牆，轉開）",
+            "spot": "（前面是跌倒好幾次的地方，繞開）",
+            "leash": "（到範圍邊緣了，轉回來）",
+        }.get(str(p.get("avoided")), "")
+        purpose = WALK_PURPOSE_ZH.get(str(p.get("purpose")))
+        if purpose:
+            away = f"（{purpose}）{away}"
+        if p.get("verb") == "turn_around":
+            turned = abs(num(p.get("yaw_rate"))) * num(seconds) * 180 / math.pi
+            how = "邊走邊繞個小彎轉身" if num(p.get("vx")) > 0 else "原地轉身"
+            return f"{how}（{seconds} 秒，大約轉了 {round(turned)}°）{away}"
+        return f"自己走了 {seconds} 秒，約 {round(num(p.get('meters')) * 100)} 公分{away}"
+    if kind == "body.fell" and "walk_cut" not in p:
+        # phase 4: the body only says that it fell (Duck Core's duck.posture says the rest)
+        stale = "（晚到的回報，沒採用）" if is_stale(event) else ""
+        return f"身體回報：{FELL_DURING_ZH.get(str(p.get('during')), '')}跌倒了{stale}"
+    if kind == "body.fell":
+        return _fell_text(p)
+    if kind == "body.righting" and "try" not in p and "helped" not in p:
+        # phase 4: the world's answer for one try (Duck Core counts them)
+        if is_stale(event):
+            return "身體回報翻身結果（晚到的回報，沒採用）"
+        tries = p.get("tries")
+        ending = righting_outcome(event)
+        if p.get("ok"):
+            return f"第 {tries} 次試著翻回來：成功" + (
+                "（一下就起來了）" if ending == "easy" else "（好不容易）"
+            )
+        if ending == "stuck":
+            return f"第 {tries} 次試著翻回來：還是不行，等人來扶"
+        return f"第 {tries} 次試著翻回來：沒成功，再試一次"
+    if kind == "body.righting":
+        outcome = p.get("outcome")
+        if p.get("helped"):
+            return "還在試著翻回來，就被人扶起來了"
+        if p.get("ok"):
+            return f"第 {p.get('try')} 次試著翻回來：成功" + (
+                "（一下就起來了）" if outcome == "easy" else "（好不容易）"
+            )
+        if outcome == "stuck":
+            return f"第 {p.get('try')} 次試著翻回來：還是不行，等人來扶"
+        return f"第 {p.get('try')} 次試著翻回來：沒成功，再試一次"
+    if kind == "duck.righting_end":
+        if p.get("helped") == "power_off":
+            return "還在試著翻回來，就關機了"
+        return "還在試著翻回來，就被人扶起來了"
+    if kind == "body.posture":
+        if is_stale(event):
+            return "身體回報姿勢（晚到的回報，沒採用）"
+        want, got = str(p.get("want")), str(p.get("got"))
+        if p.get("fell"):
+            return f"想{POSTURE_ZH.get(want, want)}，結果跌倒了"
+        if want == "stand" and got == "stand":
+            return "站起來了"
+        if want == "stand":
+            return "想站起來，但沒站穩，先坐著"
+        return f"{POSTURE_ZH.get(got, got)}了"
+    if kind == "walk.done":
+        if is_stale(event):
+            return "身體回報走路結果（晚到的回報，沒採用）"
+        steps = int(num(p.get("steps")))
+        return WALK_DONE_ZH.get(str(p.get("reason")), "這一段停了") + (
+            f"（約 {steps} 步）" if steps else ""
+        )
+    if kind == "duck.act":
+        return _act_text(p)
+    if kind == "duck.act_timeout":
+        return f"身體沒有回報結果（{_act_text({'cmd': p.get('cmd')})}：等太久，不等了）"
+    if kind == "sense.sighting":
+        if p.get("what") == "nest":
+            range_mm = p.get("r_mm")
+            far = f"（{int(num(range_mm)) // 10} 公分遠）" if range_mm is not None else ""
+            return f"看到窩的標籤了{far}"
+        return {"duck": "看到另一隻鴨子", "person": "看到人", "thing": "看到一個東西"}.get(
+            str(p.get("what")), "看到東西"
+        )
+    if kind == "sense.scan":
+        seen = [mapping(item).get("what") for item in seq(p.get("sightings"))]
+        if "nest" in seen:
+            return "轉頭看看：看到窩了"
+        return "轉頭看看：沒看到窩的標籤" if not seen else "轉頭看看"
+    if kind == "env.floor":
+        block = p.get("walk")
+        placed = "放在地上：地板模式" + (
+            "（可以自己走走）"
+            if block is None
+            else f"（{WALK_BLOCK_ZH.get(str(block), '先不走')}，先不會走）"
+        )
+        return {
+            "family": placed if p.get("floor") else "放回桌上",
+            "pickup": "被抱起來，地板模式結束",
+            "power_off": "關機，地板模式結束",
+        }.get(str(p.get("why")), "地板模式：" + ("開" if p.get("floor") else "關"))
+    if kind == "duck.expression":
+        sound = f"，發出「{p.get('sound_text')}」" if p.get("sound_text") else ""
+        coda = f"，收尾：{p.get('coda')}" if p.get("coda") else ""
+        return f"我做了「{p.get('zh')}」{sound}{coda}"
+    if kind == "duck.reaction":
+        text = p.get("text")
+        if text:
+            return str(text)
+        sounds = [content.TAG_ZH.get(str(tag), str(tag)) for tag in seq(p.get("sounds"))]
+        return "反應：" + ("、".join(sounds) if sounds else "張嘴、歪頭")
+    if kind == "duck.greeting":
+        return str(p.get("text", "打招呼"))
+    if kind == "duck.bid":
+        if p.get("need"):
+            return "我需要幫忙：" + NEED_ZH.get(str(p.get("kind")), "可以來一下嗎？")
+        if p.get("kind") == "comes_over":
+            return f"我走過去找你們（{p.get('text')}）"
+        return (
+            "我主動找人："
+            + ("來玩嗎？" if p.get("kind") == "come_play" else "嘎！")
+            + f"（{p.get('text')}）"
+        )
+    if kind == "duck.bid_answered":
+        return "有人回應我了！"
+    if kind == "owner.notice":
+        return f"通知家人手機：{p.get('text')}"
+    if kind == "duck.bid_unanswered":
+        return "沒人回應，我先不吵了" if p.get("stopped") else "沒人回應，下次晚一點再問"
+    if kind == "duck.nap_start":
+        if p.get("reason") == "away_rest":
+            return f"家裡沒人，在窩裡睡一覺（{p.get('minutes')} 分鐘）"
+        if p.get("reason") == "quiet_hours" or p.get("quiet_hours"):
+            return f"晚上睡覺，先睡 {p.get('minutes')} 分鐘"
+        if p.get("reason") == "bedtime":
+            return f"電量低，打瞌睡 {p.get('minutes')} 分鐘"
+        return f"累了，小睡 {p.get('minutes')} 分鐘"
+    if kind == "duck.nap_end":
+        return NAP_END_ZH.get(str(p.get("by")), "睡醒了")
+    if kind == "duck.sleep_stir":
+        return f"睡著了：{p.get('zh')}"
+    if kind in {"body.struggle", "duck.struggle"}:
+        return "躺著掙扎了一下，還是翻不過來（等人扶）"
+    if kind == "duck.stop":
+        return (
+            "停下來，站著不動（頭放休息姿勢）"
+            if p.get("posture") == "stand"
+            else "停下來（休息姿勢）"
+        )
+    if kind == "duck.lockout":
+        return "被叫停好幾次，先安靜一下"
+    if kind == "duck.quiet":
+        return "安靜 15 分鐘（不會學到不喜歡）"
+    if kind == "duck.bedtime":
+        return str(p.get("text", "晚安"))
+    if kind == "voice.babble":
+        return f"嘗試新片語「{p.get('text')}」（第 {p.get('gen')} 代）"
+    if kind == "voice.promoted":
+        return f"片語「{p.get('text')}」被選中保留"
+    if kind == "voice.promotion_undone":
+        return f"復原片語「{p.get('text')}」"
+    if kind == "voice.song":
+        return f"我們家的歌第 {p.get('version')} 版：{p.get('text')}"
+    if kind == "voice.molt_offer":
+        return f"換羽提議：把一段換成「{p.get('text')}」（預設維持現狀）"
+    if kind == "voice.molt_decision":
+        return "換羽：" + ("換了" if p.get("choice") == "change" else "維持現狀")
+    if kind == "growth.gd":
+        credit = {
+            "full": "+1 成長日",
+            "half": "+0.5 成長日（沒開機的日子）",
+            "none": "不再累計（缺席上限）",
+            "paused": "時間沒校正，成長暫停",
+        }
+        return f"{p.get('date')}：{credit.get(str(p.get('credit')), '')} → 成長日 {p.get('gd')}"
+    if kind == "growth.unlocked":
+        return f"解鎖（等有人在時才揭曉）：{p.get('title')}"
+    if kind == "growth.milestone":
+        return f"里程碑：{p.get('title')}—{p.get('text')}"
+    if kind == "growth.stage":
+        return f"長大了：{p.get('zh')}"
+    if kind == "growth.branch":
+        odds = mapping(p.get("probabilities"))
+        share = int(num(odds.get(str(p.get("branch"))))) * 100 // 10000 if odds else None
+        return (
+            f"個性長成：{p.get('zh')}"
+            + ("（照顧片段不到 30，由天性和牠自己的經驗決定）" if p.get("nature_only") else "")
+            + (f"（這一型的機會 {share}%，抽籤決定）" if share is not None else "")
+        )
+    if kind == "growth.branch_changed":
+        return f"改選個性：{p.get('zh')}"
+    if kind == "growth.adult":
+        return f"成年：{p.get('title') or p.get('name')}"
+    if kind == "growth.quirk":
+        return f"發現怪癖：{p.get('text')}"
+    if kind == "growth.choice":
+        return f"選擇：{p.get('kind')} = {p.get('option')}"
+    if kind == "learning.committed" and str(p.get("parameter")).startswith(
+        ("self.return_time:", "self.depart_time:")
+    ):
+        parameter = str(p.get("parameter"))
+        which = "回家" if "return" in parameter else "出門"
+        when = "平日" if parameter.endswith(":wd") else "週末"
+        after = int(num(p.get("after")))
+        return (
+            f"學習：你們{when}大多 {after // 60:02d}:{after % 60:02d} {which}"
+            f"（學了 {p.get('samples')} 次）"
+        )
+    if kind == "learning.committed":
+        parameter = str(p.get("parameter"))
+        label = parameter
+        if parameter.startswith("household.verb:"):
+            verb = content.VERB_BY_ID.get(parameter.split(":", 1)[1])
+            label = f"家裡喜歡「{verb.zh if verb else parameter}」"
+        elif parameter.startswith("household.phrase:"):
+            label = f"家裡喜歡片語 {parameter.split(':', 1)[1]}"
+        elif parameter.startswith("household.moment:"):
+            moment = content.MOMENT_BY_ID.get(parameter.split(":", 1)[1])
+            label = f"家裡喜歡「{moment.short if moment else '牠的小插曲'}」"
+        elif parameter.startswith("household.trick:"):
+            trick = TRICK_ZH.get(parameter.split(":", 1)[1], "把戲")
+            label = f"家裡喜歡我做「{trick}」"
+        elif parameter == "owner.bond":
+            label = "對主人的親近"
+        elif parameter.startswith("self.avoid_spot:"):
+            spot = mapping(p.get("spot"))
+            place = spot_place(num(spot.get("x")), num(spot.get("y")))
+            return (
+                f"學習：{place}（{num(spot.get('x')):.1f}, {num(spot.get('y')):.1f} m）"
+                f"跌倒 {p.get('falls')} 次都很難翻回來 → 不適合走的地方，之後走路會繞開"
+            )
+        return f"學習：{label} {num(p.get('before')):.3f} → {num(p.get('after')):.3f}（上限 {num(p.get('max_abs_delta')):.3f}）"
+    if kind == "learning.relaxed":
+        return f"喜好慢慢回到中性（{p.get('count')} 項，每天保留 97%）"
+    if kind == "voice.liked":
+        return f"記住家人喜歡片語「{p.get('text')}」（被誇過 {p.get('days')} 天）"
+    if kind == "learning.rolled_back":
+        return "學習退回（因為忘記）"
+    if kind == "care.episode":
+        counted = "" if p.get("counted") else "（今天這類已滿或訪客模式，不計入）"
+        return f"照顧片段：{content.CARE_ZH.get(str(p.get('type')), p.get('type'))}{counted}"
+    if kind == "rare.event":
+        return f"稀有時刻：{p.get('zh')}" + ("（第一次！）" if p.get("new") else "")
+    if kind == "env.daily_sound":
+        return f"{p.get('date')} 的聲音統計：說話 {p.get('voice')} 次、噪音 {p.get('noise')} 次、電視 {p.get('tv_minutes')} 分鐘（只存次數）"
+    if kind in {"env.settings", "env.hardware"}:
+        return "設定：" + "，".join(
+            SETTING_ZH.get((key, bool(value)), f"{key}={value}") for key, value in p.items()
+        )
+    if kind in {"env.cue", "duck.heard"}:
+        counts = mapping(p.get("counts"))
+        parts = []
+        for key, value in counts.items():
+            base = str(key).split(":", 1)[0]
+            parts.append(f"{CUE_ZH.get(str(key), CUE_ZH.get(base, base))} {value}")
+        tv = "（電視開著，人聲不算）" if p.get("tv_on") else ""
+        sensors = sorted(
+            {
+                SENSOR_ZH.get(part, part)
+                for item in mapping(p.get("sources")).values()
+                for part in str(item).split("+")
+            }
+        )
+        via = f"（靠{'、'.join(sensors)}）" if sensors else ""
+        return "聽到家裡的動靜：" + "、".join(parts) + f"（只記次數）{tv}{via}"
+    if kind == "env.family":
+        by = "、".join(BY_ZH.get(str(item), str(item)) for item in seq(p.get("by")))
+        return f"我覺得：{FAMILY_ZH.get(str(p.get('to')), p.get('to'))}（因為{by}）"
+    if kind == "duck.phase":
+        return f"一天的階段：{PHASE_ZH.get(str(p.get('to')), p.get('to'))}"
+    if kind == "duck.self_wake":
+        minute = int(num(p.get("at_min")))
+        lazy = int(num(p.get("inertia_min")))
+        rest = f"，在窩上賴 {lazy} 分鐘" if lazy else "，馬上起床"
+        return f"早上 {minute // 60:02d}:{minute % 60:02d} 自己醒來{rest}"
+    if kind == "duck.predict" and p.get("rule") == "moment-v1":
+        return "我猜：" + PREDICT_ZH.get(str(p.get("model")), "會發生我想的事")
+    if kind == "duck.predict":
+        minute = int(num(p.get("expect_min")))
+        return f"我猜你們大約 {minute // 60:02d}:{minute % 60:02d} 回家（學了 {p.get('n')} 次）"
+    if kind == "duck.anticipate":
+        return str(p.get("text", "醒來等門"))
+    if kind == "duck.predict_outcome" and p.get("rule") == "moment-v1":
+        return "猜對了！" if p.get("hit") else "這次猜錯了"
+    if kind == "duck.predict_outcome":
+        if p.get("hit"):
+            return f"猜對了！你們回來了（差 {p.get('error_min')} 分鐘）"
+        return "等了一陣子你們還沒回來，先回去睡"
+    if kind == "duck.moment":
+        label = "機智" if p.get("kind") == "clever" else "呆萌"
+        first = "（第一次！）" if p.get("first") else ""
+        gag = "（招牌梗）" if p.get("gag") else ""
+        return f"{label}時刻：{p.get('zh')}{first}{gag}"
+    if kind == "moment.reaction":
+        return "你們看到了，還回應我！我記住你們喜歡這樣"
+    if kind == "moment.gag_promoted":
+        return f"新的招牌梗：{p.get('zh')}（你們在 {len(seq(p.get('days')))} 天都有笑）"
+    if kind == "duck.day_form":
+        return str(p.get("zh", "今天的狀態"))
+    if kind == "care.self":
+        return "我自己的經驗：" + SELF_ZH.get(str(p.get("why")), "做了喜歡的事")
+    if kind == "nav.home_start":
+        reason = HOME_REASON_ZH.get(str(p.get("reason")), "回窩")
+        return (
+            f"準備走回窩：{reason}（電量 {int(num(p.get('battery'))) * 100 // 10000}%、"
+            f"離窩 {num(p.get('dist_mm')) / 1000:.1f} 公尺）"
+        )
+    if kind == "sense.nest_seen":
+        return f"看到窩的標籤了（{int(num(p.get('range_mm'))) // 10} 公分遠）"
+    if kind == "nest.dock_try":
+        return f"第 {p.get('try')} 次試著坐進窩：" + ("坐準了" if p.get("ok") else "沒對準")
+    if kind == "body.dock":
+        return "窩的接點：" + ("接上了，開始充電" if p.get("contact") else "沒接上")
+    if kind == "nest.docked":
+        if p.get("by") == "hand":
+            return "被放回窩裡，坐在接點上充電"
+        if p.get("by") == "reseat":
+            return "又坐回窩裡了"
+        return f"自己回到窩裡了（試了 {p.get('tries')} 次，電量 {int(num(p.get('battery'))) * 100 // 10000}%）"
+    if kind == "nest.undocked":
+        by = {
+            "stand_up": "站起來",
+            "pickup": "被抱起來",
+            "gamepad": "手把要帶牠玩",
+            "family": "被拿起來",
+        }.get(str(p.get("by")), "離開")
+        return f"離開窩（{by}）"
+    if kind == "nest.stranded":
+        return STRAND_ZH.get(str(p.get("reason")), "走不動了")
+    if kind == "nest.trouble":
+        return f"窩附近跌倒 {p.get('falls')} 次都很難翻回來：不會因此怕自己的窩，請家人檢查地面"
+    if kind == "body.stand_failed":
+        return "想站起來，但沒站穩，先坐著" + ("（休息 30 分鐘再試）" if p.get("backoff") else "")
+    if kind == "duck.excursion":
+        if p.get("phase") == "start":
+            where = "從窩裡" if p.get("from") == "nest" else ""
+            return f"{where}出門走一小趟：{p.get('zh') or p.get('reason')}"
+        walked = int(num(p.get("cm")))
+        if p.get("ended_by") == "nowhere" and not int(num(p.get("legs"))):
+            return "想走一趟，但範圍內沒有能去的地方（或都是學會要避開的），就不走了"
+        done = f"走完一趟：{p.get('legs')} 段、約 {walked // 100}.{walked % 100 // 10} 公尺"
+        if p.get("ended_by") == "nowhere":
+            return done + "（再過去沒有能去的地方了）"
+        return done
+    if kind == "sense.placed":
+        return "被放回窩裡"
+    if kind == "owner.leave":
+        return "家人手機：出門"
+    if kind == "owner.return":
+        return "家人手機：到家"
+    if kind == "owner.goodnight":
+        return "家人說：晚安"
+    if kind == "owner.roam":
+        return f"家人手機：活動範圍 {num(p.get('radius_mm')) / 1000:.2f} 公尺"
+    if kind == "owner.ack_nest_trouble":
+        return "家人確認窩附近的地面沒問題了"
+    if kind == "owner.nest_moved":
+        return "窩搬到新的地方，重新認識周圍"
+    if kind == "duck.day_stats":
+        walk = int(num(p.get("walk_s")))
+        return (
+            f"{p.get('date')} 的一天：自己走了 {walk} 秒、出門 {p.get('excursions')} 趟、"
+            f"回窩 {p.get('docks')} 次"
+        )
+    if kind == "memory.consolidated" and p.get("segment") == "day":
+        summary = mapping(p.get("summary"))
+        walks = f"、自己走走 {summary.get('walks')} 次" if summary.get("walks") else ""
+        return f"睡著時整理今天的記憶：被摸 {summary.get('touches', 0)} 次{walks}"
+    if kind == "memory.consolidated":
+        summary = mapping(p.get("summary"))
+        walks = f"、自己走走 {summary.get('walks')} 次" if summary.get("walks") else ""
+        return (
+            f"睡前整理記憶：被摸 {summary.get('touches', 0)} 次、被誇 {summary.get('praise', 0)} 次"
+            + walks
+        )
+    if kind == "memory.forget":
+        return f"忘記：{p.get('text')}"
+    if kind == "memory.forget_undone":
+        return "復原忘記"
+    if kind == "keepsake":
+        return str(p.get("text", "紀念"))
+    return kind

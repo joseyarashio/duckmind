@@ -1,0 +1,112 @@
+{
+  "schema": "home-layout-v2",
+  "id": "apartment",
+  "zh": "上游的公寓：6 個房間",
+  "doc": "Overlay on upstream's apartment (scene_apartment.xml = robot_allcollisions.xml + apartment.xml), read from the checkout at runtime by duckmind.world.apartment and never copied. In memory only: the decorative dock and the blue living-room landmark are taken out (owner decision B1); our charging dock (duckmind.world.dock, owner decision 2026-09-27: against a wall) stands with its back on the living room's south wall at x = -1.70 m, facing +y into the room, between the TV stand and the plant: the one wall spot of the living room with the dock, its 0.9 m lane and its turning room clear of furniture (the south-west corner's shelf blocked phase 2's nest exit; the west wall between the shelf and the sofa leaves the sofa's corner in the lane, and the camera would face the window). The toy corner, the tissue box and the books moved out of its way. It docks backin (the homes' default since 2026-09-28) on the mirrored J-hook: side left, the duck turns round on the dock's left, because the corridor wall is on its right (dockexec, 2026-09-28: 26/30 docked this way). The open_nest variant brings back phase 2's open nest in the south-west corner (board at 410 mm) for comparison. the stair hole gets railings on three sides and a gate at the stair top (B2; the ungated_test variant has none); windows in the living room and the bedroom, one lamp per room on 17:00-23:00, the living room's being the official floor lamp (B3); the official 4 cubes and 3 balls stay as toys, the cube inside the kitchen island and the ball on the stair edge moved (B5), next to our curiosity toy kit. The official visual-only landmarks are seen by the camera but not by the ToF (a ToF would report a thing the duck walks through). Walls are extended up to a 2.4 m ceiling for the camera (not physical). Units: mm, mrad, g.",
+  "base": {
+    "convert": "apartment",
+    "world": "apartment.xml",
+    "scenes": {"allcollisions": "scene_apartment.xml"},
+    "sha256": {
+      "apartment.xml": "4e6a6f5baf07ab842d9860a2e5baa72f516b864213cecb8184123d17ab23d7de",
+      "scene_apartment.xml": "f89da842d8972db257cb9a1a7c1804e21e1d0c01cc3388d6de6ac6fa1060f6e2"
+    }
+  },
+  "bounds_mm": [-4060, -3060, 4060, 3060],
+  "ceiling_mm": 2400,
+  "north_mrad": 1571,
+  "wall_bands": true,
+  "floor": {"zh": "地板", "colour": "#9c7a4e"},
+  "rooms": [
+    {"id": "kitchen", "zh": "廚房", "rect_mm": [-4000, 500, -1000, 3000], "floor": "floor_kitchen"},
+    {"id": "living", "zh": "客廳", "rect_mm": [-4000, -3000, -1000, 500], "floor": "floor_living"},
+    {"id": "corridor", "zh": "走廊", "rect_mm": [-1000, -3000, 500, 3000], "floor": "floor_corridor"},
+    {"id": "bedroom", "zh": "臥室", "rect_mm": [500, 1000, 4000, 3000], "floor": "floor_bedroom"},
+    {"id": "office", "zh": "書房", "rect_mm": [500, -1000, 4000, 1000], "floor": "floor_office"},
+    {"id": "bathroom", "zh": "浴室", "rect_mm": [500, -3000, 4000, -1000], "floor": "floor_bath"}
+  ],
+  "doorways": [
+    {"id": "kitchen_living", "rooms": ["kitchen", "living"], "from_mm": [-3000, 500], "to_mm": [-2200, 500]},
+    {"id": "living_corridor", "rooms": ["living", "corridor"], "from_mm": [-1000, -1800], "to_mm": [-1000, -1000]},
+    {"id": "kitchen_corridor", "rooms": ["kitchen", "corridor"], "from_mm": [-1000, 1600], "to_mm": [-1000, 2400]},
+    {"id": "bathroom_corridor", "rooms": ["bathroom", "corridor"], "from_mm": [500, -2500], "to_mm": [500, -1700]},
+    {"id": "office_corridor", "rooms": ["office", "corridor"], "from_mm": [500, -200], "to_mm": [500, 600]},
+    {"id": "bedroom_corridor", "rooms": ["bedroom", "corridor"], "from_mm": [500, 1400], "to_mm": [500, 2200]}
+  ],
+  "hide": ["dock", "lm_living"],
+  "move": {"obj_1": [-3300, 1500], "ball_2": [-250, -2300]},
+  "regroup": {
+    "lm_kitchen": {"tof": false},
+    "lm_corridor": {"tof": false},
+    "lm_bedroom": {"tof": false},
+    "lm_office": {"tof": false},
+    "lm_bath": {"tof": false}
+  },
+  "official_things": {
+    "obj_0": {"zh": "紅色方塊", "cls": "box", "verbs": ["look", "bump", "peck", "tap"]},
+    "obj_1": {"zh": "藍色方塊", "cls": "box", "verbs": ["look", "bump", "peck", "tap"]},
+    "obj_2": {"zh": "黃色方塊", "cls": "box", "verbs": ["look", "bump", "peck", "tap"]},
+    "obj_3": {"zh": "青色方塊", "cls": "box", "verbs": ["look", "bump", "peck", "tap"]},
+    "ball_0": {"zh": "橘色球", "cls": "ball_slow", "verbs": ["look", "bump", "peck", "kick", "dribble"]},
+    "ball_1": {"zh": "綠色球", "cls": "ball_slow", "verbs": ["look", "bump", "peck", "kick", "dribble"]},
+    "ball_2": {"zh": "粉紅色球", "cls": "ball_slow", "verbs": ["look", "bump", "peck", "kick", "dribble"]}
+  },
+  "drops": [
+    {"id": "stairs", "zh": "樓梯口", "rect_mm": [-400, -1400, 0, -700], "depth_mm": 400, "steps": 4, "step_dir": "-y", "cut": false, "gated": true, "official": ["stair_1", "stair_2", "stair_3", "stair_4"]}
+  ],
+  "barriers": [
+    {"id": "railing_w", "kind": "railing", "zh": "樓梯欄杆", "from_mm": [-420, -1420], "to_mm": [-420, -680], "height_mm": 900, "drop": "stairs"},
+    {"id": "railing_e", "kind": "railing", "zh": "樓梯欄杆", "from_mm": [20, -1420], "to_mm": [20, -680], "height_mm": 900, "drop": "stairs"},
+    {"id": "railing_s", "kind": "railing", "zh": "樓梯欄杆", "from_mm": [-420, -1420], "to_mm": [20, -1420], "height_mm": 900, "drop": "stairs"},
+    {"id": "gate_n", "kind": "gate", "zh": "嬰兒門", "from_mm": [-420, -680], "to_mm": [20, -680], "height_mm": 760, "colour": "#ffffff", "drop": "stairs"}
+  ],
+  "zones": [
+    {"id": "toy_corner", "kind": "keepsake", "zh": "玩具角（收玩具放這裡）", "rect_mm": [-3700, -200, -3100, 350]}
+  ],
+  "spawn": "nest",
+  "nest": {"kind": "dock", "style": "backin", "side": "left", "x_mm": -1700, "y_mm": -2940, "heading_mrad": 1571, "backlight": {"when": "dark", "colour": "#e8f6f7", "charging_colour": "#1f9d57"}},
+  "mat": {"x_mm": -2000, "y_mm": -2000, "heading_mrad": 0, "radius_mm": 340, "colour": "#9fb8b0"},
+  "elements": [],
+  "things": [
+    {"id": "ball_felt", "zh": "毛線球", "cls": "ball_slow", "shape": "sphere", "radius_mm": 35, "mass_g": 25, "roll": 0.004, "colour": "#f07a1f", "pos_mm": [-1600, -1300], "verbs": ["look", "bump", "peck", "kick", "dribble"]},
+    {"id": "ball_hollow", "zh": "洞洞球", "cls": "ball_fast", "shape": "sphere", "radius_mm": 35, "mass_g": 15, "hollow": true, "roll": 0.0002, "colour": "#2f6fe0", "pos_mm": [-2600, -1600], "verbs": ["look", "bump", "peck", "kick"]},
+    {"id": "fin_fish", "zh": "魚魚咬咬", "cls": "handle_toy", "mass_g": 30, "friction": 1.0, "colour": "#2fae4f", "pos_mm": [-1500, -500], "verbs": ["look", "bump", "peck", "grab", "carry"],
+      "parts": [{"shape": "box", "size_mm": [80, 40, 20], "mass_g": 22}, {"shape": "box", "size_mm": [60, 10, 50], "offset_mm": [0, 0, 20], "mass_g": 8}]},
+    {"id": "fin_duck", "zh": "把手小鴨", "cls": "handle_toy", "mass_g": 50, "friction": 1.0, "colour": "#f2c91e", "pos_mm": [-2700, -500], "verbs": ["look", "bump", "peck", "grab", "carry"],
+      "parts": [{"shape": "box", "size_mm": [60, 50, 40], "mass_g": 40}, {"shape": "box", "size_mm": [50, 10, 45], "offset_mm": [0, 0, 40], "mass_g": 10}]},
+    {"id": "paper_cup", "zh": "紙杯", "cls": "cup", "shape": "cylinder", "radius_mm": 36, "height_mm": 90, "mass_g": 8, "colour": "#f4f1ea", "pos_mm": [-1300, 100], "verbs": ["look", "bump", "peck"]},
+    {"id": "tissue_box", "zh": "面紙盒", "cls": "box", "shape": "box", "size_mm": [120, 100, 120], "mass_g": 80, "colour": "#e9e4d6", "pos_mm": [-2600, -2400], "verbs": ["look", "bump", "peck", "tap"]},
+    {"id": "bottle_empty", "zh": "空寶特瓶", "cls": "tall_light", "shape": "cylinder", "radius_mm": 35, "height_mm": 200, "mass_g": 30, "friction": 0.6, "colour": "#9fd0f0", "opacity": 0.8, "pos_mm": [-2700, -1900], "verbs": ["look", "bump", "tap"]},
+    {"id": "books", "zh": "一疊書", "cls": "heavy", "shape": "box", "size_mm": [160, 240, 120], "mass_g": 1500, "colour": "#7a2f2f", "pos_mm": [-2800, -1450], "verbs": ["look", "bump", "peck"]}
+  ],
+  "lights": {
+    "lamps": [
+      {"id": "lamp_kitchen", "zh": "廚房的燈", "room": "kitchen", "kind": "ceiling", "pos_mm": [-2500, 1750, 2300], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120},
+      {"id": "lamp_living", "zh": "客廳的落地燈", "room": "living", "kind": "floor_lamp", "pos_mm": [-3800, -300, 950], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120, "element": "liv_lamp_shade"},
+      {"id": "lamp_corridor", "zh": "走廊的燈", "room": "corridor", "kind": "ceiling", "pos_mm": [-250, 0, 2300], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120},
+      {"id": "lamp_bedroom", "zh": "臥室的燈", "room": "bedroom", "kind": "ceiling", "pos_mm": [2250, 2000, 2300], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120},
+      {"id": "lamp_office", "zh": "書房的燈", "room": "office", "kind": "ceiling", "pos_mm": [2250, 0, 2300], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120},
+      {"id": "lamp_bathroom", "zh": "浴室的燈", "room": "bathroom", "kind": "ceiling", "pos_mm": [2250, -2000, 2300], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120}
+    ],
+    "windows": [
+      {"id": "window_living", "zh": "客廳的窗", "room": "living", "pos_mm": [-3940, -1000, 900], "width_mm": 1600, "height_mm": 1200, "inward_mrad": 0},
+      {"id": "window_bedroom", "zh": "臥室的窗", "room": "bedroom", "pos_mm": [2600, 2940, 900], "width_mm": 1400, "height_mm": 1200, "inward_mrad": -1571}
+    ],
+    "night_lights": []
+  },
+  "agents": {
+    "spots": [
+      {"id": "entry", "zh": "走廊北端", "x_mm": -250, "y_mm": 2600, "heading_mrad": -1571},
+      {"id": "sofa", "zh": "沙發", "x_mm": -3300, "y_mm": -950, "heading_mrad": 0}
+    ]
+  },
+  "variants": {
+    "ungated_test": {"zh": "樓梯口沒有欄杆和門（只用來量安全）", "remove": ["railing_w", "railing_e", "railing_s", "gate_n"], "patch": {"stairs": {"gated": false}}},
+    "no_nest": {"zh": "沒有充電窩的小鴨：從墊子開始", "nest": null, "spawn": "mat"},
+    "forward": {"zh": "充電座：小鴨正面走進去、坐下（接點在大腿下）", "nest": {"style": "forward"}},
+    "backin": {"zh": "充電座：小鴨轉身倒退進去、坐下（接點在屁股後面）", "nest": {"style": "backin"}},
+    "open_nest": {"zh": "第 2 期開放式的窩（客廳西南角，背板 41 公分，用來比較）", "nest": {"kind": "open", "style": "", "side": "", "x_mm": -3500, "y_mm": -2450, "heading_mrad": 1571, "edge": "edge_5mm", "board_offset_mm": 410}},
+    "edge_3mm": {"zh": "開放式的窩，墊邊 3 mm", "nest": {"kind": "open", "style": "", "side": "", "x_mm": -3500, "y_mm": -2450, "heading_mrad": 1571, "edge": "edge_3mm", "board_offset_mm": 410}},
+    "ramp": {"zh": "開放式的窩，墊邊是斜坡", "nest": {"kind": "open", "style": "", "side": "", "x_mm": -3500, "y_mm": -2450, "heading_mrad": 1571, "edge": "ramp", "board_offset_mm": 410}}
+  }
+}

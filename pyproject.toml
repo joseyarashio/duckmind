@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "duckmind"
+version = "0.1.0"
+description = "Embodied cognition contracts, a simulator and replay validation for Microduck-compatible robots (unofficial)"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "joseyarashio", email = "joseyarashio@users.noreply.github.com" }]
+requires-python = ">=3.12"
+# Owner decision D5 (2026-09-27): duck-eye's numpy, the official AprilTag library (BSD) and ONNX
+# Runtime are required, not optional. Live voice (owner, 2026-10-02): Gemini Live through the
+# google-genai SDK, pinned (the real connection of duckmind.live; the tests need no network).
+dependencies = [
+    "numpy>=1.26",
+    "pupil-apriltags>=1.0.4",
+    "onnxruntime>=1.20",
+    "google-genai==2.27.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/joseyarashio/duckmind"
+Repository = "https://github.com/joseyarashio/duckmind"
+Issues = "https://github.com/joseyarashio/duckmind/issues"
+
+[project.scripts]
+duckmindd = "duckmind.service:main"
+duckmindctl = "duckmind.cli:main"
+
+[project.optional-dependencies]
+dev = ["mypy==2.3.1", "onnx", "pytest>=8.3", "pytest-cov>=6.0", "ruff==0.16.8"]
+# duck-eye's AprilTag fallback when pupil-apriltags cannot load (owner decision D3)
+tag-fallback = ["opencv-python-headless"]
+# The physics simulator (MuJoCo, the version the upstream body server was checked with) and the
+# simulated duck-eye camera's JPEG frames. `python -m duckmind.setup_cmd` fetches the upstream checkouts.
+sim = ["mujoco==3.10.0", "pillow>=10"]
+# Off-board policy training and the skill gates, on the reviewed recipe (mjlab 1.3.0,
+# duckmind.training). The upstream training package itself (mjlab_microduck, with Rhoban's BAM
+# actuator model) is installed from the microduck_rl checkout that `python -m duckmind.setup_cmd` fetched.
+train = [
+    "mujoco==3.10.0",
+    "mjlab==1.3.0; python_version < '3.14'",
+    "torch>=2.7",
+    "tensordict",
+    "rsl-rl-lib==5.0.1",
+    "scipy",
+    "cma",
+    "gymnasium",
+    "stable-baselines3",
+    "pyyaml",
+]
+# The name keyword detector: synthesising its training voices (Qwen3-TTS) and the pinyin labels.
+kws = ["qwen-tts", "transformers", "pypinyin", "soundfile"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/duckmind"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+# Tests import shared helpers as `tests.<module>`; plain `pytest` (not `python -m pytest`)
+# needs the repo root on sys.path for that.
+pythonpath = ["."]
+
+[tool.coverage.run]
+branch = true
+source = ["duckmind"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# The frozen v4 engine is generated from git and never edited (tools/freeze_engine.py;
+# tests/test_engine_frozen.py checks its bytes): a lint or format rule must not touch it.
+extend-exclude = ["src/duckmind/engines/v4_0"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/duckmind"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The frozen v4 engine (generated, never edited): its types are v4's; a newer mypy's opinion of
+# them must not break the check (tests/test_engine_frozen.py guards its bytes).
+module = ["duckmind.engines.v4_0", "duckmind.engines.v4_0.*"]
+ignore_errors = true

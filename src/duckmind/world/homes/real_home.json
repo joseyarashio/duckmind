@@ -1,0 +1,1030 @@
+{
+ "schema": "home-layout-v2",
+ "id": "real_home",
+ "zh": "真實的家：客廳、臥室、廚房和玄關（門檻、地毯、電線、拖鞋）",
+ "doc": "A small apartment, 6 x 6 m: the living room (with the TV, the sofa, a shag rug, a yoga mat and a few toys), the bedroom, the kitchen and the entry hall, joined by four doorways with sills of 5, 5, 10 and 20 mm. Everything that stands in the rooms is a placement of an object library item (world/objects/library.json): furniture, rugs, cables near the TV and the bed, slippers and shoes at the entry, small things on the floor. Written by tools/make_real_home.py; edit placements by hand or in the layout editor (資料 page). The walls, rooms and lights are as in default_home (the same 6.08 m square, Duck Core's frame stays the room). The charging dock stands with its back on the south wall of the living room; no_nest is the variant for 蛋黃. Units: mm, mrad, g. docs/design/HOME-FORMAT.md.",
+ "base": {},
+ "bounds_mm": [
+  -3040,
+  -3040,
+  3040,
+  3040
+ ],
+ "ceiling_mm": 2400,
+ "north_mrad": 1571,
+ "wall_bands": true,
+ "floor": {
+  "zh": "木地板",
+  "colour": "#c9a47a",
+  "texture": "wood"
+ },
+ "rooms": [
+  {
+   "id": "living",
+   "zh": "客廳",
+   "rect_mm": [
+    -3000,
+    -3000,
+    1500,
+    600
+   ],
+   "floor": "wood"
+  },
+  {
+   "id": "hall",
+   "zh": "玄關",
+   "rect_mm": [
+    1500,
+    -3000,
+    3000,
+    600
+   ],
+   "floor": "wood"
+  },
+  {
+   "id": "bedroom",
+   "zh": "臥室",
+   "rect_mm": [
+    -3000,
+    600,
+    0,
+    3000
+   ],
+   "floor": "wood"
+  },
+  {
+   "id": "kitchen",
+   "zh": "廚房",
+   "rect_mm": [
+    0,
+    600,
+    3000,
+    3000
+   ],
+   "floor": "wood"
+  }
+ ],
+ "doorways": [
+  {
+   "id": "living_bedroom",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "from_mm": [
+    -1900,
+    600
+   ],
+   "to_mm": [
+    -1000,
+    600
+   ],
+   "sill": "threshold_10"
+  },
+  {
+   "id": "living_kitchen",
+   "rooms": [
+    "living",
+    "kitchen"
+   ],
+   "from_mm": [
+    200,
+    600
+   ],
+   "to_mm": [
+    1200,
+    600
+   ],
+   "sill": "threshold_5"
+  },
+  {
+   "id": "hall_kitchen",
+   "rooms": [
+    "hall",
+    "kitchen"
+   ],
+   "from_mm": [
+    1900,
+    600
+   ],
+   "to_mm": [
+    2800,
+    600
+   ],
+   "sill": "threshold_20"
+  },
+  {
+   "id": "living_hall",
+   "rooms": [
+    "living",
+    "hall"
+   ],
+   "from_mm": [
+    1500,
+    -1500
+   ],
+   "to_mm": [
+    1500,
+    -600
+   ],
+   "sill": "threshold_5"
+  }
+ ],
+ "spawn": "nest",
+ "frame": "room",
+ "nest": {
+  "kind": "dock",
+  "style": "backin",
+  "side": "right",
+  "x_mm": 700,
+  "y_mm": -2940,
+  "heading_mrad": 1571,
+  "backlight": {
+   "when": "dark",
+   "colour": "#e8f6f7",
+   "charging_colour": "#1f9d57"
+  }
+ },
+ "mat": {
+  "x_mm": 600,
+  "y_mm": -300,
+  "heading_mrad": 0,
+  "radius_mm": 340,
+  "colour": "#9fb8b0"
+ },
+ "elements": [
+  {
+   "id": "floor",
+   "official": true,
+   "kind": "floor",
+   "zh": "木地板",
+   "shape": "plane",
+   "pos_mm": [
+    0,
+    0,
+    0
+   ],
+   "size_mm": [
+    6000,
+    6000,
+    0
+   ],
+   "colour": "#c9a47a",
+   "texture": "wood"
+  },
+  {
+   "id": "wall_n",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    0,
+    3000,
+    0
+   ],
+   "size_mm": [
+    6000,
+    80,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_w",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    -3000,
+    0,
+    0
+   ],
+   "size_mm": [
+    80,
+    6000,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_s",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    0,
+    -3000,
+    0
+   ],
+   "size_mm": [
+    6000,
+    80,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_e",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    3000,
+    0,
+    0
+   ],
+   "size_mm": [
+    80,
+    6000,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "skirting_n",
+   "kind": "skirting",
+   "zh": "踢腳板",
+   "shape": "box",
+   "pos_mm": [
+    0,
+    2950,
+    0
+   ],
+   "size_mm": [
+    6000,
+    20,
+    80
+   ],
+   "colour": "#d9d2c4"
+  },
+  {
+   "id": "skirting_w",
+   "kind": "skirting",
+   "zh": "踢腳板",
+   "shape": "box",
+   "pos_mm": [
+    -2950,
+    0,
+    0
+   ],
+   "size_mm": [
+    20,
+    6000,
+    80
+   ],
+   "colour": "#d9d2c4"
+  },
+  {
+   "id": "skirting_s",
+   "kind": "skirting",
+   "zh": "踢腳板",
+   "shape": "box",
+   "pos_mm": [
+    0,
+    -2950,
+    0
+   ],
+   "size_mm": [
+    6000,
+    20,
+    80
+   ],
+   "colour": "#d9d2c4"
+  },
+  {
+   "id": "skirting_e",
+   "kind": "skirting",
+   "zh": "踢腳板",
+   "shape": "box",
+   "pos_mm": [
+    2950,
+    0,
+    0
+   ],
+   "size_mm": [
+    20,
+    6000,
+    80
+   ],
+   "colour": "#d9d2c4"
+  },
+  {
+   "id": "wall_h1",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    -2450,
+    600,
+    0
+   ],
+   "size_mm": [
+    1100,
+    80,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_h2",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    -400,
+    600,
+    0
+   ],
+   "size_mm": [
+    1200,
+    80,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_h3",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    1550,
+    600,
+    0
+   ],
+   "size_mm": [
+    700,
+    80,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_h4",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    2900,
+    600,
+    0
+   ],
+   "size_mm": [
+    200,
+    80,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_v_bed_kitchen",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    0,
+    1800,
+    0
+   ],
+   "size_mm": [
+    80,
+    2400,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_v_hall1",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    1500,
+    -2250,
+    0
+   ],
+   "size_mm": [
+    80,
+    1500,
+    1200
+   ],
+   "colour": "#f3efe7"
+  },
+  {
+   "id": "wall_v_hall2",
+   "kind": "wall",
+   "zh": "牆",
+   "shape": "box",
+   "pos_mm": [
+    1500,
+    0,
+    0
+   ],
+   "size_mm": [
+    80,
+    1200,
+    1200
+   ],
+   "colour": "#f3efe7"
+  }
+ ],
+ "things": [],
+ "placements": [
+  {
+   "id": "threshold_10_1",
+   "lib": "threshold_10",
+   "x_mm": -1450,
+   "y_mm": 600,
+   "yaw_mrad": 0,
+   "length_mm": 900
+  },
+  {
+   "id": "threshold_5_1",
+   "lib": "threshold_5",
+   "x_mm": 700,
+   "y_mm": 600,
+   "yaw_mrad": 0,
+   "length_mm": 1000
+  },
+  {
+   "id": "threshold_20_1",
+   "lib": "threshold_20",
+   "x_mm": 2350,
+   "y_mm": 600,
+   "yaw_mrad": 0,
+   "length_mm": 900
+  },
+  {
+   "id": "threshold_5_2",
+   "lib": "threshold_5",
+   "x_mm": 1500,
+   "y_mm": -1050,
+   "yaw_mrad": 1571,
+   "length_mm": 900
+  },
+  {
+   "id": "tv_stand_1",
+   "lib": "tv_stand",
+   "x_mm": -900,
+   "y_mm": -2760,
+   "yaw_mrad": 3142
+  },
+  {
+   "id": "sofa_3seat_1",
+   "lib": "sofa_3seat",
+   "x_mm": -900,
+   "y_mm": -1000,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "rug_thick_1",
+   "lib": "rug_thick",
+   "x_mm": -900,
+   "y_mm": -2000,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "coffee_table_1",
+   "lib": "coffee_table",
+   "x_mm": -900,
+   "y_mm": -2000,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "power_strip_1",
+   "lib": "power_strip",
+   "x_mm": -1850,
+   "y_mm": -2870,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "cable_round_8_1",
+   "lib": "cable_round_8",
+   "x_mm": -1850,
+   "y_mm": -2500,
+   "yaw_mrad": 1571,
+   "length_mm": 600
+  },
+  {
+   "id": "cable_flat_3_1",
+   "lib": "cable_flat_3",
+   "x_mm": -1650,
+   "y_mm": -2250,
+   "yaw_mrad": 1571,
+   "length_mm": 800
+  },
+  {
+   "id": "bookshelf_1",
+   "lib": "bookshelf",
+   "x_mm": -2400,
+   "y_mm": 385,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "plant_pot_1",
+   "lib": "plant_pot",
+   "x_mm": -2700,
+   "y_mm": -250,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "yoga_mat_1",
+   "lib": "yoga_mat",
+   "x_mm": -1000,
+   "y_mm": -150,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "cushion_1",
+   "lib": "cushion",
+   "x_mm": 700,
+   "y_mm": -1300,
+   "yaw_mrad": 400
+  },
+  {
+   "id": "laundry_basket_1",
+   "lib": "laundry_basket",
+   "x_mm": -600,
+   "y_mm": 360,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "ball_felt_1",
+   "lib": "ball_felt",
+   "x_mm": 900,
+   "y_mm": -900,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "ball_hollow_1",
+   "lib": "ball_hollow",
+   "x_mm": 400,
+   "y_mm": -650,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "fin_fish_1",
+   "lib": "fin_fish",
+   "x_mm": 1200,
+   "y_mm": -1250,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "fin_duck_1",
+   "lib": "fin_duck",
+   "x_mm": 1100,
+   "y_mm": -100,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "paper_cup_1",
+   "lib": "paper_cup",
+   "x_mm": 300,
+   "y_mm": -1600,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "tissue_box_1",
+   "lib": "tissue_box",
+   "x_mm": 1300,
+   "y_mm": -500,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "bottle_empty_1",
+   "lib": "bottle_empty",
+   "x_mm": 200,
+   "y_mm": 300,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "books_1",
+   "lib": "books",
+   "x_mm": 200,
+   "y_mm": -250,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "magazine_1",
+   "lib": "magazine",
+   "x_mm": -1500,
+   "y_mm": -100,
+   "yaw_mrad": 200
+  },
+  {
+   "id": "sock_1",
+   "lib": "sock",
+   "x_mm": 300,
+   "y_mm": -900,
+   "yaw_mrad": 700
+  },
+  {
+   "id": "door_panel_1",
+   "lib": "door_panel",
+   "x_mm": 2956,
+   "y_mm": -2250,
+   "yaw_mrad": 1571
+  },
+  {
+   "id": "doormat_1",
+   "lib": "doormat",
+   "x_mm": 2700,
+   "y_mm": -2250,
+   "yaw_mrad": 1571
+  },
+  {
+   "id": "shoe_rack_1",
+   "lib": "shoe_rack",
+   "x_mm": 2200,
+   "y_mm": -2790,
+   "yaw_mrad": 3142
+  },
+  {
+   "id": "shoes_pair_1",
+   "lib": "shoes_pair",
+   "x_mm": 1900,
+   "y_mm": -2450,
+   "yaw_mrad": 300
+  },
+  {
+   "id": "shoes_pair_2",
+   "lib": "shoes_pair",
+   "x_mm": 2250,
+   "y_mm": -2450,
+   "yaw_mrad": -300
+  },
+  {
+   "id": "slipper_pair_1",
+   "lib": "slipper_pair",
+   "x_mm": 2050,
+   "y_mm": -1950,
+   "yaw_mrad": 500
+  },
+  {
+   "id": "slipper_pair_2",
+   "lib": "slipper_pair",
+   "x_mm": 2400,
+   "y_mm": -1650,
+   "yaw_mrad": -200
+  },
+  {
+   "id": "console_cabinet_1",
+   "lib": "console_cabinet",
+   "x_mm": 1715,
+   "y_mm": -200,
+   "yaw_mrad": 1571
+  },
+  {
+   "id": "umbrella_stand_1",
+   "lib": "umbrella_stand",
+   "x_mm": 1700,
+   "y_mm": -2750,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "bed_double_1",
+   "lib": "bed_double",
+   "x_mm": -1960,
+   "y_mm": 2150,
+   "yaw_mrad": 1571
+  },
+  {
+   "id": "nightstand_1",
+   "lib": "nightstand",
+   "x_mm": -2750,
+   "y_mm": 1100,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "cable_round_6_1",
+   "lib": "cable_round_6",
+   "x_mm": -2270,
+   "y_mm": 950,
+   "yaw_mrad": -540,
+   "length_mm": 600
+  },
+  {
+   "id": "charger_brick_1",
+   "lib": "charger_brick",
+   "x_mm": -1940,
+   "y_mm": 770,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "wardrobe_1",
+   "lib": "wardrobe",
+   "x_mm": -315,
+   "y_mm": 2200,
+   "yaw_mrad": -1571
+  },
+  {
+   "id": "kitchen_mat_1",
+   "lib": "kitchen_mat",
+   "x_mm": -1500,
+   "y_mm": 1050,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "slipper_pair_3",
+   "lib": "slipper_pair",
+   "x_mm": -2300,
+   "y_mm": 1260,
+   "yaw_mrad": 100
+  },
+  {
+   "id": "paperback_book_1",
+   "lib": "paperback_book",
+   "x_mm": -700,
+   "y_mm": 2000,
+   "yaw_mrad": 600
+  },
+  {
+   "id": "laundry_basket_2",
+   "lib": "laundry_basket",
+   "x_mm": -800,
+   "y_mm": 900,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "sock_2",
+   "lib": "sock",
+   "x_mm": -700,
+   "y_mm": 1500,
+   "yaw_mrad": 1900
+  },
+  {
+   "id": "kitchen_counter_1",
+   "lib": "kitchen_counter",
+   "x_mm": 1150,
+   "y_mm": 2660,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "fridge_1",
+   "lib": "fridge",
+   "x_mm": 2350,
+   "y_mm": 2635,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "trash_bin_1",
+   "lib": "trash_bin",
+   "x_mm": 2800,
+   "y_mm": 2750,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "rug_thin_1",
+   "lib": "rug_thin",
+   "x_mm": 1500,
+   "y_mm": 1500,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "table_dining_1",
+   "lib": "table_dining",
+   "x_mm": 1500,
+   "y_mm": 1500,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "chair_dining_1",
+   "lib": "chair_dining",
+   "x_mm": 1250,
+   "y_mm": 1000,
+   "yaw_mrad": 3142
+  },
+  {
+   "id": "chair_dining_2",
+   "lib": "chair_dining",
+   "x_mm": 1750,
+   "y_mm": 1000,
+   "yaw_mrad": 3142
+  },
+  {
+   "id": "chair_dining_3",
+   "lib": "chair_dining",
+   "x_mm": 1250,
+   "y_mm": 2000,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "chair_dining_4",
+   "lib": "chair_dining",
+   "x_mm": 1750,
+   "y_mm": 2000,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "kitchen_mat_2",
+   "lib": "kitchen_mat",
+   "x_mm": 2700,
+   "y_mm": 1500,
+   "yaw_mrad": 1571
+  },
+  {
+   "id": "bowl_food_1",
+   "lib": "bowl_food",
+   "x_mm": 2750,
+   "y_mm": 1300,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "bowl_water_1",
+   "lib": "bowl_water",
+   "x_mm": 2750,
+   "y_mm": 1700,
+   "yaw_mrad": 0
+  },
+  {
+   "id": "toy_block_1",
+   "lib": "toy_block",
+   "x_mm": 500,
+   "y_mm": 900,
+   "yaw_mrad": 100,
+   "colour": "#e2523c"
+  },
+  {
+   "id": "toy_block_2",
+   "lib": "toy_block",
+   "x_mm": 590,
+   "y_mm": 960,
+   "yaw_mrad": 400,
+   "colour": "#2f6fe0"
+  },
+  {
+   "id": "toy_block_3",
+   "lib": "toy_block",
+   "x_mm": 540,
+   "y_mm": 1060,
+   "yaw_mrad": 900,
+   "colour": "#f2c91e"
+  }
+ ],
+ "drops": [],
+ "zones": [
+  {
+   "id": "toy_corner",
+   "kind": "keepsake",
+   "zh": "玩具角（收玩具放這裡）",
+   "rect_mm": [
+    400,
+    -1000,
+    1400,
+    -200
+   ]
+  }
+ ],
+ "barriers": [],
+ "lights": {
+  "lamps": [
+   {
+    "id": "lamp_living",
+    "zh": "客廳的燈",
+    "room": "living",
+    "kind": "pendant",
+    "pos_mm": [
+     -600,
+     -800,
+     1900
+    ],
+    "hours": [
+     17,
+     23
+    ],
+    "colour": "#ffd3a0",
+    "lux": 120
+   },
+   {
+    "id": "lamp_hall",
+    "zh": "玄關的燈",
+    "room": "hall",
+    "kind": "ceiling",
+    "pos_mm": [
+     2250,
+     -1200,
+     2300
+    ],
+    "hours": [
+     17,
+     23
+    ],
+    "colour": "#ffd3a0",
+    "lux": 120
+   },
+   {
+    "id": "lamp_bedroom",
+    "zh": "臥室的燈",
+    "room": "bedroom",
+    "kind": "ceiling",
+    "pos_mm": [
+     -1500,
+     1800,
+     2300
+    ],
+    "hours": [
+     17,
+     23
+    ],
+    "colour": "#ffd3a0",
+    "lux": 120
+   },
+   {
+    "id": "lamp_kitchen",
+    "zh": "廚房的燈",
+    "room": "kitchen",
+    "kind": "ceiling",
+    "pos_mm": [
+     1500,
+     1600,
+     2300
+    ],
+    "hours": [
+     17,
+     23
+    ],
+    "colour": "#ffd3a0",
+    "lux": 120
+   }
+  ],
+  "windows": [
+   {
+    "id": "window_living",
+    "zh": "客廳的落地窗",
+    "room": "living",
+    "pos_mm": [
+     -2960,
+     -1200,
+     0
+    ],
+    "width_mm": 1600,
+    "height_mm": 2000,
+    "inward_mrad": 0
+   },
+   {
+    "id": "window_bedroom",
+    "zh": "臥室的窗",
+    "room": "bedroom",
+    "pos_mm": [
+     -1500,
+     2960,
+     900
+    ],
+    "width_mm": 1200,
+    "height_mm": 1200,
+    "inward_mrad": -1571
+   },
+   {
+    "id": "window_kitchen",
+    "zh": "廚房的窗",
+    "room": "kitchen",
+    "pos_mm": [
+     1500,
+     2960,
+     1100
+    ],
+    "width_mm": 1000,
+    "height_mm": 900,
+    "inward_mrad": -1571
+   }
+  ],
+  "night_lights": []
+ },
+ "agents": {
+  "spots": [
+   {
+    "id": "entry",
+    "zh": "大門口",
+    "x_mm": 2450,
+    "y_mm": -2250,
+    "heading_mrad": 3142
+   },
+   {
+    "id": "sofa",
+    "zh": "沙發",
+    "x_mm": -900,
+    "y_mm": -1000,
+    "heading_mrad": -1571
+   }
+  ]
+ },
+ "variants": {
+  "no_nest": {
+   "zh": "沒有充電窩的小鴨（例如蛋黃）：墊子在客廳",
+   "nest": null,
+   "spawn": "mat"
+  },
+  "forward": {
+   "zh": "充電座：小鴨正面走進去、坐下（接點在大腿下）",
+   "nest": {
+    "style": "forward"
+   }
+  },
+  "backin": {
+   "zh": "充電座：小鴨轉身倒退進去、坐下（接點在屁股後面）",
+   "nest": {
+    "style": "backin"
+   }
+  }
+ }
+}

@@ -1,0 +1,259 @@
+{
+ "format": 1,
+ "scenario_id": "echo_only",
+ "scenario_hash": "d96a756031ab8d07331301070b46251858c6c9c3b11d20bcb7587dc8ec776f45",
+ "complete": true,
+ "inputs": {
+  "format": 1,
+  "scenario": "echo_only",
+  "temperament": "dreamer",
+  "seed": 11,
+  "length_s": 11.0,
+  "tail_s": 5.0,
+  "duck": {
+   "name": "蛋黃",
+   "genome_seed": 4670,
+   "gd": 200,
+   "voice_seed": 2191483871,
+   "voice_bank_version": 5,
+   "at_m": [
+    0.0,
+    0.0
+   ]
+  },
+  "model": "gemini-3.8-live",
+  "tool_schema": {
+   "version": "tools-1",
+   "hash": "eab9e6f92cf7f578"
+  },
+  "soul": {
+   "version": "soul-2",
+   "sha256": "a791a21360579e04e9497aa2724ddcb6e9ac2f499cdadf7ed1391d77fee142c3"
+  },
+  "session": {
+   "context_period_s": 5.0,
+   "image_period_s": 1.0,
+   "hold_audio_s": 2.0
+  },
+  "setup": {
+   "response_modalities": [
+    "AUDIO"
+   ],
+   "input_transcription": true,
+   "output_transcription": true,
+   "compression": true,
+   "vad": {
+    "start": "START_SENSITIVITY_HIGH",
+    "end": "END_SENSITIVITY_LOW",
+    "prefix_ms": 300,
+    "silence_ms": 500
+   },
+   "media_resolution": null
+  },
+  "say": [],
+  "duck_calls": [
+   {
+    "t": 2.0,
+    "tag": "greet",
+    "level": 0.8
+   },
+   {
+    "t": 3.8,
+    "tag": "chirp",
+    "level": 0.6
+   },
+   {
+    "t": 5.6,
+    "tag": "greet",
+    "level": 0.8
+   },
+   {
+    "t": 7.4,
+    "tag": "inquire",
+    "level": 0.7
+   },
+   {
+    "t": 9.0,
+    "tag": "coo",
+    "level": 0.5
+   }
+  ],
+  "images": [],
+  "context": [
+   {
+    "t": 0.0,
+    "behaviour": "坐著看四周",
+    "valence": 0.15,
+    "drives": {
+     "social": 0.25,
+     "curiosity": 0.3,
+     "fear": 0.05,
+     "energy": 0.45,
+     "play": 0.15,
+     "comfort": 0.7,
+     "boredom": 0.3,
+     "sleep_pressure": 0.5
+    },
+    "known_people": [],
+    "in_view": [],
+    "notes": [
+     "小鴨會自己叫，叫的聲音會從喇叭傳回麥克風"
+    ]
+   }
+  ]
+ },
+ "meta": {
+  "opens": [
+   {
+    "t": 0.0,
+    "resume": false
+   }
+  ],
+  "audio_out_bytes": 72000,
+  "audio_out_span_s": [
+   3.972,
+   6.886
+  ],
+  "run_id": "echo_only__dreamer__s11",
+  "faults": 0,
+  "wall_s": 17.0,
+  "commit": "5dd94de+dirty",
+  "sdk": "google-genai 2.27.0",
+  "python": "3.12.13",
+  "recorded_utc": "2026-10-29T12:01:59+00:00"
+ },
+ "events": [
+  {
+   "t": 0.657,
+   "kind": "opened",
+   "data": {
+    "resumed": false
+   }
+  },
+  {
+   "t": 0.657,
+   "kind": "resumption",
+   "data": {
+    "resumable": true
+   }
+  },
+  {
+   "t": 2.106,
+   "kind": "vad",
+   "data": {
+    "type": "START",
+    "offset_s": 2.12
+   }
+  },
+  {
+   "t": 2.665,
+   "kind": "input_text",
+   "data": {
+    "text": "我"
+   }
+  },
+  {
+   "t": 2.666,
+   "kind": "vad",
+   "data": {
+    "type": "END",
+    "offset_s": 2.68
+   }
+  },
+  {
+   "t": 3.972,
+   "kind": "output_text",
+   "data": {
+    "text": "<no "
+   }
+  },
+  {
+   "t": 4.069,
+   "kind": "output_text",
+   "data": {
+    "text": "speech>{pause}"
+   }
+  },
+  {
+   "t": 4.069,
+   "kind": "generation_complete"
+  },
+  {
+   "t": 4.734,
+   "kind": "turn_complete"
+  },
+  {
+   "t": 4.734,
+   "kind": "usage",
+   "data": {
+    "total": 2395,
+    "prompt": 2370,
+    "response": 25,
+    "thoughts": 69,
+    "by_modality": {
+     "TEXT": 1910,
+     "AUDIO": 232
+    }
+   }
+  },
+  {
+   "t": 5.705,
+   "kind": "vad",
+   "data": {
+    "type": "START",
+    "offset_s": 5.72
+   }
+  },
+  {
+   "t": 6.266,
+   "kind": "input_text",
+   "data": {
+    "text": "我"
+   }
+  },
+  {
+   "t": 6.269,
+   "kind": "vad",
+   "data": {
+    "type": "END",
+    "offset_s": 6.28
+   }
+  },
+  {
+   "t": 6.844,
+   "kind": "output_text",
+   "data": {
+    "text": "<no "
+   }
+  },
+  {
+   "t": 6.94,
+   "kind": "output_text",
+   "data": {
+    "text": "speech>{pause}"
+   }
+  },
+  {
+   "t": 6.94,
+   "kind": "generation_complete"
+  },
+  {
+   "t": 7.588,
+   "kind": "turn_complete"
+  },
+  {
+   "t": 7.588,
+   "kind": "usage",
+   "data": {
+    "total": 2451,
+    "prompt": 2426,
+    "response": 25,
+    "thoughts": 118,
+    "by_modality": {
+     "TEXT": 1917,
+     "AUDIO": 267
+    }
+   }
+  }
+ ]
+}

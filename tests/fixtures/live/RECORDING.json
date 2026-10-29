@@ -1,0 +1,416 @@
+{
+ "note": "Real Gemini Live recordings (tools/live_voice/record.py). 'not_obtained' lists what the service did not give and why; nothing is made up to fill a gap.",
+ "model": "gemini-3.8-live",
+ "sdk": "google-genai 2.27.0",
+ "recorded": {
+  "call_name__dreamer__s11": {
+   "bytes": 3128,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__dreamer__s7": {
+   "bytes": 3126,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__explorer__s11": {
+   "bytes": 3128,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__explorer__s7": {
+   "bytes": 3121,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__hatchling__s11": {
+   "bytes": 3103,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__hatchling__s7": {
+   "bytes": 3127,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__snuggler__s11": {
+   "bytes": 3129,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "call_name__snuggler__s7": {
+   "bytes": 3127,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "echo_only__dreamer__s11": {
+   "bytes": 3999,
+   "events": 18,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "echo_only__dreamer__s7": {
+   "bytes": 5545,
+   "events": 31,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "echo_only__explorer__s11": {
+   "bytes": 2406,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "echo_only__explorer__s7": {
+   "bytes": 2404,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "echo_only__hatchling__s11": {
+   "bytes": 3301,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "echo_only__hatchling__s7": {
+   "bytes": 2692,
+   "events": 5,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "echo_only__snuggler__s11": {
+   "bytes": 2407,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "echo_only__snuggler__s7": {
+   "bytes": 2405,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "hello__dreamer__s11": {
+   "bytes": 3109,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "hello__dreamer__s7": {
+   "bytes": 3105,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "hello__explorer__s11": {
+   "bytes": 3111,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "hello__explorer__s7": {
+   "bytes": 3109,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "hello__hatchling__s11": {
+   "bytes": 3110,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "hello__hatchling__s7": {
+   "bytes": 3252,
+   "events": 9,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "hello__snuggler__s11": {
+   "bytes": 3112,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "hello__snuggler__s7": {
+   "bytes": 3110,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__dreamer__s11": {
+   "bytes": 4669,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__dreamer__s7": {
+   "bytes": 4639,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__explorer__s11": {
+   "bytes": 4524,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__explorer__s7": {
+   "bytes": 4666,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__hatchling__s11": {
+   "bytes": 4800,
+   "events": 16,
+   "tool_calls": 4,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__hatchling__s7": {
+   "bytes": 4666,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__snuggler__s11": {
+   "bytes": 4522,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_kid__snuggler__s7": {
+   "bytes": 4669,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__dreamer__s11": {
+   "bytes": 4652,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__dreamer__s7": {
+   "bytes": 4512,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__explorer__s11": {
+   "bytes": 4517,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__explorer__s7": {
+   "bytes": 4512,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__hatchling__s11": {
+   "bytes": 4512,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__hatchling__s7": {
+   "bytes": 4634,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__snuggler__s11": {
+   "bytes": 4510,
+   "events": 16,
+   "tool_calls": 2,
+   "attempts": 1
+  },
+  "intro_then_hello_mom__snuggler__s7": {
+   "bytes": 4658,
+   "events": 16,
+   "tool_calls": 3,
+   "attempts": 1
+  },
+  "other_name__dreamer__s7": {
+   "bytes": 2522,
+   "events": 5,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "other_name__explorer__s7": {
+   "bytes": 3052,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "other_name__hatchling__s7": {
+   "bytes": 3052,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "other_name__snuggler__s7": {
+   "bytes": 3053,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "silence__dreamer__s7": {
+   "bytes": 2013,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "silence__explorer__s7": {
+   "bytes": 2013,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "silence__hatchling__s7": {
+   "bytes": 2013,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "silence__snuggler__s7": {
+   "bytes": 2014,
+   "events": 2,
+   "tool_calls": 0,
+   "attempts": 1
+  },
+  "stop_calling__dreamer__s11": {
+   "bytes": 3485,
+   "events": 12,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__dreamer__s7": {
+   "bytes": 3490,
+   "events": 12,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__explorer__s11": {
+   "bytes": 3197,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__explorer__s7": {
+   "bytes": 3200,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__hatchling__s11": {
+   "bytes": 3193,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__hatchling__s7": {
+   "bytes": 3195,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__snuggler__s11": {
+   "bytes": 3188,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "stop_calling__snuggler__s7": {
+   "bytes": 3197,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__dreamer__s11": {
+   "bytes": 3275,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__dreamer__s7": {
+   "bytes": 3283,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__explorer__s11": {
+   "bytes": 3286,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__explorer__s7": {
+   "bytes": 3280,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__hatchling__s11": {
+   "bytes": 3291,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__hatchling__s7": {
+   "bytes": 3288,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__snuggler__s11": {
+   "bytes": 3284,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see__snuggler__s7": {
+   "bytes": 3285,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see_empty__dreamer__s7": {
+   "bytes": 3309,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see_empty__explorer__s7": {
+   "bytes": 3315,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see_empty__hatchling__s7": {
+   "bytes": 3309,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  },
+  "what_do_you_see_empty__snuggler__s7": {
+   "bytes": 3313,
+   "events": 9,
+   "tool_calls": 1,
+   "attempts": 1
+  }
+ },
+ "not_obtained": {}
+}

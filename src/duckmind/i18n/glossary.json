@@ -1,0 +1,1484 @@
+{
+ "@": {
+  "schema": "duckmind-i18n-glossary-1",
+  "what": "Recurring terms of the simulator pages: what each means, and the words each language uses for it. Five translators use this so the same thing is said the same way everywhere.",
+  "rules": [
+   "Use the suggestion unless it reads wrong in a sentence; if you choose other words, use them for every occurrence and update the suggestion here.",
+   "keep_as_is: names and product names are never translated (names are data).",
+   "Plain everyday words (白話) for the family, not engineering terms; the duck is a small living pet ('it', warm).",
+   "count / sample_keys: how often the 繁體中文 term appears in the catalogs, and where to look."
+  ],
+  "languages": {
+   "en": "English",
+   "ja": "日本語",
+   "es": "Español",
+   "zh-Hans": "简体中文",
+   "ko": "한국어"
+  }
+ },
+ "terms": [
+  {
+   "zh": "蛋黃",
+   "meaning": "the owner's duck's NAME (data)",
+   "suggest": {
+    "en": "蛋黃",
+    "ja": "蛋黃",
+    "es": "蛋黃",
+    "zh-Hans": "蛋黃",
+    "ko": "蛋黃"
+   },
+   "notes": "Never translated or transliterated: names are data (CLAUDE.md). The same for 阿勇 怯怯 慢慢 啾啾 and every name the family types.",
+   "keep_as_is": true,
+   "count": 3,
+   "sample_keys": [
+    "world.hand.Hand._aim.22c6d7dd",
+    "world.homes.default_home.variants.no_nest.zh",
+    "world.homes.plain_home.variants.no_nest.zh"
+   ]
+  },
+  {
+   "zh": "阿勇 / 怯怯 / 慢慢 / 啾啾",
+   "meaning": "the four demo ducks' names on the neural-duck page (data)",
+   "suggest": {
+    "en": "阿勇 / 怯怯 / 慢慢 / 啾啾",
+    "ja": "阿勇 / 怯怯 / 慢慢 / 啾啾",
+    "es": "阿勇 / 怯怯 / 慢慢 / 啾啾",
+    "zh-Hans": "阿勇 / 怯怯 / 慢慢 / 啾啾",
+    "ko": "阿勇 / 怯怯 / 慢慢 / 啾啾"
+   },
+   "notes": "Names: never translated.",
+   "keep_as_is": true,
+   "count": 35,
+   "sample_keys": [
+    "core.api.snapshot.bfaca15f",
+    "core.content.ADULT_NAMES.dreamer|explorer",
+    "core.content.BRANCHES.snuggler_style",
+    "core.engine.DuckCore._floor_setting.f668cb89",
+    "core.engine.DuckCore.hand_near.9fa84157"
+   ]
+  },
+  {
+   "zh": "小鴨",
+   "meaning": "the duck (a small robot duckling); also the default NAME a new duck gets",
+   "suggest": {
+    "en": "the duck / duckling",
+    "ja": "アヒル（この子）",
+    "es": "el patito",
+    "zh-Hans": "小鸭",
+    "ko": "오리 / 아기 오리"
+   },
+   "notes": "As a word: the duck. As the name of a duck (a field that holds the name, 「小鴨NNN」): data, not translated — the default name is an open decision (docs/i18n.md).",
+   "count": 163,
+   "sample_keys": [
+    "core.api.LegacyActs.touch.952263d9",
+    "core.api.banner.bf6d0e74",
+    "core.api.percept_replay_check.2118eb57",
+    "core.api.world_replay_check.7105efc2",
+    "core.engine.DuckCore._needs_awake.0f44e0dc"
+   ]
+  },
+  {
+   "zh": "牠",
+   "meaning": "pronoun for the duck (an animal: 'it', never he/she)",
+   "suggest": {
+    "en": "it (or the duck's name)",
+    "ja": "この子（名前でも可）",
+    "es": "él / el patito",
+    "zh-Hans": "它",
+    "ko": "얘 / 오리"
+   },
+   "notes": "Write the duck as a small living pet, warmly, third person.",
+   "count": 284,
+   "sample_keys": [
+    "core.api.MORNING_LABEL._",
+    "core.api._nest_banner.0cb6da71",
+    "core.api._nest_banner.1678bd17",
+    "core.api._nest_banner.23acaa6d",
+    "core.api._nest_banner.293189b2"
+   ]
+  },
+  {
+   "zh": "家人",
+   "meaning": "the family who lives with the duck (the people in the house)",
+   "suggest": {
+    "en": "the family",
+    "ja": "家族",
+    "es": "la familia",
+    "zh-Hans": "家人",
+    "ko": "가족"
+   },
+   "count": 88,
+   "sample_keys": [
+    "core.api._nest_banner.0cb6da71",
+    "core.api._nest_banner.32d23cca",
+    "core.api._nest_banner.5dc926df",
+    "core.api._nest_banner.793d32b8",
+    "core.api._nest_banner.8cf0ad02"
+   ]
+  },
+  {
+   "zh": "主人",
+   "meaning": "the owner (the person the duck belongs to; one of the family personas)",
+   "suggest": {
+    "en": "owner",
+    "ja": "飼い主",
+    "es": "dueño / dueña",
+    "zh-Hans": "主人",
+    "ko": "주인"
+   },
+   "count": 45,
+   "sample_keys": [
+    "core.content.PERSONAS.owner",
+    "core.engine.DuckCore.ack_nest_trouble.3d7b50b8",
+    "core.engine.DuckCore.end_quiet.42f495fd",
+    "core.engine.DuckCore.family_leave.c709becf",
+    "core.engine.DuckCore.family_return.89ed35ec"
+   ]
+  },
+  {
+   "zh": "伴侶",
+   "meaning": "the owner's partner (a family persona)",
+   "suggest": {
+    "en": "partner",
+    "ja": "パートナー",
+    "es": "pareja",
+    "zh-Hans": "伴侣",
+    "ko": "배우자"
+   },
+   "count": 4,
+   "sample_keys": [
+    "core.content.PERSONAS.partner",
+    "page.app.renderCommandResult.c7e1d2",
+    "page.html.persona_partner.text",
+    "world.people.PERSONAS.partner_zh"
+   ]
+  },
+  {
+   "zh": "小孩",
+   "meaning": "the child of the family (a persona)",
+   "suggest": {
+    "en": "child",
+    "ja": "子ども",
+    "es": "niño / niña",
+    "zh-Hans": "小孩",
+    "ko": "아이"
+   },
+   "count": 10,
+   "sample_keys": [
+    "core.content.PERSONAS.child",
+    "page.app.QUERY_EXAMPLES.a3c902",
+    "page.app.SUGGESTIONS.a3c902",
+    "page.app.SUGGESTIONS.bf1f78",
+    "page.app.on_cmdForm"
+   ]
+  },
+  {
+   "zh": "長輩",
+   "meaning": "an elder of the family (grandparent; a persona)",
+   "suggest": {
+    "en": "grandparent / elder",
+    "ja": "おじいちゃん・おばあちゃん",
+    "es": "abuelo / abuela",
+    "zh-Hans": "长辈",
+    "ko": "어르신"
+   },
+   "count": 7,
+   "sample_keys": [
+    "core.api._grow_to_first_steps.4c1d2c91",
+    "core.content.PERSONAS.elder",
+    "core.routines.FAMILY_KINDS.elder_home.1",
+    "page.app.renderCommandResult.d1c48d",
+    "page.html.persona_elder.text"
+   ]
+  },
+  {
+   "zh": "訪客",
+   "meaning": "a visitor (a persona who does not live there)",
+   "suggest": {
+    "en": "visitor",
+    "ja": "お客さん",
+    "es": "visita",
+    "zh-Hans": "访客",
+    "ko": "손님"
+   },
+   "count": 14,
+   "sample_keys": [
+    "core.api.banner.ab057d5a",
+    "core.content.PERSONAS.guest",
+    "core.engine.DuckCore._praise.0e413159",
+    "core.engine.DuckCore.pad_guest.9509d7b3",
+    "core.engine.DuckCore.pad_guest.eb89531d"
+   ]
+  },
+  {
+   "zh": "小鴨模擬器",
+   "meaning": "the simulator's name (the page title and brand)",
+   "suggest": {
+    "en": "Duck Simulator",
+    "ja": "アヒル・シミュレーター",
+    "es": "Simulador del patito",
+    "zh-Hans": "小鸭模拟器",
+    "ko": "오리 시뮬레이터"
+   },
+   "count": 5,
+   "sample_keys": [
+    "page.html.brand-name.text",
+    "page.html.brand.aria",
+    "page.html.footer.span.text.191224",
+    "page.html.title.text",
+    "page.neuro.enable"
+   ]
+  },
+  {
+   "zh": "神經鴨",
+   "meaning": "the neural duck: the prototype whose behaviour grows from reflexes, drives and habits (the second page, 8790)",
+   "suggest": {
+    "en": "neural duck",
+    "ja": "ニューラル・ダック",
+    "es": "patito neuronal",
+    "zh-Hans": "神经鸭",
+    "ko": "뉴럴 오리"
+   },
+   "count": 28,
+   "sample_keys": [
+    "neuro.api.set_day.1668",
+    "neuro.api.switch.4c54",
+    "neuro.driver_error.crash",
+    "neuro.error.help_up.d7a2bc",
+    "neuro.error.must_run.378a40"
+   ]
+  },
+  {
+   "zh": "小鴨的腦",
+   "meaning": "the card that shows the neural duck's brain (what it does, why, its reflexes)",
+   "suggest": {
+    "en": "the duck's brain",
+    "ja": "アヒルの脳",
+    "es": "el cerebro del patito",
+    "zh-Hans": "小鸭的脑",
+    "ko": "오리의 뇌"
+   },
+   "count": 4,
+   "sample_keys": [
+    "page.html.neuroBrain.aria",
+    "page.html.neuroBrain.card-title.text",
+    "page.html.neuroStimNote.text",
+    "page.neuro.renderButtons.589a4c"
+   ]
+  },
+  {
+   "zh": "Duck Core",
+   "meaning": "the duck's mind program (the decisions the page shows); a product name",
+   "suggest": {
+    "en": "Duck Core",
+    "ja": "Duck Core",
+    "es": "Duck Core",
+    "zh-Hans": "Duck Core",
+    "ko": "Duck Core"
+   },
+   "notes": "Program and product names stay as they are: Duck Core, Microduck, robotd, MuJoCo, ToF, SHA-256, A100, --live.",
+   "keep_as_is": true,
+   "count": 11,
+   "sample_keys": [
+    "core.acts.Acts.need_port.9a277e43",
+    "core.api.banner.1e60e17c",
+    "core.engine.DuckCore._act_record.249a5674",
+    "core.engine.DuckCore.pad_play.20f8de79",
+    "core.engine.DuckCore.still_reason.b5360cce"
+   ]
+  },
+  {
+   "zh": "反射",
+   "meaning": "reflex: a fast automatic reaction the duck does without thinking",
+   "suggest": {
+    "en": "reflex",
+    "ja": "反射",
+    "es": "reflejo",
+    "zh-Hans": "反射",
+    "ko": "반사"
+   },
+   "count": 28,
+   "sample_keys": [
+    "core.narrate.REFLEX_ZH.greet_stand",
+    "core.narrate.REFLEX_ZH.name_stand",
+    "core.narrate.REFLEX_ZH.name_turn",
+    "core.narrate.REFLEX_ZH.noise_alert",
+    "core.narrate.REFLEX_ZH.touch_settle"
+   ]
+  },
+  {
+   "zh": "驚嚇 / 嚇一跳",
+   "meaning": "startle: a sudden fright reaction (to a loud clap, a bang)",
+   "suggest": {
+    "en": "startle / is startled",
+    "ja": "びっくり（驚く）",
+    "es": "susto / se asusta",
+    "zh-Hans": "惊吓 / 吓一跳",
+    "ko": "깜짝 놀람"
+   },
+   "count": 11,
+   "sample_keys": [
+    "core.engine.DuckCore.hand_near.05a08f24",
+    "neuro.act.startle.name",
+    "neuro.reflex.startle",
+    "neuro.rx.startle.changing_posture",
+    "neuro.rx.startle.default"
+   ]
+  },
+  {
+   "zh": "愣住",
+   "meaning": "freezes for a moment after a startle (shown with seconds: 愣住 1.2 秒)",
+   "suggest": {
+    "en": "freezes",
+    "ja": "固まる",
+    "es": "se queda paralizado",
+    "zh-Hans": "愣住",
+    "ko": "얼어붙음"
+   },
+   "count": 4,
+   "sample_keys": [
+    "neuro.body.hold.freeze",
+    "neuro.body.hold.startle",
+    "neuro.stub.stub_reflex.clap",
+    "neuro.stub.stub_reflex.lights"
+   ]
+  },
+  {
+   "zh": "定住不動",
+   "meaning": "holds perfectly still (a freeze reflex)",
+   "suggest": {
+    "en": "holds still",
+    "ja": "じっと動かない",
+    "es": "se queda inmóvil",
+    "zh-Hans": "定住不动",
+    "ko": "꼼짝 않음"
+   },
+   "count": 3,
+   "sample_keys": [
+    "neuro.body.freeze.held",
+    "neuro.reflex.freeze",
+    "neuro.rx.freeze.plain"
+   ]
+  },
+  {
+   "zh": "縮回來 / 縮開",
+   "meaning": "withdraws (pulls the head or body back from a touch)",
+   "suggest": {
+    "en": "pulls back",
+    "ja": "引っこめる",
+    "es": "se aparta",
+    "zh-Hans": "缩回来",
+    "ko": "움츠림"
+   },
+   "count": 6,
+   "sample_keys": [
+    "neuro.act.withdraw.body",
+    "neuro.act.withdraw.name",
+    "neuro.reflex.withdraw",
+    "neuro.rx.withdraw.from_site",
+    "neuro.rx.withdraw.plain"
+   ]
+  },
+  {
+   "zh": "靠過去",
+   "meaning": "leans in (toward a touch it likes)",
+   "suggest": {
+    "en": "leans in",
+    "ja": "寄っていく",
+    "es": "se acerca",
+    "zh-Hans": "靠过去",
+    "ko": "다가감"
+   },
+   "count": 7,
+   "sample_keys": [
+    "core.engine.EXPERIENCE_MILESTONES.tamed_hand.1",
+    "core.memory._facts.afdaa156",
+    "neuro.reflex.lean_in",
+    "neuro.rx.lean_in.felt_at",
+    "neuro.rx.lean_in.plain"
+   ]
+  },
+  {
+   "zh": "繞開",
+   "meaning": "veers away (walks around something)",
+   "suggest": {
+    "en": "veers away",
+    "ja": "よけて回る",
+    "es": "lo esquiva",
+    "zh-Hans": "绕开",
+    "ko": "비켜 감"
+   },
+   "count": 9,
+   "sample_keys": [
+    "core.engine.DuckCore.walk_reason.2f85896c",
+    "core.memory._diary.c085df37",
+    "core.narrate.describe.0408a3f4",
+    "core.narrate.describe.ac2dff87",
+    "neuro.reflex.veer"
+   ]
+  },
+  {
+   "zh": "側過頭聽",
+   "meaning": "cocks its head to listen",
+   "suggest": {
+    "en": "tilts its head to listen",
+    "ja": "首をかしげて聞く",
+    "es": "ladea la cabeza para escuchar",
+    "zh-Hans": "侧过头听",
+    "ko": "고개를 기울여 들음"
+   },
+   "count": 2,
+   "sample_keys": [
+    "neuro.rx.orient.listen_no_direction",
+    "neuro.rx.orient.one_eye_ahead"
+   ]
+  },
+  {
+   "zh": "被抱起來",
+   "meaning": "is picked up (by a hand)",
+   "suggest": {
+    "en": "is picked up",
+    "ja": "抱き上げられる",
+    "es": "lo levantan",
+    "zh-Hans": "被抱起来",
+    "ko": "안아 올려짐"
+   },
+   "count": 30,
+   "sample_keys": [
+    "core.api._nest_banner.493d2338",
+    "core.engine.DuckCore._hardware_setting.40bbdcba",
+    "core.engine.DuckCore.still_reason.0962cad0",
+    "core.engine.DuckCore.walk_reason.007b182a",
+    "core.engine.DuckCore.walk_reason.0d1b5d84"
+   ]
+  },
+  {
+   "zh": "爬起來",
+   "meaning": "gets back up after a fall (righting)",
+   "suggest": {
+    "en": "gets back up",
+    "ja": "起き上がる",
+    "es": "se levanta",
+    "zh-Hans": "爬起来",
+    "ko": "일어남"
+   },
+   "count": 7,
+   "sample_keys": [
+    "neuro.act.righting.body",
+    "neuro.act.righting.name",
+    "neuro.gate.fallen",
+    "neuro.reflex.righting",
+    "neuro.rx.righting.by_itself"
+   ]
+  },
+  {
+   "zh": "驅力",
+   "meaning": "drive: an inner urge that rises and falls (curiosity, sleepiness, missing the family …)",
+   "suggest": {
+    "en": "drive (urge)",
+    "ja": "欲求",
+    "es": "impulso",
+    "zh-Hans": "驱力",
+    "ko": "욕구"
+   },
+   "count": 5,
+   "sample_keys": [
+    "page.html.brand-sub_neuro.text",
+    "page.html.card-title.text.b60c66",
+    "page.html.eyebrow.text.5bfe45",
+    "page.html.neuro-how.li.text.43b4b6",
+    "page.html.tickerTrack.tick-note_neuro.text"
+   ]
+  },
+  {
+   "zh": "習慣",
+   "meaning": "habituation: it gets used to a repeated thing and reacts less",
+   "suggest": {
+    "en": "getting used to it",
+    "ja": "慣れ",
+    "es": "acostumbrarse",
+    "zh-Hans": "习惯",
+    "ko": "익숙해짐"
+   },
+   "count": 22,
+   "sample_keys": [
+    "core.content.CALENDAR.morning_habit_diary",
+    "core.content.CALENDAR.morning_habit_title",
+    "core.engine.DuckCore._touch_reaction.ea3b6916",
+    "core.engine.DuckCore.say.538c4395",
+    "core.engine.DuckCore.say.a3610def"
+   ]
+  },
+  {
+   "zh": "好奇",
+   "meaning": "curiosity (a drive; also a personality type 好奇型)",
+   "suggest": {
+    "en": "curious / curiosity",
+    "ja": "好奇心",
+    "es": "curiosidad",
+    "zh-Hans": "好奇",
+    "ko": "호기심"
+   },
+   "count": 14,
+   "sample_keys": [
+    "core.content.ADULT_NAMES.snuggler|explorer",
+    "core.content.BRANCHES.explorer_zh",
+    "core.engine.DuckCore.walk_reason.ad96d0cc",
+    "core.engine.LEANING_ZH.explorer",
+    "core.narrate._act_text.41576c9b"
+   ]
+  },
+  {
+   "zh": "精力",
+   "meaning": "energy (a drive)",
+   "suggest": {
+    "en": "energy",
+    "ja": "元気",
+    "es": "energía",
+    "zh-Hans": "精力",
+    "ko": "기운"
+   },
+   "count": 9,
+   "sample_keys": [
+    "core.api._wandering.55840b55",
+    "core.api.banner.313401f2",
+    "core.api.banner.d640f680",
+    "core.engine.DuckCore.still_reason.99685f4b",
+    "core.engine.DuckCore.walk_reason.978f2a53"
+   ]
+  },
+  {
+   "zh": "睡意",
+   "meaning": "sleepiness (a drive)",
+   "suggest": {
+    "en": "sleepiness",
+    "ja": "眠気",
+    "es": "sueño",
+    "zh-Hans": "睡意",
+    "ko": "졸음"
+   },
+   "count": 1,
+   "sample_keys": [
+    "neuro.drive.sleep_pressure"
+   ]
+  },
+  {
+   "zh": "想家人",
+   "meaning": "misses the family (a drive)",
+   "suggest": {
+    "en": "misses the family",
+    "ja": "家族に会いたい",
+    "es": "echa de menos a la familia",
+    "zh-Hans": "想家人",
+    "ko": "가족이 그리움"
+   },
+   "count": 4,
+   "sample_keys": [
+    "neuro.drive.social",
+    "neuro.stub.stub_why.social",
+    "neuro.why.social",
+    "page.html.neuro-how.li.text.43b4b6"
+   ]
+  },
+  {
+   "zh": "小動作",
+   "meaning": "a small moment: a short, cute action the duck does now and then",
+   "suggest": {
+    "en": "little move",
+    "ja": "ちょっとした仕草",
+    "es": "gestito",
+    "zh-Hans": "小动作",
+    "ko": "작은 몸짓"
+   },
+   "count": 1,
+   "sample_keys": [
+    "page.neuro.renderNow.63df76"
+   ]
+  },
+  {
+   "zh": "刺激",
+   "meaning": "a stimulus the page can give the neural duck (a clap, a wave, a touch …)",
+   "suggest": {
+    "en": "stimulus",
+    "ja": "刺激",
+    "es": "estímulo",
+    "zh-Hans": "刺激",
+    "ko": "자극"
+   },
+   "count": 9,
+   "sample_keys": [
+    "neuro.api.stimulus.2d70",
+    "neuro.error.stimulus.9a8dbc",
+    "neuro.web.neuro_api.NeuroHub.stimulus.bea1a0",
+    "neuro.web.neuro_live.NeuroDriver.inject.adf42e",
+    "neuro.world_refusal.d43836"
+   ]
+  },
+  {
+   "zh": "逗逗牠",
+   "meaning": "the card with buttons to play with / provoke the neural duck",
+   "suggest": {
+    "en": "play with it",
+    "ja": "かまってみる",
+    "es": "juega con él",
+    "zh-Hans": "逗逗它",
+    "ko": "놀아 주기"
+   },
+   "count": 7,
+   "sample_keys": [
+    "page.html.eyebrow_neuro.text",
+    "page.html.neuroQuick.aria",
+    "page.html.neuroQuick.stage-stim-label.text",
+    "page.html.neuroReflexes.li.text",
+    "page.html.neuroStim.aria"
+   ]
+  },
+  {
+   "zh": "替身",
+   "meaning": "a stand-in: a made-up part used while the real one is not connected",
+   "suggest": {
+    "en": "stand-in",
+    "ja": "代役",
+    "es": "sustituto",
+    "zh-Hans": "替身",
+    "ko": "대역"
+   },
+   "count": 2,
+   "sample_keys": [
+    "neuro.lanes.lanes_stub",
+    "neuro.web.neuro_api.DriverSource.status.4d8a6a"
+   ]
+  },
+  {
+   "zh": "窩",
+   "meaning": "the duck's nest: its bed at home, where it rests and (with a dock) charges",
+   "suggest": {
+    "en": "nest",
+    "ja": "巣",
+    "es": "nido",
+    "zh-Hans": "窝",
+    "ko": "둥지"
+   },
+   "count": 238,
+   "sample_keys": [
+    "core.api._nest_banner.0cb6da71",
+    "core.api._nest_banner.10b8ed72",
+    "core.api._nest_banner.1678bd17",
+    "core.api._nest_banner.23acaa6d",
+    "core.api._nest_banner.32d23cca"
+   ]
+  },
+  {
+   "zh": "充電座",
+   "meaning": "the charging dock (the nest's charging base the duck docks on)",
+   "suggest": {
+    "en": "charging dock",
+    "ja": "充電台",
+    "es": "base de carga",
+    "zh-Hans": "充电座",
+    "ko": "충전대"
+   },
+   "count": 33,
+   "sample_keys": [
+    "neuro.stub.stubsource.snapshot.zh.abce1d",
+    "page.app.renderWorld.dc65d2",
+    "page.app.renderWorld.e7f39c",
+    "page.app.setPlaying.805f51",
+    "page.duck3d.HAND_DOCK_ZH"
+   ]
+  },
+  {
+   "zh": "倒退進座 / 倒退進窩",
+   "meaning": "backs into the dock / nest (reverses in to charge)",
+   "suggest": {
+    "en": "backs into the dock",
+    "ja": "バックで充電台に入る",
+    "es": "entra en la base marcha atrás",
+    "zh-Hans": "倒退进座",
+    "ko": "후진해서 충전대에 들어감"
+   },
+   "count": 11,
+   "sample_keys": [
+    "neuro.act.return_dock.body",
+    "neuro.dock.fail.gate",
+    "neuro.dock.fail.reverse",
+    "neuro.dock.phase.reverse_in",
+    "neuro.gate.back_arc"
+   ]
+  },
+  {
+   "zh": "接點",
+   "meaning": "the dock's electrical contacts (touching them starts the charge)",
+   "suggest": {
+    "en": "contacts",
+    "ja": "接点",
+    "es": "contactos",
+    "zh-Hans": "接点",
+    "ko": "접점"
+   },
+   "count": 15,
+   "sample_keys": [
+    "core.narrate.describe.01fff9a7",
+    "core.narrate.describe.1ca6cf92",
+    "core.narrate.describe.631f3f3a",
+    "neuro.act.return_dock.body",
+    "neuro.channel.power"
+   ]
+  },
+  {
+   "zh": "地墊",
+   "meaning": "the floor mat (a soft mat on the floor)",
+   "suggest": {
+    "en": "floor mat",
+    "ja": "マット",
+    "es": "alfombrilla",
+    "zh-Hans": "地垫",
+    "ko": "매트"
+   },
+   "count": 7,
+   "sample_keys": [
+    "neuro.stimulus.carry_to_mat.label",
+    "neuro.world.carry_to_mat",
+    "page.html.neuroCarry.text",
+    "page.neuro.neuroMode.7f1fe9",
+    "page.neuro.neuroMode.85099e"
+   ]
+  },
+  {
+   "zh": "電量 / 電池",
+   "meaning": "battery level / the battery",
+   "suggest": {
+    "en": "battery",
+    "ja": "バッテリー",
+    "es": "batería",
+    "zh-Hans": "电量 / 电池",
+    "ko": "배터리"
+   },
+   "count": 84,
+   "sample_keys": [
+    "core.api._nest_banner.1678bd17",
+    "core.api._nest_banner.23acaa6d",
+    "core.api._nest_banner.594ccc78",
+    "core.api._nest_banner.99a084cc",
+    "core.api._nest_off_banner.149e2ddd"
+   ]
+  },
+  {
+   "zh": "關機 / 開機",
+   "meaning": "powered off / on",
+   "suggest": {
+    "en": "off / on (powered)",
+    "ja": "電源オフ / オン",
+    "es": "apagado / encendido",
+    "zh-Hans": "关机 / 开机",
+    "ko": "전원 끔 / 켬"
+   },
+   "count": 85,
+   "sample_keys": [
+    "core.api.LegacyActs.hold_head.88908f25",
+    "core.api.LegacyActs.touch.177c58a9",
+    "core.api._nest_off_banner.253d0c43",
+    "core.api._nest_off_banner.28e57ceb",
+    "core.api._nest_off_banner.37688027"
+   ]
+  },
+  {
+   "zh": "伸懶腰",
+   "meaning": "stretches (after a nap; a comfort move)",
+   "suggest": {
+    "en": "stretches",
+    "ja": "伸びをする",
+    "es": "se estira",
+    "zh-Hans": "伸懒腰",
+    "ko": "기지개를 켬"
+   },
+   "count": 5,
+   "sample_keys": [
+    "core.api._nest_banner.5dc926df",
+    "core.content.CALENDAR.morning_habit_diary",
+    "core.content.QUIRK_HABITS.stretch_after_nap",
+    "core.content.VERBS.stretch_yawn_zh",
+    "core.engine.DuckCore.still_reason.20f35003"
+   ]
+  },
+  {
+   "zh": "理毛",
+   "meaning": "preens its feathers",
+   "suggest": {
+    "en": "preens",
+    "ja": "羽づくろい",
+    "es": "se acicala",
+    "zh-Hans": "理毛",
+    "ko": "깃털 손질"
+   },
+   "count": 9,
+   "sample_keys": [
+    "core.content.MOMENTS.displacement_preen_zh",
+    "core.content.MOMENTS.i_meant_to_do_that_zh",
+    "core.content.MOMENT_SHORT.displacement_preen",
+    "core.content.QUIRK_HABITS.tilt_before_preen",
+    "core.content.VERBS.preen_zh"
+   ]
+  },
+  {
+   "zh": "歪頭",
+   "meaning": "tilts its head (a quirk: always to one side)",
+   "suggest": {
+    "en": "head tilt",
+    "ja": "首かしげ",
+    "es": "ladea la cabeza",
+    "zh-Hans": "歪头",
+    "ko": "고개 갸웃"
+   },
+   "count": 16,
+   "sample_keys": [
+    "core.api.snapshot.be78dcc3",
+    "core.content.BRANCHES.explorer_style",
+    "core.content.PAUSE_VERBS.tilt_body",
+    "core.content.VERBS.nuzzle_tilt_zh",
+    "core.content.VERBS.perk_tilt_zh"
+   ]
+  },
+  {
+   "zh": "張望",
+   "meaning": "looks around",
+   "suggest": {
+    "en": "looks around",
+    "ja": "きょろきょろ見回す",
+    "es": "mira a su alrededor",
+    "zh-Hans": "张望",
+    "ko": "두리번거림"
+   },
+   "count": 11,
+   "sample_keys": [
+    "core.content.CALENDAR.morning_habit_diary",
+    "core.content.CLIP_ZH.scan",
+    "core.content.MOMENTS.false_start_zh",
+    "core.content.QUIRK_HABITS.double_look",
+    "core.content.VERBS.look_around_zh"
+   ]
+  },
+  {
+   "zh": "啄",
+   "meaning": "pecks (with its beak)",
+   "suggest": {
+    "en": "pecks",
+    "ja": "つつく",
+    "es": "picotea",
+    "zh-Hans": "啄",
+    "ko": "쪼기"
+   },
+   "count": 15,
+   "sample_keys": [
+    "curiosity.demo.OUTCOME_ZH.squirted",
+    "curiosity.demo.OUTCOME_ZH.unreachable",
+    "curiosity.demo.VERBS_ZH.peck",
+    "neuro.act.forage.body",
+    "neuro.act.peck.body"
+   ]
+  },
+  {
+   "zh": "小睡",
+   "meaning": "a nap",
+   "suggest": {
+    "en": "nap",
+    "ja": "お昼寝",
+    "es": "siesta",
+    "zh-Hans": "小睡",
+    "ko": "낮잠"
+   },
+   "count": 11,
+   "sample_keys": [
+    "core.api.banner.93308670",
+    "core.api.banner.ef72c8c9",
+    "core.content.VERBS.nap_zh",
+    "core.engine.DuckCore.nap_now.6402489e",
+    "core.engine.DuckCore.nap_now.802481da"
+   ]
+  },
+  {
+   "zh": "特雷門琴",
+   "meaning": "a theremin (an electronic instrument the neural duck plays by moving near it)",
+   "suggest": {
+    "en": "theremin",
+    "ja": "テルミン",
+    "es": "theremín",
+    "zh-Hans": "特雷门琴",
+    "ko": "테레민"
+   },
+   "count": 3,
+   "sample_keys": [
+    "neuro.act.theremin.body",
+    "neuro.act.theremin.name",
+    "neuro.incoming.incoming_simweb_neuro_voice_stream.NO_HELPER_ZH"
+   ]
+  },
+  {
+   "zh": "走路 / 站起來 / 坐 / 跌倒",
+   "meaning": "walking / stands up / sits / falls over (the body's postures)",
+   "suggest": {
+    "en": "walks / stands up / sits / falls",
+    "ja": "歩く / 立ち上がる / 座る / 転ぶ",
+    "es": "camina / se levanta / se sienta / se cae",
+    "zh-Hans": "走路 / 站起来 / 坐 / 摔倒",
+    "ko": "걷기 / 일어서기 / 앉기 / 넘어짐"
+   },
+   "count": 70,
+   "sample_keys": [
+    "core.api._nest_banner.10b8ed72",
+    "core.api.banner.0db6037b",
+    "core.api.banner.14389d4e",
+    "core.content.MOMENTS.i_meant_to_do_that_zh",
+    "core.content.MOMENTS.smart_detour_zh"
+   ]
+  },
+  {
+   "zh": "成長日",
+   "meaning": "a growth day: one day of the duck's life counted for growing up",
+   "suggest": {
+    "en": "growth day",
+    "ja": "成長日",
+    "es": "día de crecimiento",
+    "zh-Hans": "成长日",
+    "ko": "성장일"
+   },
+   "count": 34,
+   "sample_keys": [
+    "core.api._grow_to_first_steps.4c1d2c91",
+    "core.api._grow_to_first_steps.ba90d0f3",
+    "core.api.banner.01adf1e9",
+    "core.api.banner.506349b2",
+    "core.api.banner.6a9e6e66"
+   ]
+  },
+  {
+   "zh": "雛鴨 / 幼鴨 / 少年鴨 / 成鴨",
+   "meaning": "the four life stages: hatchling, duckling, juvenile, adult",
+   "suggest": {
+    "en": "hatchling / duckling / juvenile / adult",
+    "ja": "ヒナ / 子アヒル / 若アヒル / おとなアヒル",
+    "es": "polluelo / patito / patito joven / pato adulto",
+    "zh-Hans": "雏鸭 / 幼鸭 / 少年鸭 / 成鸭",
+    "ko": "새끼 오리 / 아기 오리 / 청소년 오리 / 어른 오리"
+   },
+   "count": 19,
+   "sample_keys": [
+    "core.api.banner.01adf1e9",
+    "core.api.banner.c59213f1",
+    "core.api.snapshot.d1f519ba",
+    "core.content.CALENDAR.adult_title",
+    "core.content.CALENDAR.duckling_diary"
+   ]
+  },
+  {
+   "zh": "孵化 / 重新孵化",
+   "meaning": "hatch / hatch a new duck (start over)",
+   "suggest": {
+    "en": "hatch / hatch a new duck",
+    "ja": "ふ化 / 新しくふ化",
+    "es": "nacer / criar un patito nuevo",
+    "zh-Hans": "孵化 / 重新孵化",
+    "ko": "부화 / 새로 부화"
+   },
+   "count": 11,
+   "sample_keys": [
+    "core.api.banner.4c21c898",
+    "core.api.banner.c76ffdd1",
+    "core.content.CALENDAR.hatched_diary",
+    "core.content.CALENDAR.hatched_title",
+    "core.engine.DuckCore._hatch.9adc2eb5"
+   ]
+  },
+  {
+   "zh": "個性 / 天性",
+   "meaning": "personality / its nature (what it was born with)",
+   "suggest": {
+    "en": "personality / nature",
+    "ja": "性格 / 生まれつき",
+    "es": "personalidad / carácter",
+    "zh-Hans": "个性 / 天性",
+    "ko": "성격 / 타고난 성향"
+   },
+   "count": 24,
+   "sample_keys": [
+    "core.engine.DuckCore.forget.1cb54f1b",
+    "core.engine.DuckCore.walk_reason.ad96d0cc",
+    "core.memory._facts.a568745b",
+    "core.narrate.describe.13bd7412",
+    "core.narrate.describe.25ae6418"
+   ]
+  },
+  {
+   "zh": "怪癖",
+   "meaning": "a quirk (a small habit only this duck has)",
+   "suggest": {
+    "en": "quirk",
+    "ja": "くせ",
+    "es": "manía",
+    "zh-Hans": "怪癖",
+    "ko": "버릇"
+   },
+   "count": 8,
+   "sample_keys": [
+    "core.memory._facts.16f69fae",
+    "core.memory._facts.ecf3d84b",
+    "core.narrate.describe.b671fa97",
+    "core.query.CATEGORY_HINTS.quirk.0",
+    "core.query.CATEGORY_ZH.quirk"
+   ]
+  },
+  {
+   "zh": "愛唱歌型 / 好奇型 / 依偎型 / 悠哉型",
+   "meaning": "the four personality types: songbird, explorer, snuggler, dreamer",
+   "suggest": {
+    "en": "songbird / explorer / snuggler / dreamer",
+    "ja": "歌好きタイプ / 好奇心タイプ / 甘えんぼタイプ / のんびりタイプ",
+    "es": "cantarín / explorador / mimoso / soñador",
+    "zh-Hans": "爱唱歌型 / 好奇型 / 依偎型 / 悠哉型",
+    "ko": "노래쟁이형 / 탐험가형 / 애교쟁이형 / 느긋한 형"
+   },
+   "count": 4,
+   "sample_keys": [
+    "core.content.BRANCHES.dreamer_zh",
+    "core.content.BRANCHES.explorer_zh",
+    "core.content.BRANCHES.snuggler_zh",
+    "core.content.BRANCHES.songbird_zh"
+   ]
+  },
+  {
+   "zh": "機智時刻 / 呆萌時刻",
+   "meaning": "a clever moment / a goofy-cute moment (the duck's highlight moments)",
+   "suggest": {
+    "en": "clever moment / goofy moment",
+    "ja": "かしこい瞬間 / おとぼけの瞬間",
+    "es": "momento ingenioso / momento torpe y tierno",
+    "zh-Hans": "机智时刻 / 呆萌时刻",
+    "ko": "재치 있는 순간 / 허당 순간"
+   },
+   "count": 11,
+   "sample_keys": [
+    "core.api.banner.7fb93745",
+    "core.api.banner.e4ee0f4c",
+    "core.memory._diary.1205a648",
+    "core.memory._diary.33cae206",
+    "core.memory._facts.31be37d4"
+   ]
+  },
+  {
+   "zh": "乖！",
+   "meaning": "'Good duck!' — the praise button and word",
+   "suggest": {
+    "en": "Good duck!",
+    "ja": "いい子！",
+    "es": "¡Buen patito!",
+    "zh-Hans": "乖！",
+    "ko": "착하지!"
+   },
+   "count": 12,
+   "sample_keys": [
+    "core.content.CALENDAR.phrase_vote_diary",
+    "core.engine.DuckCore.owner_good.4c51caaf",
+    "core.engine.DuckCore.pad_good.c1ca050a",
+    "core.narrate.describe.0bbed6cd",
+    "core.narrate.describe.19fd45e5"
+   ]
+  },
+  {
+   "zh": "叫聲",
+   "meaning": "the duck's calls (its voice: short duck sounds)",
+   "suggest": {
+    "en": "calls (voice)",
+    "ja": "鳴き声",
+    "es": "sonidos",
+    "zh-Hans": "叫声",
+    "ko": "울음소리"
+   },
+   "count": 39,
+   "sample_keys": [
+    "core.content.RARE_POOLS.uncommon.startled_self",
+    "neuro.cause.sound.duck_call",
+    "neuro.stimulus_class.sound.duck_call",
+    "neuro.stub.stub_reflex.call_name",
+    "page.html.callMute.text.727b60"
+   ]
+  },
+  {
+   "zh": "片語 / 歌",
+   "meaning": "a phrase (a short babble the duck repeats) / its song (phrases in a row)",
+   "suggest": {
+    "en": "phrase / song",
+    "ja": "フレーズ / 歌",
+    "es": "frase / canción",
+    "zh-Hans": "短语 / 歌",
+    "ko": "구절 / 노래"
+   },
+   "count": 27,
+   "sample_keys": [
+    "core.api.snapshot.978d5f8e",
+    "core.content.BRANCHES.songbird_style",
+    "core.content.CALENDAR.phrase_vote_diary",
+    "core.content.CALENDAR.phrase_vote_title",
+    "core.content.CALENDAR.song_draft_diary"
+   ]
+  },
+  {
+   "zh": "啾 / 嗯？ / 咕～ / 嘎！ / 咻～ / 嘎嘎！",
+   "meaning": "the duck's sounds: chirp, inquire, coo, greet, wheee, alarm",
+   "suggest": {
+    "en": "peep / hm? / coo~ / quack! / wheee~ / quack quack!",
+    "ja": "ピッ / ん？ / クー～ / グワッ！ / ヒュー～ / グワグワッ！",
+    "es": "pío / ¿mm? / cu~ / ¡cuac! / ¡fiuu~! / ¡cuac, cuac!",
+    "zh-Hans": "啾 / 嗯？ / 咕～ / 嘎！ / 咻～ / 嘎嘎！",
+    "ko": "삐약 / 응? / 구~ / 꽥! / 휘~ / 꽥꽥!"
+   },
+   "notes": "Onomatopoeia in your language, 1–4 characters, keep the ～ / ！ feel.",
+   "count": 29,
+   "sample_keys": [
+    "core.content.MOMENTS.zoomies_zh",
+    "core.content.RARE_POOLS.rare.short_wheee",
+    "core.content.TAG_ZH.coo",
+    "core.content.TAG_ZH.greet",
+    "core.content.TAG_ZH.wheee"
+   ]
+  },
+  {
+   "zh": "換羽",
+   "meaning": "the voice's 'molt': a proposal to change the duck's voice as it grows",
+   "suggest": {
+    "en": "voice molt",
+    "ja": "声がわり",
+    "es": "muda de voz",
+    "zh-Hans": "换羽",
+    "ko": "목소리 털갈이"
+   },
+   "count": 12,
+   "sample_keys": [
+    "core.content.CALENDAR.quarter_diary",
+    "core.engine.DuckCore.choose.153d1166",
+    "core.engine.DuckCore.choose.3f22ef73",
+    "core.engine.DuckCore.choose.57bb4326",
+    "core.engine.DuckCore.choose.61c9a3df"
+   ]
+  },
+  {
+   "zh": "物理 / 物理身體",
+   "meaning": "physics / the physics body: the simulated body (official robotd + MuJoCo) that really moves",
+   "suggest": {
+    "en": "physics / the physics body",
+    "ja": "物理 / 物理の体",
+    "es": "la física / el cuerpo físico",
+    "zh-Hans": "物理 / 物理身体",
+    "ko": "물리 / 물리 몸"
+   },
+   "count": 162,
+   "sample_keys": [
+    "bodyhost.assess.07fced96",
+    "bodyhost.assess.2cb0db19",
+    "bodyhost.assess.47a6c2e8",
+    "bodyhost.assess.6bb2dde9",
+    "bodyhost.assess.a17e22b8"
+   ]
+  },
+  {
+   "zh": "物理真相",
+   "meaning": "the physics truth: where the body really is (drawn as a green line)",
+   "suggest": {
+    "en": "physics truth",
+    "ja": "物理の真実",
+    "es": "la verdad física",
+    "zh-Hans": "物理真相",
+    "ko": "물리 실제 위치"
+   },
+   "count": 4,
+   "sample_keys": [
+    "page.duck3d.step.6a7f61",
+    "page.duck3d.step.e38efc",
+    "page.neuro.applyBody.440d9b",
+    "page.truth.TRUTH_TITLE"
+   ]
+  },
+  {
+   "zh": "物理不可信",
+   "meaning": "the physics can't be trusted right now (a warning badge)",
+   "suggest": {
+    "en": "physics not trustworthy",
+    "ja": "物理が信用できない",
+    "es": "física no fiable",
+    "zh-Hans": "物理不可信",
+    "ko": "물리를 믿을 수 없음"
+   },
+   "count": 2,
+   "sample_keys": [
+    "page.duck3d.liveText.94de65",
+    "page.html.chip.text"
+   ]
+  },
+  {
+   "zh": "計畫 / 影子鴨",
+   "meaning": "Duck Core's plan / the translucent shadow duck that shows it (not physics)",
+   "suggest": {
+    "en": "plan / shadow duck",
+    "ja": "計画 / 影のアヒル",
+    "es": "plan / patito sombra",
+    "zh-Hans": "计划 / 影子鸭",
+    "ko": "계획 / 그림자 오리"
+   },
+   "count": 7,
+   "sample_keys": [
+    "page.app.FLAT_DETAIL",
+    "page.app.PLAN_TITLE",
+    "page.duck3d.PLACED_WHY_ZH.sync",
+    "page.duck3d.neuroMode.5a428e",
+    "page.html.duck3dLive.label.title.4881b0"
+   ]
+  },
+  {
+   "zh": "鴨眼 / 牠的鏡頭",
+   "meaning": "the duck's eye: the camera on its head and what it sees",
+   "suggest": {
+    "en": "the duck's eye (its camera)",
+    "ja": "アヒルの目（カメラ）",
+    "es": "el ojo del patito (su cámara)",
+    "zh-Hans": "鸭眼 / 它的镜头",
+    "ko": "오리 눈 (카메라)"
+   },
+   "count": 51,
+   "sample_keys": [
+    "core.narrate.SENSOR_ZH.camera",
+    "eye.frames.EyeWindow.fetch_once.4f1ad1b6",
+    "eye.frames.NOT_OPEN._",
+    "eye.frames.NO_SOCKET._",
+    "neuro.channel.camera"
+   ]
+  },
+  {
+   "zh": "用眼睛做",
+   "meaning": "do it by eye: the duck finds the thing with its own camera and walks to it",
+   "suggest": {
+    "en": "by eye",
+    "ja": "目で見てやる",
+    "es": "con sus propios ojos",
+    "zh-Hans": "用眼睛做",
+    "ko": "눈으로 보고 하기"
+   },
+   "count": 12,
+   "sample_keys": [
+    "page.duck3d.demoFrame.4951c2",
+    "page.duck3d.demoFrame.d0e7fb",
+    "page.html.worldTools.p.text",
+    "page.html.world_body_eye_kind_bump.text",
+    "page.html.world_body_eye_kind_kick.text"
+   ]
+  },
+  {
+   "zh": "示範",
+   "meaning": "a demo (the page shows a move on purpose)",
+   "suggest": {
+    "en": "demo",
+    "ja": "デモ",
+    "es": "demostración",
+    "zh-Hans": "示范",
+    "ko": "시범"
+   },
+   "count": 45,
+   "sample_keys": [
+    "neuro.hook.demo_busy",
+    "neuro.label",
+    "neuro.stub.stubsource.help_up.note_zh",
+    "neuro.stub.stubsource.snapshot.note_zh",
+    "neuro.stub.stubsource.snapshot.zh.e80910"
+   ]
+  },
+  {
+   "zh": "世界",
+   "meaning": "the physics world around the duck (the home, things, people)",
+   "suggest": {
+    "en": "the world",
+    "ja": "世界",
+    "es": "el mundo",
+    "zh-Hans": "世界",
+    "ko": "세계"
+   },
+   "count": 59,
+   "sample_keys": [
+    "core.api.percept_replay_check.1da7b938",
+    "core.api.world_replay_check.09229f77",
+    "core.api.world_replay_check.370423af",
+    "core.api.world_replay_check.530dc3d3",
+    "core.api.world_replay_check.7105efc2"
+   ]
+  },
+  {
+   "zh": "事件鏈 / 重播驗證",
+   "meaning": "the event chain (every event, hash-linked) / the replay check (re-run and compare)",
+   "suggest": {
+    "en": "event chain / replay check",
+    "ja": "イベントチェーン / 再生チェック",
+    "es": "cadena de eventos / comprobación por repetición",
+    "zh-Hans": "事件链 / 重播验证",
+    "ko": "이벤트 체인 / 재생 검증"
+   },
+   "count": 16,
+   "sample_keys": [
+    "core.api.percept_replay_check.0e8e223d",
+    "core.api.percept_replay_check.1da7b938",
+    "core.api.percept_replay_check.e00c7131",
+    "core.api.replay_check.3bfb0fd1",
+    "core.api.replay_check.641eb847"
+   ]
+  },
+  {
+   "zh": "蒸餾記憶 / 記憶圖 / 日記 / 問牠",
+   "meaning": "the memory tabs: distilled memory, memory graph, diary, ask it",
+   "suggest": {
+    "en": "distilled memory / memory graph / diary / ask it",
+    "ja": "要約した記憶 / 記憶マップ / 日記 / 聞いてみる",
+    "es": "memoria destilada / mapa de recuerdos / diario / pregúntale",
+    "zh-Hans": "蒸馏记忆 / 记忆图 / 日记 / 问它",
+    "ko": "정리된 기억 / 기억 지도 / 일기 / 물어보기"
+   },
+   "count": 13,
+   "sample_keys": [
+    "page.app.drawGraph.3960e9",
+    "page.app.loadDiary.2a9cae",
+    "page.app.renderCommandResult.8645c5",
+    "page.app.runQuery.22d908",
+    "page.app.runQuery.61f26e"
+   ]
+  },
+  {
+   "zh": "快轉",
+   "meaning": "fast-forward (let the duck's days pass quickly)",
+   "suggest": {
+    "en": "fast-forward",
+    "ja": "早送り",
+    "es": "avance rápido",
+    "zh-Hans": "快进",
+    "ko": "빨리 감기"
+   },
+   "count": 18,
+   "sample_keys": [
+    "core.api._grow_to_first_steps.4c1d2c91",
+    "core.api._grow_to_first_steps.ba90d0f3",
+    "page.app.alignLabel.3f8450",
+    "page.app.onScenarioClick.1cbe02",
+    "page.app.onScenarioClick.7c1d78"
+   ]
+  },
+  {
+   "zh": "讓時間流動 / 真實時間",
+   "meaning": "let time run (the play button) / real time (1 second = 1 second)",
+   "suggest": {
+    "en": "let time run / real time",
+    "ja": "時間を進める / リアルタイム",
+    "es": "dejar correr el tiempo / tiempo real",
+    "zh-Hans": "让时间流动 / 真实时间",
+    "ko": "시간 흐르게 하기 / 실시간"
+   },
+   "count": 17,
+   "sample_keys": [
+    "bodyhost.assess.2cb0db19",
+    "bodyhost.assess.b03bfce0",
+    "page.app.SPEED_ZH.rt",
+    "page.app.loadDiary.2a9cae",
+    "page.app.renderBanner.21203b"
+   ]
+  },
+  {
+   "zh": "半夜 / 清晨 / 早上 / 上午 / 中午 / 下午 / 傍晚 / 晚上",
+   "meaning": "the parts of the day the neural duck's clock names",
+   "suggest": {
+    "en": "midnight / dawn / morning / late morning / noon / afternoon / dusk / evening",
+    "ja": "夜中 / 明け方 / 朝 / 午前 / 昼 / 午後 / 夕方 / 夜",
+    "es": "madrugada / amanecer / mañana / media mañana / mediodía / tarde / atardecer / noche",
+    "zh-Hans": "半夜 / 清晨 / 早上 / 上午 / 中午 / 下午 / 傍晚 / 晚上",
+    "ko": "한밤중 / 새벽 / 아침 / 오전 / 정오 / 오후 / 해 질 녘 / 저녁"
+   },
+   "notes": "Times stay 24-hour HH:MM in every language.",
+   "count": 6,
+   "sample_keys": [
+    "neuro.day.evening",
+    "neuro.day.midnight",
+    "neuro.day_part.dawn",
+    "neuro.day_part.evening",
+    "neuro.day_part.late_night"
+   ]
+  },
+  {
+   "zh": "公尺 / 公分 / 公尺/秒 / 秒 / 分鐘",
+   "meaning": "units: metre, centimetre, metres per second, second, minute",
+   "suggest": {
+    "en": "m / cm / m/s / s / min",
+    "ja": "m / cm / m/s / 秒 / 分",
+    "es": "m / cm / m/s / s / min",
+    "zh-Hans": "米 / 厘米 / 米/秒 / 秒 / 分钟",
+    "ko": "m / cm / m/s / 초 / 분"
+   },
+   "notes": "Numbers use {x, number, …} in messages: the decimal mark follows the language (es: 0,5). Counted nouns use plural forms in en/es.",
+   "count": 63,
+   "sample_keys": [
+    "core.api._nest_wandering.4d4039e4",
+    "core.engine.DuckCore._walk_keepsakes.07de6b4f",
+    "core.engine.DuckCore.pad_play.a168810a",
+    "core.engine.DuckCore.pad_play.de66082c",
+    "core.engine.DuckCore.set_roam_radius.01de353e"
+   ]
+  },
+  {
+   "zh": "頭頂 / 背上 / 尾巴 / 嘴巴",
+   "meaning": "where the duck was touched: top of the head, back, tail, beak",
+   "suggest": {
+    "en": "head / back / tail / beak",
+    "ja": "頭のてっぺん / 背中 / しっぽ / くちばし",
+    "es": "la cabeza / el lomo / la cola / el pico",
+    "zh-Hans": "头顶 / 背上 / 尾巴 / 嘴巴",
+    "ko": "정수리 / 등 / 꼬리 / 부리"
+   },
+   "notes": "嘴巴 on a duck is its beak (bill).",
+   "count": 34,
+   "sample_keys": [
+    "core.api.LegacyActs.touch.03304e19",
+    "core.api.LegacyActs.touch.a518cb19",
+    "core.content.EPITHETS.chases_tail",
+    "core.content.MOMENTS.chases_tail_zh",
+    "core.content.MOMENTS.vacuum_dabble_zh"
+   ]
+  },
+  {
+   "zh": "上游",
+   "meaning": "the original open-source projects duckmind builds on (Pollen Robotics' microduck, microduck_rl, robotd, the sounds program); NOT 'official': duckmind is unofficial (owner decision Q5, 2026-10-29)",
+   "suggest": {
+    "en": "upstream",
+    "ja": "アップストリームの",
+    "es": "original",
+    "zh-Hans": "上游",
+    "ko": "업스트림"
+   },
+   "notes": "Never write 官方 / official / 公式 / oficial / 공식 for these things; only the footer's 'unofficial' line uses that word.",
+   "count": 25,
+   "sample_keys": [
+    "core.engine.DuckCore._shutdown_end.7a1c2aed",
+    "core.engine.DuckCore.pickup.c74a7896",
+    "core.engine.DuckCore.power_off.d089a926"
+   ]
+  },
+  {
+   "zh": "Pollen 的",
+   "meaning": "belonging to Pollen Robotics, the makers of Microduck: their 3D model and their duck calls (credit, not a claim to be them)",
+   "suggest": {
+    "en": "Pollen's",
+    "ja": "Pollen の",
+    "es": "de Pollen",
+    "zh-Hans": "Pollen 的",
+    "ko": "Pollen의"
+   },
+   "notes": "Used for the footer credit, the 3D model and the calls (owner decision Q5); errors and the rest say 上游.",
+   "count": 6,
+   "sample_keys": [
+    "neuro.act.theremin.body",
+    "page.html.duck3dNote.text",
+    "page.html.footer.span.text.790f54"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,277 @@
+{
+ "format": 1,
+ "scenario_id": "intro_then_hello_mom",
+ "scenario_hash": "7a3b6f0f727ea0e2f5d3986ef0776e2299e4c3075ea42c76847692521cbae328",
+ "complete": true,
+ "inputs": {
+  "format": 1,
+  "scenario": "intro_then_hello_mom",
+  "temperament": "explorer",
+  "seed": 7,
+  "length_s": 14.0,
+  "tail_s": 5.0,
+  "duck": {
+   "name": "蛋黃",
+   "genome_seed": 4107,
+   "gd": 60,
+   "voice_seed": 936833334,
+   "voice_bank_version": 5,
+   "at_m": [
+    0.0,
+    0.0
+   ]
+  },
+  "model": "gemini-3.8-live",
+  "tool_schema": {
+   "version": "tools-1",
+   "hash": "eab9e6f92cf7f578"
+  },
+  "soul": {
+   "version": "soul-2",
+   "sha256": "4d5b405477a21cf5249665b118b555cc70ee10a1971b3685c052505d8688e254"
+  },
+  "session": {
+   "context_period_s": 5.0,
+   "image_period_s": 1.0,
+   "hold_audio_s": 2.0
+  },
+  "setup": {
+   "response_modalities": [
+    "AUDIO"
+   ],
+   "input_transcription": true,
+   "output_transcription": true,
+   "compression": true,
+   "vad": {
+    "start": "START_SENSITIVITY_HIGH",
+    "end": "END_SENSITIVITY_LOW",
+    "prefix_ms": 300,
+    "silence_ms": 500
+   },
+   "media_resolution": null
+  },
+  "say": [
+   {
+    "t": 2.0,
+    "utterance": "intro_mom",
+    "sha256": "55e18ca7139ccd9333b688acb834b15b17a24f37b9316a035bd0b0d3689b0ec1",
+    "who": "dad",
+    "at_m": [
+     1.0,
+     0.8
+    ]
+   },
+   {
+    "t": 11.0,
+    "utterance": "hello",
+    "sha256": "6a9301f6e0f94220bcabbd914e202f7b6f767983f345231e72901eb928b2fbc2",
+    "who": "mom",
+    "at_m": [
+     2.0,
+     0.0
+    ]
+   }
+  ],
+  "duck_calls": [],
+  "images": [],
+  "context": [
+   {
+    "t": 0.0,
+    "behaviour": "坐著看四周",
+    "valence": 0.15,
+    "drives": {
+     "social": 0.3,
+     "curiosity": 0.7,
+     "fear": 0.05,
+     "energy": 0.8,
+     "play": 0.45,
+     "comfort": 0.55,
+     "boredom": 0.35,
+     "sleep_pressure": 0.2
+    },
+    "known_people": [],
+    "in_view": [],
+    "notes": []
+   },
+   {
+    "t": 8.0,
+    "behaviour": "坐著看四周",
+    "valence": 0.3,
+    "drives": {
+     "social": 0.3,
+     "curiosity": 0.7,
+     "fear": 0.05,
+     "energy": 0.8,
+     "play": 0.45,
+     "comfort": 0.55,
+     "boredom": 0.35,
+     "sleep_pressure": 0.2
+    },
+    "known_people": [
+     "媽媽"
+    ],
+    "in_view": [],
+    "notes": []
+   }
+  ]
+ },
+ "meta": {
+  "opens": [
+   {
+    "t": 0.0,
+    "resume": false
+   }
+  ],
+  "audio_out_bytes": 0,
+  "audio_out_span_s": [],
+  "run_id": "intro_then_hello_mom__explorer__s7",
+  "faults": 0,
+  "wall_s": 20.0,
+  "commit": "6e5006a+dirty",
+  "sdk": "google-genai 2.27.0",
+  "python": "3.12.13",
+  "recorded_utc": "2026-10-29T12:51:58+00:00"
+ },
+ "events": [
+  {
+   "t": 0.618,
+   "kind": "opened",
+   "data": {
+    "resumed": false
+   }
+  },
+  {
+   "t": 0.618,
+   "kind": "resumption",
+   "data": {
+    "resumable": true
+   }
+  },
+  {
+   "t": 2.239,
+   "kind": "vad",
+   "data": {
+    "type": "START",
+    "offset_s": 2.12
+   }
+  },
+  {
+   "t": 3.985,
+   "kind": "input_text",
+   "data": {
+    "text": "這是媽媽。"
+   }
+  },
+  {
+   "t": 3.985,
+   "kind": "vad",
+   "data": {
+    "type": "END",
+    "offset_s": 3.8
+   }
+  },
+  {
+   "t": 3.985,
+   "kind": "tool_call",
+   "data": {
+    "calls": [
+     {
+      "id": "call_402318",
+      "name": "recognize",
+      "args": {
+       "name": "媽媽"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "t": 3.985,
+   "kind": "generation_complete"
+  },
+  {
+   "t": 3.987,
+   "kind": "turn_complete"
+  },
+  {
+   "t": 3.987,
+   "kind": "usage",
+   "data": {
+    "total": 2392,
+    "prompt": 2381,
+    "response": 11,
+    "thoughts": 57,
+    "by_modality": {
+     "TEXT": 1895,
+     "AUDIO": 258
+    }
+   }
+  },
+  {
+   "t": 11.098,
+   "kind": "vad",
+   "data": {
+    "type": "START",
+    "offset_s": 11.12
+   }
+  },
+  {
+   "t": 12.409,
+   "kind": "input_text",
+   "data": {
+    "text": "你好。"
+   }
+  },
+  {
+   "t": 12.409,
+   "kind": "vad",
+   "data": {
+    "type": "END",
+    "offset_s": 12.28
+   }
+  },
+  {
+   "t": 13.11,
+   "kind": "tool_call",
+   "data": {
+    "calls": [
+     {
+      "id": "call_402363",
+      "name": "vocalize",
+      "args": {
+       "tags": [
+        {
+         "level": 0.5,
+         "at_ms": 0,
+         "tag": "greet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "t": 13.11,
+   "kind": "generation_complete"
+  },
+  {
+   "t": 13.162,
+   "kind": "turn_complete"
+  },
+  {
+   "t": 13.162,
+   "kind": "usage",
+   "data": {
+    "total": 2552,
+    "prompt": 2525,
+    "response": 27,
+    "thoughts": 76,
+    "by_modality": {
+     "TEXT": 1988,
+     "AUDIO": 279
+    }
+   }
+  }
+ ]
+}

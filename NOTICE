@@ -1,0 +1,117 @@
+duckmind
+Copyright 2026 joseyarashio and contributors
+
+duckmind is licensed under the Apache License, Version 2.0. The full licence
+text is in the LICENSE file. Third-party material and its licences are listed
+in THIRD_PARTY.md.
+
+Microduck is a name of Pollen Robotics. duckmind is an unofficial project. It
+is not affiliated with, endorsed by, or sponsored by Pollen Robotics.
+
+================================================================================
+Third-party notices
+================================================================================
+
+1. microduck (Pollen Robotics), Apache-2.0
+   Source:    https://github.com/pollen-robotics/microduck
+   Commit:    a9ec4b2 (pinned upstream commit)
+   Copyright: Pollen Robotics
+   Licence:   Apache License, Version 2.0 (upstream LICENSE)
+   Used here: ports and constants. The upstream runtime is not bundled; it is
+              read from a local checkout.
+     - src/duckmind/simweb/emotion_voice.py: a Python port of upstream quack.py
+       and of the sound recipes. Its file header keeps the Apache-2.0 notice.
+     - src/duckmind/local_env.py: the observation layout taken from upstream
+       obs.rs.
+     - src/duckmind/policy_check.py, src/duckmind/robotd_compare.py,
+       src/duckmind/policy_approval.py: pinned contract constants.
+     - src/duckmind/duckbody/tof_reproject.py: a Python port, line by line, of
+       upstream kinematics/src/tof.rs (the ToF Reprojector);
+       tests/test_reprojector_vectors.py rewrites its upstream unit tests in
+       Python.
+     - src/duckmind/world/headless_duck.py: a port of robotd's control path
+       (robotd/src/control.rs: command smoothing, policy switching, action
+       scaling and low-pass filters).
+     - src/duckmind/eye/camera.py: a copy of the robotd-params camera
+       calibration (CameraIntrinsics::alpha()).
+     - third_party/microduck_emotions/robotd-poseJoints.patch: a patch to
+       upstream robotd and btd for a simulator-only build (play dead's
+       lying-down pose).
+     - tools/voicestream/Cargo.lock: a copy of the upstream lock file.
+   Changes:   the sounds are made with the simulated duck's own voice seed,
+              not the robot's voice. The ports are rewritten in Python for the
+              simulator and for duckmind's own checks.
+
+2. microduck_rl (Pollen Robotics), Apache-2.0 (code, MJCF); meshes CC BY-NC-SA 4.0
+   Source:    https://github.com/pollen-robotics/microduck_rl
+   Commit:    cb70b79 (pinned upstream commit)
+   Copyright: Pollen Robotics
+   Licence:   Apache License, Version 2.0 for the code and for the MJCF robot
+              descriptions (.xml) and export configs. The 3D meshes (.stl) are
+              CC BY-NC-SA 4.0, NOT Apache-2.0 (upstream LICENSE-MODELS.md).
+              None of these files is included in this repository; `duckmind
+              setup` downloads the checkout after the user accepts the mesh
+              licence. See THIRD_PARTY.md.
+   Used here: the training and contract constants referenced by the modules
+              above. No 3D model or MJCF file is bundled.
+
+3. microduck_emotions (Pollen Robotics), Apache-2.0
+   Source:    https://github.com/pollen-robotics/microduck_emotions
+   Commit:    431c73d
+   Copyright: Pollen Robotics
+   Licence:   Apache License, Version 2.0. Copy: third_party/microduck_emotions/LICENSE
+   Used here: the 14 emotions' keyframes in src/duckmind/neuro/emotions_data.json
+              (rounded from the upstream keyframes), the sound designs and
+              timings (src/duckmind/simweb/emotion_voice.py), and the way the
+              official runtime plays them (src/duckmind/neuro/emotions.py).
+   Changes:   the keyframes are played by the neural duck's body link under
+              its own safety rules. The original .wav files and the upstream
+              .git history are not included.
+   Notice:    third_party/microduck_emotions/NOTICE
+
+4. AprilTag tag36h11 codes, BSD-2-Clause
+   Used here: the tag36h11 code numbers and bit layout, copied as numbers in
+              src/duckmind/eye/tag36h11.py and src/duckmind/world/apriltag.py.
+              The pupil-apriltags package (MIT) is a dependency; it bundles
+              the AprilTag C library.
+   Copyright: (C) 2013-2015, The Regents of The University of Michigan.
+              All rights reserved.
+   Licence text (BSD-2-Clause, as it appears with the AprilTag C library):
+
+   Original Apriltag code is:
+
+   BSD-2-Clause
+
+   (C) 2013-2015, The Regents of The University of Michigan
+
+   All rights reserved.
+
+   This software may be available under alternative licensing
+   terms. Contact Edwin Olson, ebolson@umich.edu, for more information.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+   1. Redistributions of source code must retain the above copyright notice, this
+      list of conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+   ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+   LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   The views and conclusions contained in the software and documentation are those
+   of the authors and should not be interpreted as representing official policies,
+   either expressed or implied, of the FreeBSD Project.
+
+================================================================================

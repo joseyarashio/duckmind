@@ -1,0 +1,606 @@
+diff --git a/btd/src/route.rs b/btd/src/route.rs
+index 5a796ae..7331eec 100644
+--- a/btd/src/route.rs
++++ b/btd/src/route.rs
+@@ -456,6 +456,8 @@ fn permits(call: &proto::Call) -> bool {
+         // a refusal that covered all three was treating "moves the joints" as the hazard when
+         // the hazard is "stops holding them for nothing in return".
+         RobotRelax => false,
++        // A scripted pose hangs servos free on purpose (workshop patch 23): never over BLE.
++        RobotPoseJoints(_) => false,
+ 
+         // `robot.stop` deserves its own line, because refusing it looks wrong. An emergency stop
+         // in the app is exactly what someone reaches for, and §6 does say local should preempt
+diff --git a/duck-control/src/bus.rs b/duck-control/src/bus.rs
+index 083ab48..0e3aad6 100644
+--- a/duck-control/src/bus.rs
++++ b/duck-control/src/bus.rs
+@@ -529,6 +529,15 @@ impl RobotIo for DynamixelIo {
+         DynamixelIo::set_torque(self, on)
+     }
+ 
++    fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> Result<()> {
++        for &id in ids {
++            self.controller
++                .write_torque_enable(id, on)
++                .map_err(|e| IoError::Bus(format!("torque {on} on {id}: {e}")))?;
++        }
++        Ok(())
++    }
++
+     fn reboot(&mut self, id: u8) -> Result<()> {
+         // The status packet is a courtesy the servo may not manage before it resets, so only a
+         // failure to send is an error here.
+diff --git a/duck-control/src/io.rs b/duck-control/src/io.rs
+index 8b477f6..2f22b8b 100644
+--- a/duck-control/src/io.rs
++++ b/duck-control/src/io.rs
+@@ -155,6 +155,10 @@ pub trait RobotIo {
+     /// never because a process began.
+     fn set_torque(&mut self, on: bool) -> Result<()>;
+ 
++    /// Torque on or off for these servos only. The scripted "dead" pose hangs the head servos
++    /// free while the legs keep holding; everything said about [`Self::set_torque`] holds.
++    fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> Result<()>;
++
+     /// Reboot one servo: the Protocol 2 REBOOT instruction.
+     ///
+     /// The way out of a latched hardware error — overload, overheating, electrical shock, the
+@@ -227,6 +231,8 @@ pub struct FakeIo {
+     pub torque_writes: usize,
+     /// Every servo id rebooted, in order.
+     pub reboots: Vec<u8>,
++    /// Per-servo torque writes, as (ids, on).
++    pub torque_ids: Vec<(Vec<u8>, bool)>,
+ }
+ 
+ impl Default for FakeIo {
+@@ -256,6 +262,7 @@ impl FakeIo {
+             torque: None,
+             torque_writes: 0,
+             reboots: Vec::new(),
++            torque_ids: Vec::new(),
+         }
+     }
+ 
+@@ -340,6 +347,12 @@ impl RobotIo for FakeIo {
+         Ok(())
+     }
+ 
++    fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> Result<()> {
++        self.torque_ids.push((ids.to_vec(), on));
++        self.torque_writes += 1;
++        Ok(())
++    }
++
+     fn reboot(&mut self, id: u8) -> Result<()> {
+         self.reboots.push(id);
+         Ok(())
+diff --git a/duck-control/src/safety.rs b/duck-control/src/safety.rs
+index 53cd9a8..59f9869 100644
+--- a/duck-control/src/safety.rs
++++ b/duck-control/src/safety.rs
+@@ -218,6 +218,12 @@ impl<T: RobotIo> Safety<T> {
+         self.io.set_torque(on)
+     }
+ 
++    /// Torque on or off for these servos only (the scripted dead pose hangs the head free).
++    pub fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> Result<(), IoError> {
++        tracing::warn!(?ids, on, "torque (some servos)");
++        self.io.set_torque_ids(ids, on)
++    }
++
+     /// Reboot these servos, and forget the gain cache: a rebooted servo comes back at its EEPROM
+     /// gains, and a cache that still says the running gain is written would leave it there. The
+     /// next [`Self::apply`] rewrites the gains on every servo.
+diff --git a/duck-control/src/sim.rs b/duck-control/src/sim.rs
+index a56e3b0..aa8a541 100644
+--- a/duck-control/src/sim.rs
++++ b/duck-control/src/sim.rs
+@@ -67,6 +67,10 @@ enum Request<'a> {
+     Gain { kp: u16 },
+     #[serde(rename = "torque")]
+     Torque { on: bool },
++    /// Torque for some servos only (duckmind's sim-only port of the workshop's
++    /// `robot.poseJoints`): the servo ids, as on the bus.
++    #[serde(rename = "torque_joints")]
++    TorqueJoints { ids: &'a [u8], on: bool },
+     #[serde(rename = "slow")]
+     Slow,
+ }
+@@ -258,6 +262,7 @@ fn tag(request: &Request<'_>) -> &'static str {
+         Request::Write { .. } => "write",
+         Request::Gain { .. } => "gain",
+         Request::Torque { .. } => "torque",
++        Request::TorqueJoints { .. } => "torque_joints",
+         Request::Slow => "slow",
+     }
+ }
+@@ -302,6 +307,11 @@ impl RobotIo for RemoteIo {
+         acked(ack, if on { "torque on" } else { "torque off" })
+     }
+ 
++    fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> Result<()> {
++        let ack: Ack = self.call(&Request::TorqueJoints { ids, on })?;
++        acked(ack, if on { "torque on (some servos)" } else { "torque off (some servos)" })
++    }
++
+     /// A simulated servo has no latched hardware error to clear and no firmware to restart, so
+     /// there is nothing to send: the reboot succeeds at once and the caller restores the gains as
+     /// it would on a robot. Deliberately not an op on the wire — the simulator would only have to
+diff --git a/duck-ipc-proto/src/lib.rs b/duck-ipc-proto/src/lib.rs
+index be1e0bc..cc95811 100644
+--- a/duck-ipc-proto/src/lib.rs
++++ b/duck-ipc-proto/src/lib.rs
+@@ -634,6 +634,10 @@ pub mod method {
+     /// Torque is cut on every joint first and the robot is back at limp afterwards, so `robot.init`
+     /// or `robot.enable` brings it up from a known state. Discrete; send as a request.
+     pub const ROBOT_REBOOT_MOTORS: &str = "robot.rebootMotors";
++    /// A scripted joint pose: torque cut on the named joints, the others ramped to the given
++    /// targets and held at the given gain, no policy, until `robot.init` / `robot.relax`.
++    /// Play dead's "dead animal" pose (microduck_emotions, workshop patch 19). See [`PoseJointsParams`].
++    pub const ROBOT_POSE_JOINTS: &str = "robot.poseJoints";
+ 
+     // ── skills ───────────────────────────────────────────────────────────────
+     //
+@@ -1000,6 +1004,8 @@ pub enum Call {
+     RobotRelax,
+     /// Reboot servos (all of them, or the ids named), then limp. See [`method::ROBOT_REBOOT_MOTORS`].
+     RobotRebootMotors(RebootMotorsParams),
++    /// A scripted joint pose with some servos limp. See [`method::ROBOT_POSE_JOINTS`].
++    RobotPoseJoints(PoseJointsParams),
+     /// Run a one-shot skill, or toggle sit↔stand.
+     RobotDo(DoParams),
+     /// Standing body pose. Continuous. Send as a notification.
+@@ -1182,6 +1188,7 @@ impl Call {
+             Call::RobotInit => method::ROBOT_INIT,
+             Call::RobotRelax => method::ROBOT_RELAX,
+             Call::RobotRebootMotors(_) => method::ROBOT_REBOOT_MOTORS,
++            Call::RobotPoseJoints(_) => method::ROBOT_POSE_JOINTS,
+             Call::RobotDo(_) => method::ROBOT_DO,
+             Call::RobotPose(_) => method::ROBOT_POSE,
+             Call::RobotMouth(_) => method::ROBOT_MOUTH,
+@@ -1365,6 +1372,7 @@ impl Call {
+             | Call::RobotInit
+             | Call::RobotRelax
+             | Call::RobotRebootMotors(_)
++            | Call::RobotPoseJoints(_)
+             | Call::RobotDo(_)
+             | Call::RobotPose(_)
+             | Call::RobotMouth(_)
+@@ -1475,6 +1483,7 @@ impl Call {
+             Call::RobotEnable(p) => encode(p),
+             Call::RobotDo(p) => encode(p),
+             Call::RobotRebootMotors(p) => encode(p),
++            Call::RobotPoseJoints(p) => encode(p),
+             Call::RobotPose(p) => encode(p),
+             Call::RobotMouth(p) => encode(p),
+             Call::RobotSetMode(p) => encode(p),
+@@ -1571,6 +1580,7 @@ impl Call {
+             method::ROBOT_INIT => Call::RobotInit,
+             method::ROBOT_RELAX => Call::RobotRelax,
+             method::ROBOT_REBOOT_MOTORS => Call::RobotRebootMotors(decode(params)?),
++            method::ROBOT_POSE_JOINTS => Call::RobotPoseJoints(decode(params)?),
+             method::ROBOT_DO => Call::RobotDo(decode(params)?),
+             method::ROBOT_POSE => Call::RobotPose(decode(params)?),
+             method::ROBOT_MOUTH => Call::RobotMouth(decode(params)?),
+@@ -1724,6 +1734,12 @@ pub mod test_support {
+             Call::RobotInit,
+             Call::RobotRelax,
+             Call::RobotRebootMotors(RebootMotorsParams { ids: vec![3, 11] }),
++            Call::RobotPoseJoints(PoseJointsParams {
++                targets: vec![Some(0.0), None, Some(-1.0)],
++                off: vec!["neck_pitch".to_owned()],
++                gain: 160,
++                ramp_s: 1.0,
++            }),
+             Call::RobotDo(DoParams {
+                 skill: "ground_pick".into(),
+             }),
+@@ -2291,6 +2307,34 @@ pub struct ThereminState {
+ /// the list it does know, which is the same shape as a bad policy slot.
+ pub type Skill = String;
+ 
++/// A scripted joint pose — see [`method::ROBOT_POSE_JOINTS`].
++///
++/// `targets` are radians indexed as `JOINT_NAMES` (shorter lists are padded with `null`);
++/// `null` = hold that joint where it is (the mouth slot is always the mouth intent's). `off`
++/// names the joints whose torque is cut (they hang free). The others ramp linearly from where
++/// they are to their targets over `ramp_s`, at `gain` (the servos' P gain, 160 is the standing
++/// value), and hold there. The policy is not driving meanwhile; `robot.init` (torque back on
++/// everywhere, ramp home) or `robot.relax` end it. From microduck_emotions' workshop patch 19.
++#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
++#[serde(default, deny_unknown_fields)]
++pub struct PoseJointsParams {
++    pub targets: Vec<Option<f64>>,
++    pub off: Vec<String>,
++    pub gain: u16,
++    pub ramp_s: f64,
++}
++
++impl Default for PoseJointsParams {
++    fn default() -> Self {
++        Self {
++            targets: Vec::new(),
++            off: Vec::new(),
++            gain: 160,
++            ramp_s: 1.0,
++        }
++    }
++}
++
+ /// Which servos [`method::ROBOT_REBOOT_MOTORS`] reboots. Empty means every servo.
+ #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+ #[serde(default, deny_unknown_fields)]
+@@ -5560,7 +5604,7 @@ mod tests {
+     fn every_call_covers_every_variant() {
+         assert_eq!(
+             every_call().len(),
+-            67,
++            68,
+             "a Call variant was added or removed — update every_call() and this count"
+         );
+     }
+diff --git a/mediad/src/route.rs b/mediad/src/route.rs
+index 977cc11..6cb19e8 100644
+--- a/mediad/src/route.rs
++++ b/mediad/src/route.rs
+@@ -83,6 +83,8 @@ fn permits(call: &proto::Call) -> bool {
+         // Bluetooth was not. Permitted for that reason, and it would be worth revisiting if a
+         // control-only session without video ever becomes a normal thing.
+         RobotEnable(_) | RobotInit | RobotRelax | RobotRebootMotors(_) => true,
++        // duckmind's sim-only port: the scripted pose is for the local operator, not a peer.
++        RobotPoseJoints(_) => false,
+ 
+         // `robot.stop` is permitted here and refused over BLE, and the difference is honesty
+         // rather than authority. BLE's objection was that a stop button over "an unbonded,
+diff --git a/robotd/src/intents.rs b/robotd/src/intents.rs
+index b3f515f..5be1a6a 100644
+--- a/robotd/src/intents.rs
++++ b/robotd/src/intents.rs
+@@ -201,6 +201,8 @@ pub struct Intents {
+     /// `robot.rebootMotors`, pending: the ids to reboot (empty = all). A mutex rather than an
+     /// atomic because it carries a list; the loop takes it with `try_lock`, so it can never wait.
+     reboot_motors: Mutex<Option<Vec<u8>>>,
++    /// A scripted joint pose asked for (`robot.poseJoints`), taken by the loop.
++    pose_joints: Mutex<Option<duck_ipc_proto::PoseJointsParams>>,
+ }
+ 
+ /// A pending policy change, as [`Intents::request_policy_change`] took it.
+@@ -286,6 +288,7 @@ impl Intents {
+             policy_change: ArcSwapOption::empty(),
+             sounds: std::sync::atomic::AtomicU32::new(0),
+             reboot_motors: Mutex::new(None),
++            pose_joints: Mutex::new(None),
+             wheee: ArcSwap::from_pointee(Stamped {
+                 value: false,
+                 at_us: 0,
+@@ -478,6 +481,23 @@ impl Intents {
+         }
+     }
+ 
++    /// Ask the loop for a scripted joint pose (`robot.poseJoints`). Clears `enabled`: the policy
++    /// must not drive a robot posed by hand, and it comes back with an explicit init / Start.
++    pub fn request_pose_joints(&self, params: duck_ipc_proto::PoseJointsParams) {
++        self.enabled.store(false, Ordering::Relaxed);
++        if let Ok(mut slot) = self.pose_joints.lock() {
++            *slot = Some(params);
++        }
++    }
++
++    /// Take the pending scripted pose, if any. Never blocks.
++    pub fn take_pose_joints(&self) -> Option<duck_ipc_proto::PoseJointsParams> {
++        self.pose_joints
++            .try_lock()
++            .ok()
++            .and_then(|mut slot| slot.take())
++    }
++
+     /// Take the pending reboot request, if any. Never blocks: a contended lock reads as "nothing
+     /// yet" and the request is picked up on the next tick.
+     pub fn take_reboot_motors(&self) -> Option<Vec<u8>> {
+diff --git a/robotd/src/main.rs b/robotd/src/main.rs
+index ab574b6..b7650e0 100644
+--- a/robotd/src/main.rs
++++ b/robotd/src/main.rs
+@@ -108,6 +108,34 @@ const RATE_WINDOW: Duration = Duration::from_secs(1);
+ /// snap. Not a parameter yet — one number with no evidence that anyone wants a different one.
+ const HOME_RAMP: Duration = Duration::from_secs(2);
+ 
++/// A scripted joint pose (`robot.poseJoints`) in flight: some servos hang free, the others ramp
++/// linearly from `from` to `targets` over `ramp` and hold there at `gain`. Play dead's "dead
++/// animal" pose: head limp, legs up. Ends with `robot.init` (torque back on everywhere, ramp
++/// home) or `robot.relax`. duckmind's sim-only port of microduck_emotions' workshop patch 19.
++#[derive(Debug, Clone, Copy, PartialEq)]
++struct Scripted {
++    since: Instant,
++    from: [f64; NUM_JOINTS],
++    targets: [f64; NUM_JOINTS],
++    gain: u16,
++    ramp: Duration,
++}
++
++impl Scripted {
++    fn targets_at(&self, now: Instant) -> [f64; NUM_JOINTS] {
++        let a = if self.ramp.is_zero() {
++            1.0
++        } else {
++            (now.duration_since(self.since).as_secs_f64() / self.ramp.as_secs_f64()).clamp(0.0, 1.0)
++        };
++        let mut out = self.from;
++        for (o, (&f, &t)) in out.iter_mut().zip(self.from.iter().zip(self.targets.iter())) {
++            *o = f + (t - f) * a;
++        }
++        out
++    }
++}
++
+ /// Smoothing on the reported battery voltage. At one sample per [`RATE_WINDOW`] this is a
+ /// ~10 s time constant, which is what makes the number readable: the raw voltage sags
+ /// several tenths of a volt on every step and recovers between them, so an unsmoothed
+@@ -1914,6 +1942,7 @@ async fn control_loop<T: RobotIo>(
+     let limp_fall_max = Duration::from_millis(params.safety.limp_fall_max_ms);
+     let limp_fall_pose = Duration::from_millis(params.safety.limp_fall_pose_ms);
+     let mut limp_fall = LimpFall::Idle;
++    let mut scripted: Option<Scripted> = None;
+ 
+     // The voice, and the ear. Both optional equipment: a robot without a codec or a bank
+     // walks identically — the player degrades to a debug line, and the mic worker is only
+@@ -2084,6 +2113,22 @@ async fn control_loop<T: RobotIo>(
+             Some(intents::PowerRequest::Init) if powered_off => {
+                 tracing::warn!("robot.init ignored: the robot is powering off")
+             }
++            // Out of a scripted pose: torque back on every servo (some hung free), then the
++            // home ramp from wherever the joints are — the prototype's init_position.
++            Some(intents::PowerRequest::Init) if scripted.is_some() && sensors.is_some() => {
++                scripted = None;
++                let positions = sensors.as_ref().expect("checked").positions;
++                match safety.set_torque(true) {
++                    Ok(()) => {
++                        tracing::warn!(?HOME_RAMP, "robot.init: out of the scripted pose, ramping to home");
++                        bringup = Bringup::Homing {
++                            from: positions,
++                            since: tick_start,
++                        };
++                    }
++                    Err(e) => tracing::warn!(error = %e, "cannot enable torque"),
++                }
++            }
+             Some(intents::PowerRequest::Init) => match (bringup, sensors.as_ref()) {
+                 // Unlike `enable`, this needs no policy: "stand up" is a reasonable thing to ask of
+                 // a robot with no walking network at all, and it is what a bench robot needs before
+@@ -2132,6 +2177,7 @@ async fn control_loop<T: RobotIo>(
+                     // ends up rather than assuming it is still at the home pose.
+                     bringup = Bringup::Limp;
+                     was_driving = false;
++                    scripted = None;
+                 }
+                 Err(e) => {
+                     tracing::warn!(error = %e, "cannot cut torque; the robot is still powered")
+@@ -2147,6 +2193,45 @@ async fn control_loop<T: RobotIo>(
+         // robot is back at limp, so the next `init` or Start brings it up like a fresh boot. Torque
+         // off first on purpose: a tripped servo is usually a leg, and a robot standing on the other
+         // leg while one reboots is not a robot to leave standing.
++        // A scripted joint pose: resolve the names, hang the named servos free, ramp the rest.
++        if let Some(p) = intents.take_pose_joints() {
++            if bringup == Bringup::Limp || sensors.is_none() {
++                tracing::warn!("robot.poseJoints: ignored, the robot is limp or unread (init first)");
++            } else {
++                let from = coast.known_positions(hold);
++                let mut targets = from;
++                for (i, t) in p.targets.iter().enumerate().take(NUM_JOINTS) {
++                    if let Some(v) = t
++                        && v.is_finite()
++                        && i != duck_control::model::MOUTH_INDEX
++                    {
++                        targets[i] = *v;
++                    }
++                }
++                let off: Vec<u8> = p
++                    .off
++                    .iter()
++                    .filter_map(|n| duck_control::model::joint_index(n))
++                    .map(|i| duck_control::model::JOINT_IDS[i])
++                    .collect();
++                tracing::warn!(?off, gain = p.gain, ramp_s = p.ramp_s, "robot.poseJoints: scripted pose");
++                if let Err(e) = safety.set_torque_ids(&off, false) {
++                    tracing::warn!(error = %e, "robot.poseJoints: torque off failed on a servo");
++                }
++                scripted = Some(Scripted {
++                    since: tick_start,
++                    from,
++                    targets,
++                    gain: p.gain,
++                    ramp: Duration::from_secs_f64(p.ramp_s.clamp(0.0, 10.0)),
++                });
++                limp_fall = LimpFall::Idle;
++                falling.reset();
++                hold = from;
++                was_driving = false;
++            }
++        }
++
+         if let Some(ids) = intents.take_reboot_motors() {
+             let ids: Vec<u8> = if ids.is_empty() {
+                 duck_control::model::JOINT_IDS.to_vec()
+@@ -2165,6 +2250,7 @@ async fn control_loop<T: RobotIo>(
+             }
+             bringup = Bringup::Limp;
+             was_driving = false;
++            scripted = None;
+         }
+ 
+         // One-shot skill requests, taken once per tick like the power request. They need a
+@@ -2568,7 +2654,7 @@ async fn control_loop<T: RobotIo>(
+                             .as_ref()
+                             .is_some_and(|c| !c.busy() && !c.is_sitting());
+                     match fresh.as_ref() {
+-                        Some(fresh) if eligible && safety.imu_ready() => {
++                        Some(fresh) if eligible && scripted.is_none() && safety.imu_ready() => {
+                             if falling.observe(&fresh.imu, period) {
+                                 tracing::warn!(
+                                     gravity_z = format!("{:.2}", fresh.imu.gravity[2]),
+@@ -2896,6 +2982,8 @@ async fn control_loop<T: RobotIo>(
+             // The limp-fall sequence owns the robot for its duration: the whole point is
+             // that the policy is *not* driving while the robot falls, lands and is posed.
+             && !in_limp_fall
++            // And a scripted pose: the robot is posed by hand.
++            && scripted.is_none()
+             && sensors.is_some()
+             && imu_warm
+             && !powered_off;
+@@ -2951,6 +3039,13 @@ async fn control_loop<T: RobotIo>(
+         };
+ 
+         let (mut targets, gain, moving, policy_label) = match (driving, sensors.as_ref()) {
++            // A scripted pose, before everything: the ramp to the given joints at the given gain,
++            // the free servos ignore what they are sent. `moving` while the ramp runs.
++            _ if scripted.is_some() => {
++                let s = scripted.expect("checked above");
++                let moving = tick_start.duration_since(s.since) < s.ramp;
++                (s.targets_at(tick_start), s.gain, moving, "scripted".into())
++            }
+             // The limp-fall sequence, before anything else — `driving` is false throughout,
+             // so without this it would fall through to the hold branch and the robot would
+             // be commanded its pre-fall pose at walking gain, which is precisely the thing
+@@ -3189,7 +3284,8 @@ async fn control_loop<T: RobotIo>(
+         // The mouth is not part of any policy; the intent is the only thing that moves it.
+         // Only while driving — a held or homing robot keeps whatever its hold pose says, so
+         // a restart cannot snap a mouth.
+-        if driving && theremin_state.is_none() && chorale_state.is_none() {
++        // A scripted pose keeps the beak live too: play dead still has a death quack to make.
++        if (driving || scripted.is_some()) && theremin_state.is_none() && chorale_state.is_none() {
+             targets[duck_control::model::MOUTH_INDEX] =
+                 duck_control::model::mouth_target(snapshot.mouth);
+         }
+@@ -4688,6 +4784,12 @@ fn dispatch(
+             proto::Response::ok(Some(id), &proto::IntentResult::accepted())
+         }
+ 
++        // A scripted joint pose. A limp robot ignores it in the loop (init first).
++        proto::Call::RobotPoseJoints(p) => {
++            intents.request_pose_joints(p.clone());
++            proto::Response::ok(Some(id), &proto::IntentResult::accepted())
++        }
++
+         // Never refused: a robot with a tripped servo is exactly the one that needs it.
+         proto::Call::RobotRebootMotors(p) => {
+             intents.request_reboot_motors(p.ids.clone());
+@@ -6107,6 +6209,9 @@ mod tests {
+         fn set_torque(&mut self, on: bool) -> duck_control::io::Result<()> {
+             self.0.set_torque(on)
+         }
++        fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> duck_control::io::Result<()> {
++            self.0.set_torque_ids(ids, on)
++        }
+         fn reboot(&mut self, id: u8) -> duck_control::io::Result<()> {
+             self.0.reboot(id)
+         }
+@@ -8225,6 +8330,9 @@ mod tests {
+             fn set_torque(&mut self, on: bool) -> duck_control::io::Result<()> {
+                 self.0.set_torque(on)
+             }
++            fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> duck_control::io::Result<()> {
++                self.0.set_torque_ids(ids, on)
++            }
+             fn reboot(&mut self, id: u8) -> duck_control::io::Result<()> {
+                 self.0.reboot(id)
+             }
+@@ -8422,6 +8530,75 @@ mod tests {
+         );
+     }
+ 
++    /// `robot.poseJoints`: the named servos hang free, the others are written their targets at the
++    /// given gain, the policy is not driving (workshop patch 19, duckmind's sim-only port).
++    #[tokio::test]
++    async fn robot_pose_joints_hangs_the_named_servos_and_poses_the_rest() {
++        let io = FakeIo::at(DEFAULT_POSITION).frozen();
++        let mut params = Params::default();
++        params.policy.enabled = false;
++        let s = Arc::new(RobotState::new(
++            &params,
++            std::path::Path::new("/test/robotd.toml"),
++            false,
++            false,
++        ));
++        let intents = Arc::new(Intents::new());
++        intents.request_init();
++
++        let (tx, rx) = std::sync::mpsc::channel();
++        let loop_state = Arc::clone(&s);
++        let loop_intents = Arc::clone(&intents);
++        let handle = tokio::spawn(async move {
++            let mut io = io;
++            control_loop_probe_with(&mut io, loop_state, loop_intents, Duration::from_millis(2))
++                .await;
++            tx.send((io.torque, io.torque_ids.clone(), io.last_written, io.last_gain))
++                .unwrap();
++        });
++        while s.ticks.load(Ordering::Relaxed) < 3 {
++            tokio::time::sleep(Duration::from_millis(2)).await;
++        }
++        let at = s.ticks.load(Ordering::Relaxed);
++        let mut targets: Vec<Option<f64>> = vec![Some(0.0); 5];
++        targets.extend([None, None, None, None, None]);
++        targets.extend([Some(0.0); 5]);
++        intents.request_pose_joints(proto::PoseJointsParams {
++            targets,
++            off: vec!["neck_pitch".into(), "head_pitch".into(), "head_yaw".into()],
++            gain: 160,
++            ramp_s: 0.0,
++        });
++        while s.ticks.load(Ordering::Relaxed) < at + 4 {
++            tokio::time::sleep(Duration::from_millis(2)).await;
++        }
++        assert!(!intents.snapshot().enabled, "a posed robot is not one the policy drives");
++        s.shutdown.store(true, Ordering::Relaxed);
++        handle.await.unwrap();
++        let (torque, torque_ids, last_written, last_gain) = rx.recv().unwrap();
++        assert_eq!(torque, Some(true), "the other servos keep their torque");
++        let ids = |names: &[&str]| -> Vec<u8> {
++            names
++                .iter()
++                .map(|n| duck_control::model::JOINT_IDS[duck_control::model::joint_index(n).unwrap()])
++                .collect()
++        };
++        assert_eq!(
++            torque_ids,
++            vec![(ids(&["neck_pitch", "head_pitch", "head_yaw"]), false)],
++            "only the head servos hang free"
++        );
++        let written = last_written.expect("targets written").positions;
++        let knee = duck_control::model::joint_index("left_knee").unwrap();
++        let neck = duck_control::model::joint_index("neck_pitch").unwrap();
++        assert!((written[knee] - 0.0).abs() < 1e-9, "the knee is posed straight: {}", written[knee]);
++        assert!(
++            (written[neck] - DEFAULT_POSITION[neck]).abs() < 1e-9,
++            "a `null` joint is held where it was"
++        );
++        assert_eq!(last_gain, Some(160), "the pose's gain");
++    }
++
+     /// **`robot.rebootMotors` cuts torque, reboots the named servos and returns to limp.**
+     #[tokio::test]
+     async fn robot_reboot_motors_reboots_the_named_servos_and_returns_to_limp() {
+@@ -8572,6 +8749,9 @@ mod tests {
+         fn set_torque(&mut self, on: bool) -> duck_control::io::Result<()> {
+             self.inner.set_torque(on)
+         }
++        fn set_torque_ids(&mut self, ids: &[u8], on: bool) -> duck_control::io::Result<()> {
++            self.inner.set_torque_ids(ids, on)
++        }
+         fn reboot(&mut self, id: u8) -> duck_control::io::Result<()> {
+             self.inner.reboot(id)
+         }
+diff --git a/updater/src/ipc.rs b/updater/src/ipc.rs
+index 151afdb..e880960 100644
+--- a/updater/src/ipc.rs
++++ b/updater/src/ipc.rs
+@@ -788,6 +788,7 @@ impl Server {
+             | Call::RobotInit
+             | Call::RobotRelax
+             | Call::RobotRebootMotors(_)
++            | Call::RobotPoseJoints(_)
+             | Call::RobotDo(_)
+             | Call::RobotSound(_)
+             | Call::RobotPose(_)

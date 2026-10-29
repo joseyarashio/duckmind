@@ -1,0 +1,195 @@
+{
+ "format": 1,
+ "scenario_id": "stop_calling",
+ "scenario_hash": "66a05bdb00b25e82de5abef923df37bb0edce8cae67211221c04aab403ba432a",
+ "complete": true,
+ "inputs": {
+  "format": 1,
+  "scenario": "stop_calling",
+  "temperament": "snuggler",
+  "seed": 11,
+  "length_s": 8.0,
+  "tail_s": 4.0,
+  "duck": {
+   "name": "蛋黃",
+   "genome_seed": 1728,
+   "gd": 20,
+   "voice_seed": 3677786832,
+   "voice_bank_version": 5,
+   "at_m": [
+    0.0,
+    0.0
+   ]
+  },
+  "model": "gemini-3.8-live",
+  "tool_schema": {
+   "version": "tools-1",
+   "hash": "eab9e6f92cf7f578"
+  },
+  "soul": {
+   "version": "soul-2",
+   "sha256": "78dc2262ff39a8195d69c4167f67dc20cf6cc04d66acca7b75c43c8b1a7cf9a4"
+  },
+  "session": {
+   "context_period_s": 5.0,
+   "image_period_s": 1.0,
+   "hold_audio_s": 2.0
+  },
+  "setup": {
+   "response_modalities": [
+    "AUDIO"
+   ],
+   "input_transcription": true,
+   "output_transcription": true,
+   "compression": true,
+   "vad": {
+    "start": "START_SENSITIVITY_HIGH",
+    "end": "END_SENSITIVITY_LOW",
+    "prefix_ms": 300,
+    "silence_ms": 500
+   },
+   "media_resolution": null
+  },
+  "say": [
+   {
+    "t": 2.2,
+    "utterance": "stop_calling",
+    "sha256": "a337987b382cb2946937cd01488273aa55513a19577c9fa574f55c17e6f88d6b",
+    "who": "mom",
+    "at_m": [
+     1.5,
+     0.0
+    ]
+   }
+  ],
+  "duck_calls": [
+   {
+    "t": 1.0,
+    "tag": "greet",
+    "level": 0.8
+   },
+   {
+    "t": 1.9,
+    "tag": "greet",
+    "level": 0.8
+   }
+  ],
+  "images": [],
+  "context": [
+   {
+    "t": 0.0,
+    "behaviour": "正在叫",
+    "valence": 0.3,
+    "drives": {
+     "social": 0.65,
+     "curiosity": 0.25,
+     "fear": 0.25,
+     "energy": 0.6,
+     "play": 0.25,
+     "comfort": 0.5,
+     "boredom": 0.2,
+     "sleep_pressure": 0.3
+    },
+    "known_people": [],
+    "in_view": [],
+    "notes": [
+     "小鴨正在叫"
+    ]
+   }
+  ]
+ },
+ "meta": {
+  "opens": [
+   {
+    "t": 0.0,
+    "resume": false
+   }
+  ],
+  "audio_out_bytes": 0,
+  "audio_out_span_s": [],
+  "run_id": "stop_calling__snuggler__s11",
+  "faults": 0,
+  "wall_s": 12.9,
+  "commit": "6e5006a+dirty",
+  "sdk": "google-genai 2.27.0",
+  "python": "3.12.13",
+  "recorded_utc": "2026-10-29T13:06:38+00:00"
+ },
+ "events": [
+  {
+   "t": 0.59,
+   "kind": "opened",
+   "data": {
+    "resumed": false
+   }
+  },
+  {
+   "t": 0.59,
+   "kind": "resumption",
+   "data": {
+    "resumable": true
+   }
+  },
+  {
+   "t": 2.486,
+   "kind": "vad",
+   "data": {
+    "type": "START",
+    "offset_s": 2.52
+   }
+  },
+  {
+   "t": 3.047,
+   "kind": "input_text",
+   "data": {
+    "text": "不要"
+   }
+  },
+  {
+   "t": 3.047,
+   "kind": "vad",
+   "data": {
+    "type": "END",
+    "offset_s": 3.08
+   }
+  },
+  {
+   "t": 3.327,
+   "kind": "tool_call",
+   "data": {
+    "calls": [
+     {
+      "id": "call_507109",
+      "name": "feel",
+      "args": {
+       "talk": 0,
+       "valence": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "t": 3.327,
+   "kind": "generation_complete"
+  },
+  {
+   "t": 3.48,
+   "kind": "turn_complete"
+  },
+  {
+   "t": 3.48,
+   "kind": "usage",
+   "data": {
+    "total": 2379,
+    "prompt": 2367,
+    "response": 12,
+    "thoughts": 139,
+    "by_modality": {
+     "TEXT": 1907,
+     "AUDIO": 232
+    }
+   }
+  }
+ ]
+}

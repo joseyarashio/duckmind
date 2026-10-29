@@ -1,0 +1,1597 @@
+/* Duck Mind simulator — design standard: docs/simulator-style.md
+   One committed look (the Microduck product page's language): ink and TV static, a yellow
+   title with a cyan/magenta split, square corners, thick ink borders, hard offset shadows,
+   cream paper with a dot grid, Anton for display words, DM Sans / Noto Sans TC for text.
+   Every colour a script uses comes from these tokens; the legacy names (--teal, --reed,
+   --lilac, --rose, --duck…) stay because app.js paints meters, tags and graphs with them. */
+:root {
+  --ink: #101018;
+  --ink-deep: #08080c;
+  --ink-2: #1c1c28;
+  --paper: #faf8f2;
+  --cream: #f2ecdd;
+  --white: #ffffff;
+  --yellow: #ffd23f;
+  --orange: #ff7a2f;
+  --orange-ink: #c2500a;
+  --magenta: #ff2fa8;
+  --cyan: #2ff0e6;
+  --blue: #3b6fd8;
+  --purple: #8a5cf5;
+  --green: #1f9d57;
+  --muted: #5e5e68;
+  --hair: rgba(16, 16, 24, 0.16);
+  --on-dark: #ffffff;
+  --on-dark-2: rgba(255, 255, 255, 0.66);
+  --on-dark-3: rgba(255, 255, 255, 0.38);
+
+  /* legacy names used by app.js / duck3d.js */
+  --bg: var(--paper);
+  --line: #d9d2c1;
+  --teal: #0e8f88;
+  --teal-soft: #d2f6f2;
+  --orange-soft: #ffe4d2;
+  --duck: var(--yellow);
+  --duck-dark: #e0a800;
+  --reed: var(--green);
+  --reed-soft: #d9f1e2;
+  --lilac: var(--purple);
+  --lilac-soft: #ebe3ff;
+  --rose: #e2248f;
+  --rose-soft: #ffe0f1;
+  --good: var(--green);
+  --warn: var(--orange-ink);
+  /* live physics (phase 0): what comes from the physics (the truth line) and what is only
+     Duck Core's plan (the shadow duck and its error ring); duck3d.js reads these two */
+  --truth: var(--green);
+  --plan: var(--blue);
+
+  --font-display: "Anton", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-body: "DM Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --gutter: max(16px, calc((100% - 1320px) / 2));
+  --noise: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --dots-ink: radial-gradient(rgba(16, 16, 24, 0.09) 1.1px, transparent 1.4px) 0 0 / 18px 18px;
+  --dots-light: radial-gradient(rgba(255, 255, 255, 0.07) 1.1px, transparent 1.4px) 0 0 / 18px 18px;
+  color-scheme: light;
+}
+
+/* ---------- base ---------- */
+* { box-sizing: border-box; }
+html { background: var(--ink); scroll-behavior: smooth; scroll-padding-top: 76px; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.6 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+/* The tilted ticker and hard shadows reach past the edges: clip them, never scroll sideways. */
+main { overflow-x: clip; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; }
+h4 { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
+small { color: var(--muted); font-weight: 500; margin-left: 8px; font-family: var(--font-body); font-size: 12.5px; letter-spacing: 0; text-transform: none; }
+code, .mono { font-family: var(--font-mono); font-size: 12px; }
+button, select, input { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.hint { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Display type: Anton for Latin, Noto Sans TC 900 for Chinese; never synthesise a bold. */
+.display, .card-title, .brand-name, .dialog-title, .duck-name h1, .tagline, .banner-main strong, .persona {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-synthesis: none;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.eyebrow {
+  margin: 0 0 10px;
+  font: 700 12px/1.3 var(--font-body);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--orange-ink);
+}
+.eyebrow.on-dark { color: var(--orange); }
+
+/* ---------- buttons and fields ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 2px solid var(--ink);
+  background: var(--white);
+  color: var(--ink);
+  border-radius: 0;
+  padding: 7px 13px;
+  font: 700 14px/1.2 var(--font-body);
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.08s, box-shadow 0.08s, background 0.12s;
+}
+.btn:hover { background: var(--yellow); }
+.btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+.btn.primary {
+  background: var(--orange); color: var(--ink);
+  box-shadow: 4px 4px 0 var(--magenta);
+  letter-spacing: 0.03em;
+}
+.btn.primary:hover { background: #ff8e4f; }
+.btn.primary:active { box-shadow: 0 0 0 var(--magenta); transform: translate(4px, 4px); }
+.btn.accent { background: var(--yellow); }
+.btn.ghost { background: transparent; box-shadow: none; }
+.btn.ghost:hover { background: var(--yellow); }
+.btn.small { padding: 4px 9px; font-size: 12.5px; box-shadow: 2px 2px 0 var(--ink); }
+.btn.small:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+select, input[type="text"], input[type="number"] {
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--white);
+  color: var(--ink);
+  padding: 7px 10px;
+  font: 500 14px/1.2 var(--font-body);
+}
+select:focus, input[type="text"]:focus, input[type="number"]:focus { outline: none; box-shadow: 3px 3px 0 var(--orange); }
+input[type="checkbox"] { accent-color: var(--orange); width: 16px; height: 16px; }
+.toggle {
+  display: inline-flex; gap: 8px; align-items: center;
+  font: 600 13.5px/1.3 var(--font-body);
+  padding: 6px 10px;
+  border: 2px solid var(--ink);
+  background: var(--white);
+  cursor: pointer;
+}
+.toggle:has(input:checked) { background: var(--yellow); }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  padding: 10px var(--gutter);
+  background: rgba(8, 8, 12, 0.92);
+  backdrop-filter: blur(8px);
+  color: var(--on-dark);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 0; }
+.brand-mark {
+  width: 40px; height: 32px; flex: none;
+  background: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 32'%3E%3Crect x='1' y='3' width='30' height='26' rx='13' fill='%23ffd23f' stroke='%23101018' stroke-width='2.5'/%3E%3Ccircle cx='20' cy='14' r='5.5' fill='%23ff7a2f' stroke='%23101018' stroke-width='2'/%3E%3Ccircle cx='20' cy='14' r='2' fill='%23101018'/%3E%3Cpath d='M29 17h9l-9 6z' fill='%23ff7a2f' stroke='%23101018' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.brand-text { display: grid; line-height: 1.15; min-width: 0; }
+.brand-name { font-size: 20px; letter-spacing: 0.02em; }
+.brand-sub { font-size: 12px; color: var(--on-dark-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clock { display: flex; gap: 8px; align-items: baseline; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.clock #clockNow { font-size: 15px; font-weight: 600; color: var(--yellow); }
+.clock .muted { color: var(--on-dark-2); font-size: 12.5px; }
+.timectl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; }
+.timectl select { background: var(--ink-2); color: var(--on-dark); border-color: rgba(255, 255, 255, 0.35); max-width: 15em; }
+.jumps { display: flex; gap: 6px; flex-wrap: wrap; }
+.topbar .btn.small { background: transparent; color: var(--on-dark); border-color: rgba(255, 255, 255, 0.4); box-shadow: none; }
+.topbar .btn.small:hover { background: var(--yellow); color: var(--ink); border-color: var(--ink); }
+.jumpnav { display: flex; gap: 16px; font: 600 14px var(--font-body); }
+.jumpnav a { text-decoration: none; color: var(--on-dark-2); padding: 4px 0; border-bottom: 2px solid transparent; }
+.jumpnav a:hover { color: var(--on-dark); border-bottom-color: var(--orange); }
+/* The language picker (i18n.css) right after the brand: on a phone and at middle widths it
+   shares the brand's row, so the bar is no taller than before. */
+.topbar > .lang-slot { order: 1; margin-left: 0; }
+.topbar > .clock, .topbar > .timectl, .topbar > .jumpnav { order: 2; }
+
+/* ---------- sections ---------- */
+.section { position: relative; padding: 76px var(--gutter) 84px; }
+.section.paper { background: var(--dots-ink), var(--paper); }
+.section.dark {
+  background:
+    var(--dots-light),
+    repeating-conic-gradient(from 0deg at 18% 26%, rgba(255, 122, 47, 0.07) 0deg 5deg, transparent 5deg 15deg),
+    var(--ink);
+  color: var(--on-dark);
+  clip-path: polygon(0 3.2vw, 100% 0, 100% calc(100% - 3.2vw), 0 100%);
+  margin-block: -3.2vw;
+  padding-block: calc(76px + 3.2vw);
+  z-index: 1;
+}
+.section.lab { padding-top: calc(76px + 3.2vw); }
+.section-head { text-align: center; margin-bottom: 34px; }
+.display {
+  font-size: clamp(40px, 5.2vw, 78px);
+  line-height: 0.95;
+  color: var(--ink);
+  text-shadow: 5px 5px 0 var(--yellow);
+}
+.display .outline {
+  display: block;
+  color: var(--paper);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: none;
+}
+.section.dark .display { color: var(--on-dark); text-shadow: -3px 0 0 var(--cyan), 3px 0 0 var(--magenta), 0 4px 30px rgba(8, 8, 12, 0.5); }
+.display .pink { display: block; color: var(--magenta); text-shadow: -2px 0 0 var(--cyan); }
+
+/* ---------- cards ---------- */
+.card {
+  --accent: var(--ink);
+  background: var(--white);
+  color: var(--ink);
+  border: 2.5px solid var(--ink);
+  border-radius: 0;
+  padding: 18px 20px 20px;
+  box-shadow: 8px 8px 0 var(--accent);
+  min-width: 0;
+}
+.accent-yellow { --accent: var(--yellow); --accent-ink: #b78a00; }
+.accent-orange { --accent: var(--orange); --accent-ink: var(--orange-ink); }
+.accent-magenta { --accent: var(--magenta); --accent-ink: var(--rose); }
+.accent-cyan { --accent: var(--cyan); --accent-ink: var(--teal); }
+.accent-blue { --accent: var(--blue); --accent-ink: var(--blue); }
+.accent-purple { --accent: var(--purple); --accent-ink: var(--purple); }
+.card-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 22px; line-height: 1.1; margin: 0 0 14px; }
+.card-title .num { font-family: "Anton", var(--font-display); font-size: 30px; color: var(--accent-ink, var(--ink)); }
+.card-title small { font-size: 12.5px; }
+
+/* ---------- hero: the duck on stage ---------- */
+.hero {
+  position: relative; overflow: hidden; isolation: isolate;
+  padding: 30px var(--gutter) 72px;
+  background: radial-gradient(120% 90% at 30% 20%, #2a2a36 0%, var(--ink) 58%, var(--ink-deep) 100%);
+  color: var(--on-dark);
+}
+.hero::before {
+  content: ""; position: absolute; inset: -240px; z-index: -1; pointer-events: none;
+  background: var(--noise); opacity: 0.2; mix-blend-mode: screen;
+  animation: static 0.9s steps(4) infinite; will-change: transform;
+}
+@keyframes static {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-60px, 40px); }
+  50% { transform: translate(40px, -80px); }
+  75% { transform: translate(-100px, -20px); }
+  100% { transform: translate(0, 0); }
+}
+.stage-frame { background: var(--white); color: var(--ink); padding: 8px; border: 2.5px solid var(--ink); box-shadow: 14px 14px 0 var(--yellow); }
+.duck-view { position: relative; min-width: 0; }
+/* 3D or the 2D duck; the clock, captions and ⛶ sit on top of either. */
+.stage-area { position: relative; display: flex; flex-direction: column; }
+.duck-view > .hint { color: var(--on-dark-3); margin-top: 22px; }
+.duck-name { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.duck-name h1 {
+  font-size: clamp(60px, 8.6vw, 140px);
+  line-height: 0.92;
+  color: var(--yellow);
+  text-shadow: 6px 6px 0 var(--ink-deep), -4px 0 0 var(--cyan), 4px 0 0 var(--magenta), 0 4px 32px rgba(8, 8, 12, 0.55);
+  overflow-wrap: anywhere;
+}
+.pill {
+  font: 800 13px/1 var(--font-body); letter-spacing: 0.08em;
+  padding: 6px 10px; background: var(--magenta); color: var(--ink);
+  border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--cyan);
+  transform: rotate(-2deg); margin-bottom: 10px;
+}
+.tagline { margin: -4px 0 4px; font-size: clamp(22px, 2.5vw, 36px); line-height: 1; color: var(--magenta); text-shadow: -1.5px 0 0 var(--cyan); }
+.reason { margin: 0; font-size: 15px; color: var(--on-dark-2); min-height: 1.6em; }
+.trying {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  background: var(--yellow); color: var(--ink);
+  border: 2.5px solid var(--ink); box-shadow: 5px 5px 0 var(--magenta);
+  padding: 10px 12px; font-weight: 700; font-size: 14px; transform: rotate(-0.8deg);
+}
+.battery { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font: 700 13px var(--font-body); color: var(--on-dark-2); letter-spacing: 0.06em; }
+.battery .mono { color: var(--on-dark); font-size: 13px; }
+.bar { position: relative; height: 12px; background: var(--cream); border: 2px solid var(--ink); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--reed); transition: width 0.4s; }
+.battery .bar { height: 16px; background: transparent; border-color: var(--on-dark-2); }
+
+/* The banner: what the duck is doing and why, and one click to change it. */
+.duck-banner {
+  --tone: var(--cyan);
+  position: relative; z-index: 4;
+  display: grid; gap: 10px;
+  padding: 14px 16px 16px;
+  background: var(--white); color: var(--ink);
+  border: 2.5px solid var(--ink);
+  box-shadow: 9px 9px 0 var(--tone);
+  font-size: 14.5px;
+}
+.duck-banner[data-tone="off"] { --tone: #8a8a94; }
+.duck-banner[data-tone="sleep"], .duck-banner[data-tone="night"] { --tone: var(--purple); }
+.duck-banner[data-tone="warn"] { --tone: var(--orange); }
+.duck-banner[data-tone="rest"] { --tone: var(--yellow); }
+.duck-banner[data-tone="info"] { --tone: var(--cyan); }
+.banner-time {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: -14px -16px 0; padding: 8px 16px;
+  background: var(--ink); color: var(--on-dark-2);
+  font: 600 12.5px/1.3 var(--font-mono);
+}
+.banner-time[data-state="paused"] { background: var(--yellow); color: var(--ink); font-size: 13.5px; }
+.banner-time[data-state="offline"] { background: var(--magenta); color: var(--ink); font-size: 13.5px; }
+.banner-time[data-state="realtime"] #bannerTimeText { color: #6bf0a8; }
+.banner-time #bannerTimeText { flex: 1 1 16em; min-width: 0; }
+.banner-time .btn.small { box-shadow: none; }
+/* The banner's buttons say what they will do (「對齊我的時鐘（先快轉 13 小時…）」,「過到第 5 個成長日
+   （和長輩在家的家庭快轉 3 天）」): on a phone they wrap inside the card instead of widening it
+   past its edge. */
+.duck-banner > * { min-width: 0; }
+.banner-time .btn, .banner-actions .btn { white-space: normal; text-align: left; max-width: 100%; }
+.banner-main { display: grid; gap: 4px; }
+.banner-main strong { font-size: 26px; line-height: 1.05; }
+.banner-main span { color: var(--ink); }
+.banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.banner-actions:empty, .banner-tags:empty { display: none; }
+.banner-actions .btn.small { font-size: 13.5px; padding: 6px 12px; box-shadow: 3px 3px 0 var(--ink); }
+.banner-tags { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.banner-tags span { padding: 1px 8px; border: 1.5px solid var(--ink); background: var(--cream); color: var(--ink); font-weight: 600; }
+
+/* An old server process behind today's page: say so, plainly and first. */
+.server-warn {
+  margin-bottom: 14px; padding: 12px 14px;
+  font-size: 14.5px; font-weight: 700;
+  background: var(--magenta); color: var(--ink);
+  border: 2.5px solid var(--ink); box-shadow: 6px 6px 0 var(--yellow);
+}
+
+/* ---------- 3D view ---------- */
+.duck3d-wrap {
+  position: relative;
+  display: none;
+  flex-direction: column;
+  height: clamp(360px, 64vh, 780px);
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 20%, #fffdf6, var(--cream));
+  border: 2px solid var(--ink);
+  touch-action: none;
+}
+body.has3d .duck3d-wrap { display: flex; }
+body.has3d .duck-stage { display: none; }
+.duck3d-wrap canvas { display: block; flex: 1 1 0; width: 100%; min-height: 0; cursor: grab; }
+.duck3d-wrap.off canvas { filter: grayscale(0.9) brightness(0.72); }
+.expand-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  border: 2px solid var(--ink); background: var(--white); color: var(--ink);
+  padding: 4px 10px; font: 700 13px var(--font-body); cursor: pointer;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.expand-btn:hover { background: var(--yellow); }
+/* The view's own tools, top right: 「近看小鴨」 (a close camera on the head) and ⛶. */
+.stage-tools { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 8px; align-items: flex-start; }
+.stage-tools .expand-btn { position: static; }
+.expand-btn[aria-pressed="true"] { background: var(--yellow); box-shadow: 3px 3px 0 var(--magenta); }
+.duck3d-clock {
+  position: absolute; left: 10px; top: 10px; z-index: 4; display: grid; gap: 2px;
+  background: var(--ink); color: var(--on-dark);
+  border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--magenta);
+  padding: 6px 10px; line-height: 1.25;
+  font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.duck3d-clock b { font: 600 15px var(--font-mono); color: var(--yellow); letter-spacing: 0.02em; }
+.duck3d-clock span { font: 600 12px var(--font-body); color: var(--on-dark-2); letter-spacing: 0.04em; }
+.duck3d-clock[data-state="paused"] span { color: var(--orange); }
+.duck3d-clock[data-state="realtime"] span { color: #6bf0a8; }
+.duck3d-clock[data-state="offline"] span { color: var(--magenta); }
+.duck3d-clock i { font: 600 12px var(--font-body); font-style: normal; color: var(--cyan); letter-spacing: 0.04em; }
+.duck3d-clock:empty { display: none; }
+.duck3d-caption {
+  position: absolute; left: 10px; top: 68px; max-width: min(72%, 520px); z-index: 3;
+  background: var(--white); color: var(--ink);
+  border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--cyan);
+  font: 600 14px/1.4 var(--font-body);
+  padding: 6px 10px; pointer-events: none;
+  opacity: 0; transition: opacity 0.25s;
+}
+.duck3d-caption.show { opacity: 1; }
+/* The lead line: what the duck is up to (a moment, setting off, the way home) above the
+   words of its moves; a clever or goofy moment gets the magenta shadow. */
+.duck3d-caption .lead { display: block; font-weight: 800; }
+.duck3d-caption .lead + span { display: block; margin-top: 2px; }
+.duck3d-caption.moment { box-shadow: 4px 4px 0 var(--magenta); }
+.duck3d-bubble {
+  position: absolute; transform: translate(-50%, -110%);
+  background: var(--yellow); color: var(--ink);
+  border: 2.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink);
+  padding: 2px 10px; font: 900 17px var(--font-display); white-space: nowrap;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+.duck3d-bubble.show { opacity: 1; }
+.duck3d-zzz { position: absolute; transform: translate(-10%, -120%); pointer-events: none; font-family: var(--font-display); color: var(--purple); display: none; }
+.duck3d-zzz.show { display: block; }
+.duck3d-zzz span { display: inline-block; opacity: 0; animation: zzz3d 3s ease-in-out infinite; }
+.duck3d-zzz span:nth-child(1) { font-size: 22px; }
+.duck3d-zzz span:nth-child(2) { font-size: 17px; animation-delay: 0.6s; }
+.duck3d-zzz span:nth-child(3) { font-size: 13px; animation-delay: 1.2s; }
+@keyframes zzz3d { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -18px); } }
+/* Live physics overlays (phase 0 「看見真相」), in the caption's look: which duck is drawn
+   (3D: the physics truth or Duck Core's plan), and — in 3D and 2D alike — 「物理不可信」 with
+   the stall monitor's reasons and the duck's-eye picture. */
+.stage-mode, .trust-badge, .eye-window {
+  background: var(--white); color: var(--ink);
+  border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--cyan);
+  font: 600 13px/1.35 var(--font-body);
+}
+.stage-mode {
+  position: absolute; left: 10px; top: 76px; z-index: 3;
+  display: grid; gap: 2px; max-width: min(56%, 380px);
+  padding: 5px 9px; pointer-events: none;
+}
+/* Owner 2026-10-11 (「物理真相那欄位條目拿掉，擋位置」): the label is not drawn over the view in any mode — the
+   left column is the minimap's. The element and its id stay (duck3d.js and app.js still write into it); shell.js
+   carries its two lines into the HUD's tooltip, so nothing is lost and no new text exists. */
+.stage-mode, body:not(.has3d) .stage-mode { display: none !important; }
+.stage-mode b { font-weight: 800; font-size: 13.5px; letter-spacing: 0.02em; }
+.stage-mode span { font-weight: 500; font-size: 12px; color: var(--muted); }
+.stage-mode[data-mode="plan"] { box-shadow: 4px 4px 0 var(--plan); }
+.stage-mode[data-mode="truth"] { box-shadow: 4px 4px 0 var(--truth); }
+/* The 2D duck has no clock box over it: the label sits just under its badge, off the duck. */
+body:not(.has3d) .stage-mode { top: 52px; }
+.chip.truth::before { background: var(--truth); }
+.chip.plan::before { background: var(--plan); }
+/* The right-hand column stays inside the view: the picture shrinks when the reasons need room. */
+.stage-side {
+  position: absolute; top: 50px; bottom: 10px; right: 10px; z-index: 4;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+  width: min(32%, 176px); pointer-events: none;
+}
+.stage-side > * { pointer-events: auto; max-width: 100%; }
+.trust-badge { flex: none; box-shadow: 4px 4px 0 var(--magenta); padding: 5px 9px; }
+.trust-badge summary { cursor: pointer; list-style: none; color: var(--ink); font: 800 13px/1.35 var(--font-body); }
+.trust-badge summary::-webkit-details-marker { display: none; }
+.trust-badge:not([open]) summary::after { content: attr(data-more); font-weight: 500; font-size: 11.5px; color: var(--muted); }
+.trust-badge ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; font-weight: 500; }
+.trust-badge li + li { margin-top: 2px; }
+.eye-window { flex: 0 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+.eye-window.closed { width: auto; }
+.eye-toggle {
+  flex: none; display: block; width: 100%; text-align: left;
+  border: 0; border-bottom: 2px solid var(--ink); background: var(--white); color: var(--ink);
+  padding: 5px 8px; font: 800 12.5px/1.3 var(--font-body); cursor: pointer;
+}
+.eye-toggle small { display: block; margin: 0; font-size: 11px; }
+.eye-toggle:hover { background: var(--yellow); }
+.eye-toggle[aria-expanded="false"] { border-bottom: 0; }
+.eye-window.closed .eye-toggle small { display: none; }
+.eye-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+.eye-body .chip { flex: none; font-size: 12px; font-weight: 700; white-space: normal; }
+.chip.light-bright::before { background: var(--yellow); }
+.chip.light-dim::before { background: var(--orange); }
+.chip.light-dark::before { background: var(--purple); }
+.chip.light-black::before { background: var(--ink); }
+.eye-body img {
+  flex: 0 1 auto; min-height: 0; display: block; width: 100%; height: auto; aspect-ratio: 9 / 16;
+  object-fit: contain; background: var(--ink); border: 2px solid var(--ink);
+}
+.eye-note { flex: none; margin: 0; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.duck3d-fx { position: absolute; inset: 0; pointer-events: none; }
+.duck3d-fx span { position: absolute; top: 38%; font-size: 24px; color: var(--magenta); animation: rise 1.6s ease-out forwards; }
+@keyframes rise { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-60px); } }
+.duck3d-readout:empty { display: none; }
+.duck3d-readout {
+  flex: none;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.45;
+  color: var(--on-dark-2); background: var(--ink);
+  padding: 6px 10px; white-space: pre; overflow: hidden; text-overflow: ellipsis;
+}
+.duck3d-place, .duck3d-live, .duck3d-voice {
+  flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font: 600 12.5px var(--font-body); color: var(--on-dark);
+  background: var(--ink-2); border-top: 1px solid var(--on-dark-3);
+  padding: 6px 10px;
+}
+.duck3d-place #placeText { flex: 1 1 auto; min-width: 0; color: var(--on-dark-2); }
+.duck3d-live label { display: inline-flex; align-items: center; gap: 6px; }
+.duck3d-live #liveStatus { color: var(--on-dark-2); flex: 1 1 auto; min-width: 0; font-weight: 500; }
+.duck3d-place .btn.small, .duck3d-live .btn.small, .duck3d-voice .btn.small { padding: 3px 9px; font-size: 12px; }
+.duck3d-live .btn.ghost, .duck3d-voice .btn.ghost { color: var(--on-dark); border-color: rgba(255, 255, 255, 0.45); }
+.duck3d-live .btn.ghost:hover, .duck3d-voice .btn.ghost:hover { color: var(--ink); border-color: var(--ink); }
+/* 小鴨的叫聲 (voice.js): the mute (magenta while muted) and this viewer's own volume; the note
+   says why there is no sound yet (the first click, a bank still rendering, no voice binary). */
+.duck3d-voice #callMute[aria-pressed="true"] { background: var(--magenta); color: var(--ink); border-color: var(--ink); }
+.call-volume { display: inline-flex; align-items: center; gap: 8px; color: var(--on-dark-2); }
+.call-note { flex: 1 1 14em; min-width: 0; color: var(--yellow); font-weight: 600; font-size: 12px; line-height: 1.35; }
+.duck3d-voice input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 120px; height: 24px; margin: 0; background: transparent; cursor: pointer;
+}
+.duck3d-voice input[type="range"]::-webkit-slider-runnable-track { height: 8px; background: var(--ink); border: 2px solid var(--on-dark-2); border-radius: 0; }
+.duck3d-voice input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 20px; margin-top: -8px;
+  background: var(--yellow); border: 2px solid var(--ink); border-radius: 0; box-shadow: 2px 2px 0 var(--magenta);
+}
+.duck3d-voice input[type="range"]::-moz-range-track { height: 4px; background: var(--ink); border: 2px solid var(--on-dark-2); border-radius: 0; }
+.duck3d-voice input[type="range"]::-moz-range-progress { height: 4px; background: var(--orange); }
+.duck3d-voice input[type="range"]::-moz-range-thumb { width: 10px; height: 16px; background: var(--yellow); border: 2px solid var(--ink); border-radius: 0; box-shadow: 2px 2px 0 var(--magenta); }
+/* 神經鴨原型 (fid:fix): the main stimuli right under the view — press one with the whole duck in sight. */
+.stage-stim {
+  flex: none; display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap;
+  font: 600 12.5px var(--font-body); color: var(--on-dark);
+  background: var(--ink); border-top: 1px solid var(--on-dark-3); padding: 6px 10px;
+}
+.stage-stim[hidden] { display: none; }
+.stage-stim-label { font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 15px; letter-spacing: 0.02em; color: var(--yellow); margin-right: 2px; }
+.stage-stim .btn.small { padding: 3px 9px; font-size: 12.5px; box-shadow: 2px 2px 0 var(--orange); }
+.stage-stim .btn.small:active { box-shadow: 0 0 0 var(--orange); }
+.stage-stim .btn.small.sent { background: var(--yellow); }
+/* range sliders (the music volume, the hand's distance in neuro_sound.js): the standard's square thumb */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 22px; margin: 0; background: transparent; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track { height: 8px; background: var(--cream); border: 2px solid var(--ink); border-radius: 0; }
+input[type="range"]::-moz-range-track { height: 4px; background: var(--cream); border: 2px solid var(--ink); border-radius: 0; }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 20px; margin-top: -8px; background: var(--orange);
+  border: 2px solid var(--ink); border-radius: 0; box-shadow: 2px 2px 0 var(--magenta);
+}
+input[type="range"]::-moz-range-thumb { width: 10px; height: 16px; background: var(--orange); border: 2px solid var(--ink); border-radius: 0; box-shadow: 2px 2px 0 var(--magenta); }
+input[type="range"]:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+/* The physical home (phase 2): which home the physics runs, the nest's contact, the hand and
+   the family members who came over — one dark line under the physics controls. */
+.duck3d-world {
+  flex: none; margin: 0;
+  font: 500 12px/1.45 var(--font-body); color: var(--on-dark-2);
+  background: var(--ink-2); border-top: 1px solid var(--on-dark-3);
+  padding: 5px 10px;
+}
+.duck3d-world b { color: var(--on-dark); font-weight: 700; }
+.duck3d-world .contact-on { color: var(--green); }
+/* The world battery sits under Duck Core's own, a little quieter (display only, E1). */
+.world-battery { font-size: 12px; color: var(--on-dark-2); }
+.world-battery .bar { height: 12px; border-style: dashed; }
+.world-battery .bar i { background: var(--cyan); }
+.world-tools .row + .row { margin-top: 10px; }
+.world-tools select { flex: 1 1 10em; }
+
+/* ---------- 2D fallback duck (no WebGL) ---------- */
+.duck-stage {
+  position: relative;
+  background: var(--dots-ink), linear-gradient(180deg, #fffdf6, var(--cream));
+  border: 2px solid var(--ink);
+  aspect-ratio: 4 / 3; max-width: 100%; max-height: 64vh;
+  display: grid; place-items: center; overflow: hidden;
+}
+.duck-stage svg { width: 78%; height: auto; overflow: visible; }
+.duck-stage .ground { fill: rgba(16, 16, 24, 0.14); }
+.duck-stage .body { fill: var(--yellow); stroke: var(--ink); stroke-width: 3; transform-origin: 120px 150px; }
+.duck-stage .wing { fill: #e0a800; opacity: 0.7; }
+.duck-stage .headg { transform-origin: 150px 102px; transition: transform 0.9s cubic-bezier(.4, .1, .3, 1); }
+.duck-stage .head { fill: var(--yellow); stroke: var(--ink); stroke-width: 3; }
+.duck-stage .beak-top, .duck-stage .beak-bottom { fill: var(--orange); stroke: var(--ink); stroke-width: 2; }
+.duck-stage .beak-bottom { transform-origin: 196px 98px; transition: transform 0.25s; }
+.duck-stage .eye { fill: var(--ink); }
+.duck-stage .eye-closed { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; fill: none; display: none; }
+.duck-stage .zzz { font-family: var(--font-display); fill: var(--purple); font-size: 20px; opacity: 0; }
+.duck-stage.awake .body { animation: breathe 4.2s ease-in-out infinite; }
+.duck-stage.mouth .beak-bottom { transform: rotate(16deg); }
+.duck-stage.sleep .eye { display: none; }
+.duck-stage.sleep .eye-closed { display: inline; }
+.duck-stage.sleep .headg { transform: rotate(14deg) translateY(6px); }
+.duck-stage.sleep .zzz { animation: zzz 3s ease-in-out infinite; }
+.duck-stage.off svg { filter: grayscale(1); opacity: 0.55; }
+.duck-stage.rest .headg { transform: rotate(10deg) translateY(4px); }
+.duck-stage .legs path { fill: none; stroke: var(--orange); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.duck-stage .legs { opacity: 0; transition: opacity 0.6s; }
+.duck-stage .duckbody { transform-origin: 124px 186px; transition: transform 0.9s cubic-bezier(.4, .1, .3, 1); }
+.duck-stage.posture-stand .legs, .duck-stage.posture-walk .legs { opacity: 1; }
+.duck-stage.posture-stand .duckbody, .duck-stage.posture-walk .duckbody { transform: translateY(-22px); }
+.duck-stage.posture-walk .legs path:first-child { animation: step 0.62s ease-in-out infinite; }
+.duck-stage.posture-walk .legs path:last-child { animation: step 0.62s ease-in-out infinite reverse; }
+.duck-stage.posture-fallen .duckbody { transform-origin: 196px 186px; transform: translate(0, 14px) rotate(22deg); }
+.duck-stage.posture-fallen .eye { display: none; }
+.duck-stage.posture-fallen .eye-closed { display: inline; }
+@keyframes step { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+.duck-stage .badge { position: absolute; top: 10px; left: 10px; background: var(--white); color: var(--ink); border: 2px solid var(--ink); padding: 1px 10px; font-size: 12px; font-weight: 700; }
+.bubble {
+  position: absolute; top: 10%; right: 6%;
+  background: var(--yellow); border: 2.5px solid var(--ink); color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 4px 12px; font: 900 18px var(--font-display);
+  opacity: 0; transform: translateY(6px); transition: opacity 0.25s, transform 0.25s; pointer-events: none;
+}
+.bubble.show { opacity: 1; transform: translateY(0); }
+.v-look_around .headg { animation: look 2.6s ease-in-out; }
+.v-perk_tilt .headg, .v-survey .headg { animation: perk 2.2s ease-in-out; }
+.v-stretch_yawn .headg, .v-wake_ritual .headg { animation: stretch 2.4s ease-in-out; }
+.v-preen .headg { animation: preen 2.6s ease-in-out; }
+.v-happy_sway .body, .v-little_dance .body, .v-little_song .body, .v-self_duet .body { animation: sway 1.8s ease-in-out; }
+.v-tuck_away .headg, .v-not_now .headg { animation: tuck 2.4s ease-in-out; }
+.v-nod .headg { animation: nod 1.6s ease-in-out; }
+.v-snuggle .headg, .v-melt .headg, .v-nuzzle_tilt .headg { animation: snuggle 2.6s ease-in-out; }
+.v-moon_gaze .headg { animation: gaze 3s ease-in-out; }
+.v-peekaboo .headg, .v-peekaboo_master .headg { animation: peek 2.4s ease-in-out; }
+.v-call_response .headg { animation: perk 1.6s ease-in-out 2; }
+@keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.03); } }
+@keyframes look { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-9deg); } 70% { transform: rotate(8deg); } }
+@keyframes perk { 0%, 100% { transform: rotate(0); } 40%, 70% { transform: rotate(-12deg) translateY(-6px); } }
+@keyframes stretch { 0%, 100% { transform: translateY(0); } 45%, 60% { transform: translateY(-14px) rotate(-6deg); } }
+@keyframes preen { 0%, 100% { transform: rotate(0); } 35%, 70% { transform: rotate(28deg) translate(-6px, 12px); } 50% { transform: rotate(32deg) translate(-8px, 14px); } }
+@keyframes sway { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes tuck { 0%, 100% { transform: rotate(0); } 30%, 75% { transform: rotate(20deg) translate(-10px, 12px); } }
+@keyframes nod { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(10deg); } 50% { transform: rotate(0); } }
+@keyframes snuggle { 0%, 100% { transform: rotate(0); } 40%, 70% { transform: rotate(14deg) translate(4px, 8px); } }
+@keyframes gaze { 0%, 100% { transform: rotate(0); } 30%, 80% { transform: rotate(-18deg) translateY(-6px); } }
+@keyframes peek { 0%, 100% { transform: translateX(0); } 30% { transform: translate(-16px, 10px) rotate(12deg); } 60% { transform: translate(4px, -4px); } }
+@keyframes zzz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(12px, -24px); } }
+
+/* ---------- ticker ---------- */
+.ticker {
+  position: relative; z-index: 6;
+  margin: -26px -24px 0;
+  background: var(--yellow);
+  border-block: 3px solid var(--ink);
+  transform: rotate(-1.2deg);
+  overflow: hidden;
+  box-shadow: 0 6px 0 rgba(8, 8, 12, 0.12);
+}
+.ticker-inner { display: flex; width: max-content; animation: marquee 48s linear infinite; }
+.ticker:hover .ticker-inner { animation-play-state: paused; }
+.ticker-track {
+  display: flex; align-items: center; gap: 22px; flex: none;
+  padding: 11px 22px 11px 0;
+  font: 800 15px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap; color: var(--ink);
+}
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip::before { content: ""; width: 10px; height: 10px; border: 2px solid var(--ink); background: var(--white); }
+.chip.gd::before { background: var(--orange); }
+.chip.stage::before { background: var(--cyan); }
+.chip.floor::before { background: var(--green); }
+.chip.mode-off::before { background: #8a8a94; }
+.chip.mode-nap::before { background: var(--purple); }
+.chip.mode-awake::before { background: var(--green); }
+.chip.mode-warn::before { background: var(--magenta); }
+.tick-star { font-size: 14px; }
+.tick-note { font-weight: 700; letter-spacing: 0.06em; }
+.chip.floor[hidden] + .floor-star { display: none; }
+
+/* ---------- play ---------- */
+.who { max-width: 880px; margin: 0 auto 30px; }
+.personas { display: flex; gap: 12px; flex-wrap: wrap; }
+.persona {
+  font-size: 22px; padding: 10px 22px;
+}
+.persona, .duck-pick {
+  border: 2.5px solid var(--ink); background: var(--white); color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink); cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s, background 0.12s;
+}
+.persona:hover, .duck-pick:hover { background: var(--yellow); }
+.persona.on, .duck-pick.on { background: var(--ink); color: var(--yellow); box-shadow: 4px 4px 0 var(--magenta); }
+.persona:active, .duck-pick:active { transform: translate(4px, 4px); box-shadow: none; }
+.scenarios {
+  display: grid; gap: 28px 26px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+}
+.scenarios .group.owner { grid-column: span 2; }
+.group .row { display: flex; flex-wrap: wrap; gap: 10px; }
+.play-grid { display: grid; gap: 28px 26px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); margin-top: 40px; align-items: start; }
+.cmd { display: flex; gap: 10px; }
+.cmd input { flex: 1; min-width: 0; font-size: 15px; padding: 10px 12px; }
+.suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.suggest button {
+  font: 600 12.5px var(--font-body); padding: 4px 10px; cursor: pointer;
+  border: 1.5px dashed var(--ink); background: var(--paper); color: var(--ink);
+}
+.suggest button:hover { background: var(--yellow); border-style: solid; }
+.cmd-out { display: grid; gap: 8px; margin-top: 12px; }
+.cmd-item { border: 2px solid var(--ink); border-left-width: 8px; border-left-color: var(--cyan); padding: 6px 10px; background: var(--white); font-size: 14px; }
+.cmd-item .clause { font-weight: 800; }
+.cmd-item.unknown { border-left-color: var(--orange); background: var(--orange-soft); }
+.feed { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.lane h4 { display: flex; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2.5px solid var(--ink); text-transform: uppercase; }
+.lane ol { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow: auto; display: grid; align-content: start; }
+.lane li { font-size: 13px; padding: 6px 4px; border-bottom: 1px dashed var(--hair); display: grid; grid-template-columns: 4.6em 1fr; gap: 6px; }
+.lane li .t { font-family: var(--font-mono); color: var(--muted); font-size: 11.5px; padding-top: 2px; }
+.lane li.miss { opacity: 0.7; text-decoration: line-through; text-decoration-color: var(--magenta); }
+.lane li.new { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: var(--yellow); } to { background: transparent; } }
+.tag { display: inline-block; font: 700 12px/1.5 var(--font-body); padding: 0 6px; margin-right: 5px; border: 1.5px solid var(--ink); background: var(--cream); color: var(--ink); }
+.tag.sense, .tag.pad, .tag.owner { background: var(--teal-soft); }
+.tag.growth { background: var(--lilac-soft); }
+.tag.learning, .tag.care { background: var(--reed-soft); }
+.tag.voice, .tag.rare, .tag.keepsake { background: var(--orange-soft); }
+.tag.memory { background: var(--rose-soft); }
+.eid { font-family: var(--font-mono); font-size: 12px; color: var(--muted); cursor: pointer; border-bottom: 1px dotted var(--muted); margin-left: 2px; padding: 3px 3px 1px; }
+.eid:hover { color: var(--ink); background: var(--yellow); }
+
+/* ---------- mind ---------- */
+.mind-grid { display: grid; gap: 30px 28px; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
+.mind-side { display: grid; gap: 28px; }
+.meters { display: grid; gap: 10px; }
+.meter { display: grid; grid-template-columns: 5.5em 1fr 3.2em; gap: 10px; align-items: center; font-size: 13.5px; font-weight: 600; }
+.meter .val { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 500; }
+.meter .bar.center i { position: absolute; top: 0; }
+.meter .bar.center::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: 0.35; }
+.quirks { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.quirk { display: flex; gap: 8px; align-items: baseline; }
+.quirk::before { content: "✦"; color: var(--magenta); }
+.quirk.hidden { color: var(--muted); }
+.quirk.hidden::before { content: "？"; color: var(--muted); }
+.memory-card { padding-top: 14px; }
+.tabs { display: flex; flex-wrap: wrap; border: 2.5px solid var(--ink); margin-bottom: 16px; background: var(--white); }
+.tabs button {
+  flex: 1 1 auto; border: 0; border-right: 2px solid var(--ink);
+  background: transparent; padding: 9px 12px; cursor: pointer;
+  font: 800 14px var(--font-body); letter-spacing: 0.04em; color: var(--ink);
+}
+.tabs button:last-child { border-right: 0; }
+.tabs button:hover { background: var(--cream); }
+.tabs button[aria-selected="true"] { background: var(--yellow); }
+.graph-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+.graph-wrap { position: relative; border: 2.5px solid var(--ink); background: var(--dots-ink), var(--paper); overflow: hidden; }
+#graph { width: 100%; height: 480px; display: block; touch-action: none; }
+#graph .link { stroke: #cfc6b2; stroke-width: 1.4; }
+#graph .link.lineage { stroke: var(--orange); stroke-width: 2; }
+#graph .link.truth { stroke: var(--magenta); stroke-dasharray: 4 3; }
+#graph .link.supports { stroke: var(--muted); stroke-opacity: 0.45; }
+#graph .node circle { stroke: var(--ink); stroke-width: 2; cursor: pointer; }
+#graph .node.truth circle { stroke: var(--magenta); stroke-dasharray: 3 2; fill: var(--rose-soft); }
+#graph .node text { font: 600 11px var(--font-body); fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: var(--paper); stroke-width: 3px; }
+#graph .node.episode text { display: none; }
+#graph .node.episode:hover text, #graph .node.episode.sel text { display: inline; }
+#graph .node.dim { opacity: 0.4; }
+#graph .node.sel circle { stroke: var(--orange); stroke-width: 3.5; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-top: 12px; }
+.legend span::before { content: ""; display: inline-block; width: 11px; height: 11px; border: 2px solid var(--ink); margin-right: 5px; vertical-align: -2px; background: var(--c); }
+.graph-empty { padding: 30px; text-align: center; color: var(--muted); }
+.detail { margin-top: 14px; border: 2px solid var(--ink); padding: 12px 14px; background: var(--paper); font-size: 14px; }
+.detail h3 { margin-bottom: 6px; }
+.detail .meta { font-size: 12.5px; color: var(--muted); }
+.evidence { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: 13px; }
+.evidence li { display: grid; grid-template-columns: 6.6em 7.6em 1fr; gap: 6px; }
+.strength { display: inline-block; width: 80px; height: 8px; border: 1.5px solid var(--ink); background: var(--cream); vertical-align: middle; margin: 0 6px; overflow: hidden; }
+.strength i { display: block; height: 100%; background: var(--green); }
+.confirm { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; font-size: 13px; }
+.query-form { display: flex; gap: 10px; }
+.query-form input { flex: 1; min-width: 0; font-size: 15px; padding: 10px 12px; }
+.answer { margin: 14px 0; padding: 12px 14px; background: var(--yellow); color: var(--ink); border: 2.5px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); font-size: 15px; font-weight: 600; }
+.answer.honest { background: var(--rose-soft); }
+.facts { display: grid; gap: 10px; }
+.fact { border: 2px solid var(--ink); padding: 10px 12px; background: var(--white); font-size: 14px; }
+.fact .top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.fact .txt { margin: 4px 0; }
+details summary { cursor: pointer; font: 700 12.5px var(--font-body); color: var(--orange-ink); }
+.diary-day { border-bottom: 2px dashed var(--hair); padding: 10px 0; }
+.diary-day h3 { display: flex; gap: 8px; align-items: baseline; font-size: 15px; }
+.gauges { font-size: 12px; color: var(--muted); font-family: var(--font-body); font-weight: 500; }
+.diary-day p { margin: 4px 0; font-size: 14px; }
+.diary-day p.gentle { color: var(--muted); }
+.track { position: relative; height: 40px; margin: 8px 0 24px; }
+.track .seg { position: absolute; top: 12px; height: 14px; border: 2px solid var(--ink); font-size: 11px; }
+.track .seg span { position: absolute; top: 18px; left: 0; color: var(--muted); white-space: nowrap; font-weight: 600; }
+.track .marker { position: absolute; top: 2px; width: 4px; height: 34px; background: var(--magenta); border: 1px solid var(--ink); }
+.milestones { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.milestones li { display: grid; grid-template-columns: 1.6em 1fr; gap: 6px; font-size: 14px; }
+.milestones li .ic { text-align: center; }
+.milestones li.pending { color: var(--purple); }
+.compass { display: grid; gap: 8px; }
+.compass .crow { display: grid; grid-template-columns: 6.5em 1fr 3.5em; gap: 10px; align-items: center; font-size: 13px; font-weight: 600; }
+.compass .crow .bar i { background: var(--purple); }
+.albums { display: flex; flex-wrap: wrap; gap: 8px; }
+.albums span { background: var(--orange-soft); color: var(--ink); border: 1.5px solid var(--ink); padding: 2px 10px; font-size: 13px; font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.sub { border: 2px solid var(--ink); padding: 12px 14px; background: var(--white); }
+.sub h3 { margin-bottom: 8px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.lineage { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 6px; }
+.gen { min-width: 140px; display: grid; gap: 8px; align-content: start; }
+.gen h3 { font-size: 12.5px; color: var(--muted); font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.08em; }
+.phrase { border: 2px solid var(--ink); padding: 5px 9px; font-size: 14px; background: var(--white); }
+.phrase.promoted { background: var(--yellow); box-shadow: 3px 3px 0 var(--ink); }
+.phrase small { display: block; margin: 0; font-size: 11.5px; }
+.song { padding: 12px 14px; background: var(--yellow); color: var(--ink); border: 2.5px solid var(--ink); box-shadow: 5px 5px 0 var(--magenta); font-size: 16px; font-weight: 700; margin: 10px 0; }
+.molt { border: 2px dashed var(--purple); background: var(--lilac-soft); padding: 12px 14px; display: grid; gap: 8px; }
+.chain-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 13px; }
+.table-wrap { overflow-x: auto; max-height: 540px; overflow-y: auto; border: 2.5px solid var(--ink); }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 6px 9px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+th { position: sticky; top: 0; background: var(--ink); color: var(--on-dark); font-weight: 700; letter-spacing: 0.04em; }
+td.k { font-family: var(--font-mono); white-space: nowrap; }
+
+/* ---------- lab ---------- */
+.lab-grid { display: grid; gap: 28px 26px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; }
+.lab-grid select { max-width: 100%; }
+
+/* ---------- dialog, toast, footer ---------- */
+dialog {
+  border: 3px solid var(--ink); border-radius: 0; background: var(--white); color: var(--ink);
+  box-shadow: 12px 12px 0 var(--yellow);
+  max-width: min(480px, calc(100vw - 32px)); padding: 22px;
+}
+dialog::backdrop { background: rgba(8, 8, 12, 0.66); }
+dialog form { display: grid; gap: 12px; }
+.dialog-title { font-size: 30px; line-height: 1; text-shadow: 3px 3px 0 var(--yellow); }
+dialog label { display: grid; gap: 5px; font-size: 14px; font-weight: 600; }
+dialog .checks { display: grid; gap: 8px; }
+dialog .checks label { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; line-height: 1.45; }
+dialog .checks input { margin-top: 2px; flex: none; }
+dialog menu { display: flex; justify-content: flex-end; gap: 10px; padding: 0; margin: 8px 0 0; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--on-dark);
+  border: 2px solid var(--ink); border-left: 8px solid var(--yellow);
+  box-shadow: 5px 5px 0 var(--magenta);
+  padding: 11px 16px; max-width: min(560px, calc(100vw - 32px));
+  font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s; z-index: 70;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.footer {
+  display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: space-between;
+  padding: 28px var(--gutter) calc(28px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--on-dark);
+  font-size: 13px; font-weight: 600;
+  border-top: 3px solid var(--yellow);
+}
+.footer .muted { color: var(--on-dark-3); font-weight: 500; }
+
+/* ---------- 神經鴨原型（示範）: the prototype's demo mode (neuro.js) ----------
+   With the prototype on (the server's --brain neuro, or --neuro-stub), body.neuro-mode shows the
+   [data-neuro] parts and puts away Duck Core's own cards ([data-core]): the label, the duck's
+   name and line, 「小鴨的腦」 beside the view, 「逗逗牠」 under it, the picker in the play section
+   and the duck's temperament, the brain in plain words and its senses in the mind section.
+   Tokens and the standard's components only: square corners, ink borders, hard shadows. */
+body.neuro-mode [data-core] { display: none !important; }
+.neuro-side { display: grid; gap: 14px; min-width: 0; }
+.neuro-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; }
+.neuro-flag {
+  margin: 0; padding: 8px 12px;
+  background: var(--yellow); color: var(--ink);
+  border: 2.5px solid var(--ink); box-shadow: 5px 5px 0 var(--magenta);
+  transform: rotate(-1.2deg);
+  font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 20px; line-height: 1.1; letter-spacing: 0.02em;
+}
+.neuro-name h1 { font-size: clamp(46px, 5.6vw, 92px); }
+.neuro-name .pill { margin-bottom: 6px; }
+.neuro-line { margin: -2px 0 0; font-size: 15.5px; font-weight: 600; color: var(--on-dark); }
+.neuro-note {
+  margin: 0; padding: 10px 12px;
+  font-size: 14px; font-weight: 700;
+  background: var(--magenta); color: var(--ink);
+  border: 2.5px solid var(--ink); box-shadow: 5px 5px 0 var(--yellow);
+}
+.neuro-note[data-tone="info"] { background: var(--yellow); box-shadow: 5px 5px 0 var(--cyan); }
+.neuro-brain { display: grid; gap: 12px; padding: 14px 16px 16px; }
+.neuro-brain .card-title { margin: 0; }
+.neuro-brain .eyebrow { margin: 0 0 8px; }
+.neuro-now .eyebrow { margin: 0 0 2px; }
+.neuro-now strong { display: block; font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 28px; line-height: 1.08; }
+.neuro-why { margin: 4px 0 0; font-size: 14.5px; }
+/* fid:page: what the physical body really does now (measured); magenta when it is not what the
+   brain says. */
+.neuro-body { margin: 6px 0 0; padding: 4px 8px; font: 700 13px/1.4 var(--font-body); border-left: 4px solid var(--truth); background: var(--paper); }
+.neuro-body[data-state="mismatch"] { border-left-color: var(--magenta); box-shadow: 3px 3px 0 var(--magenta); }
+.neuro-body[hidden] { display: none; }
+.neuro-skills { display: grid; gap: 12px; padding: 14px 16px 16px; }
+.neuro-skills .card-title { margin: 0; }
+.neuro-skills-note { margin: 0; font-size: 13px; line-height: 1.45; }
+.neuro-skills-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.neuro-skill-card { min-width: 0; padding: 10px; border-width: 2px; box-shadow: 4px 4px 0 var(--accent); }
+.neuro-skill-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.neuro-skill-head > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.neuro-skill-head h3 { margin: 0; max-width: 100%; font: 900 19px/1.1 var(--font-display); font-synthesis: none; }
+.neuro-skill-card p { margin: 7px 0 0; font-size: 12.5px; line-height: 1.4; }
+.neuro-skill-state { display: inline-block; padding: 3px 6px; border: 2px solid var(--ink); background: var(--cream); font-size: 11px; font-weight: 800; line-height: 1.2; }
+.neuro-skill-category, .neuro-skill-intent, .neuro-skill-state { white-space: normal; overflow-wrap: anywhere; }
+.neuro-skill-card[data-state="active"] { border-left: 6px solid var(--green); }
+.neuro-skill-card[data-state="done"] { border-left: 6px solid var(--green); }
+.neuro-skill-card[data-state="interrupted"], .neuro-skill-card[data-state="refused"] { border-left: 6px solid var(--magenta); }
+.neuro-skill-card[data-state="missing"], .neuro-skill-card[data-state="unknown"] { border-left: 6px solid var(--muted); }
+.neuro-skill-detail { color: var(--muted); }
+.neuro-skill-stream { padding-top: 6px; border-top: 1px solid var(--hair); color: var(--ink); font-weight: 700; }
+.neuro-meta { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+.neuro-meta:empty { display: none; }
+.neuro-block { border-top: 2px solid var(--ink); padding-top: 10px; min-width: 0; }
+.neuro-rhythm svg { display: block; width: 100%; height: 64px; background: var(--paper); border: 2px solid var(--ink); }
+.neuro-rhythm .base { stroke: var(--ink); stroke-width: 1; opacity: 0.35; }
+.neuro-rhythm rect { fill: var(--blue); }
+.neuro-rhythm rect.turn-mark { fill: var(--ink); }
+.neuro-rhythm rect.hit { fill: transparent; }
+.neuro-reflexes { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; max-height: 236px; overflow: auto; }
+.neuro-reflexes li { display: grid; grid-template-columns: 4.4em minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 13.5px; padding: 4px 4px; border-bottom: 1px dashed var(--hair); }
+.neuro-reflexes li.empty { display: block; color: var(--muted); border-bottom: 0; }
+.neuro-reflexes li.new { animation: flash 1.2s ease-out; }
+.neuro-reflexes .t { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.neuro-reflexes .chip { margin-right: 6px; vertical-align: -1px; }
+.neuro-reflexes .times { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); margin-left: 6px; }
+.chip.rx-startle::before, .chip.rx-freeze::before { background: var(--magenta); }
+.chip.rx-orient::before, .chip.rx-stabilise::before { background: var(--cyan); }
+.chip.rx-withdraw::before, .chip.rx-righting::before { background: var(--orange); }
+.chip.rx-lean_in::before { background: var(--green); }
+.chip.rx-veer::before, .chip.rx-drop_stop::before, .chip.rx-bump_stop::before { background: var(--blue); }
+.chip.rx-lifted::before, .chip.rx-body::before { background: var(--purple); }
+.chip.rx-world::before { background: var(--yellow); }
+.chip.rx-emotion::before { background: var(--orange); }
+.neuro-reflexes li.world { color: var(--muted); }
+/* fid:page: under a reflex, what the body measurably did (the physics truth); 「身體做不到」 in
+   magenta, a part of it in orange. */
+.neuro-reflexes .rx-body { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.neuro-reflexes .rx-body::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border: 1.5px solid var(--ink); background: var(--truth); vertical-align: 0; }
+.neuro-reflexes .rx-body[data-verdict="partial"] { color: var(--ink); }
+.neuro-reflexes .rx-body[data-verdict="partial"]::before { background: var(--orange); }
+.neuro-reflexes .rx-body[data-verdict="not_done"] { color: var(--ink); font-weight: 800; }
+.neuro-reflexes .rx-body[data-verdict="not_done"]::before { background: var(--magenta); }
+.neuro-reflexes li.rx-failed { border-left: 3px solid var(--magenta); padding-left: 6px; }
+.neuro-cands .meter { grid-template-columns: 7.2em minmax(0, 1fr) 3.2em; }
+.neuro-cands .meter .bar i { background: var(--blue); }
+.neuro-cands .meter.on { font-weight: 800; }
+.neuro-cands .meter.on .bar i { background: var(--magenta); }
+.neuro-cands .meter span:first-child, .neuro-habits .meter span:first-child, .neuro-places .meter span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.neuro-drives { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
+.neuro-drives .meter { grid-template-columns: 4.4em minmax(0, 1fr) 2.8em; font-size: 13px; }
+.neuro-drives .meter.wide { grid-column: 1 / -1; }
+.neuro-drives .meter.wide .bar i { background: var(--orange); }
+.neuro-drives .meter.minor { font-size: 12px; font-weight: 500; }
+.neuro-drives .meter.minor .bar { height: 8px; }
+.neuro-drives .meter.minor .bar i { background: var(--purple); }
+.neuro-habits .meter { grid-template-columns: 7em minmax(0, 1fr) 8.6em; font-size: 13px; }
+.neuro-habits .meter .bar i { background: var(--cyan); }
+.neuro-habits .meter.scared .bar i { background: var(--magenta); }
+.neuro-habits .val .tag { margin: 0 0 0 4px; font-size: 11px; }
+.neuro-places { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.neuro-places li.empty { color: var(--muted); font-size: 13px; }
+.neuro-places .meter { grid-template-columns: minmax(0, 1fr) 72px 6.4em; font-size: 13px; }
+.neuro-places .meter.avoid { color: var(--rose); }
+.neuro-stim { margin-top: 30px; display: grid; gap: 10px; }
+.neuro-stim .card-title { margin: 0; }
+.neuro-stim .row { display: flex; flex-wrap: wrap; gap: 10px; }
+.neuro-stim .btn.sent { background: var(--yellow); }
+.neuro-stim .hint { margin: 0; }
+.neuro-more .row { margin-top: 8px; }
+/* 「扶牠起來」 (shown while the body is down) and the duck's own clock (integration 2026-09-28) */
+.neuro-help { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.neuro-help .hint { flex: 1 1 14em; }
+.neuro-day { border-top: 2px solid var(--ink); padding-top: 10px; display: grid; gap: 8px; }
+.neuro-day .eyebrow { margin: 0; }
+.neuro-day .eyebrow small { margin-left: 8px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--ink); }
+.neuro-day .btn.on { background: var(--ink); color: var(--yellow); box-shadow: 3px 3px 0 var(--magenta); }
+.neuro-picker { max-width: 1100px; margin: 0 auto 30px; }
+.neuro-ducks { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.duck-pick { display: grid; gap: 4px; align-content: start; text-align: left; padding: 12px 14px; min-width: 0; }
+.duck-pick b { font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 26px; line-height: 1.05; }
+.duck-pick span { font: 700 13.5px/1.35 var(--font-body); }
+.duck-pick small { margin: 0; font-size: 12.5px; line-height: 1.4; }
+.duck-pick.on small { color: var(--on-dark-2); }
+.duck-pick[disabled] { opacity: 0.55; cursor: progress; }
+.neuro-mind { display: grid; gap: 30px 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
+.neuro-mind .meter { grid-template-columns: 6em minmax(0, 1fr) 3.2em; }
+.neuro-mind .meter .bar i { background: var(--purple); }
+.neuro-facts { margin: 14px 0 0; }
+.neuro-how { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
+.neuro-senses { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 13.5px; }
+.neuro-senses li { display: grid; gap: 1px; }
+.neuro-senses small { margin: 0 0 0 18px; }
+.chip.src-real::before { background: var(--green); }
+.chip.src-eye::before { background: var(--cyan); }
+.chip.src-model::before { background: var(--orange); }
+.chip.src-none::before { background: var(--muted); }
+@media (max-width: 760px) {
+  .neuro-skills-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .neuro-flag { font-size: 17px; }
+  .neuro-name h1 { font-size: clamp(40px, 12vw, 64px); }
+  .neuro-now strong { font-size: 22px; }
+  .neuro-stim { margin-top: 22px; }
+  .neuro-stim .row .btn { flex: 1 1 7.5em; justify-content: center; }
+  .duck-pick b { font-size: 22px; }
+}
+@media (max-width: 520px) {
+  .neuro-skills-grid { grid-template-columns: minmax(0, 1fr); }
+  .neuro-drives { grid-template-columns: minmax(0, 1fr); }
+  .neuro-cands .meter { grid-template-columns: 6.2em minmax(0, 1fr) 3em; }
+  .neuro-habits .meter { grid-template-columns: 6em minmax(0, 1fr) 5.6em; }
+  /* a phone: every prototype control at least 44 px tall, whatever the pointer says */
+  .neuro-stim .btn, .neuro-day .btn, .neuro-help .btn, .duck-pick, .neuro-more summary { min-height: 44px; }
+  .duck3d-voice #callMute, .stage-tools .expand-btn { min-height: 44px; }
+  .duck3d-voice input[type="range"] { height: 44px; width: 130px; }
+  .neuro-more summary { display: flex; align-items: center; }
+  .stage-stim .btn.small { min-height: 44px; padding: 4px 10px; font-size: 13.5px; }
+}
+@media (pointer: coarse) {
+  .duck-pick { min-height: 44px; }
+  .duck3d-voice #callMute, .stage-tools .expand-btn { min-height: 44px; }
+  .stage-stim .btn.small { min-height: 44px; }
+  .duck3d-voice input[type="range"] { height: 44px; }
+  .neuro-more summary { min-height: 40px; display: flex; align-items: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .neuro-reflexes li.new { animation: none; }
+  .neuro-flag { transform: none; }
+}
+
+/* ---------- desktop touches ---------- */
+@media (min-width: 1000px) {
+  .scenarios .card:nth-child(3n + 1), .lab-grid .card:nth-child(2n + 1) { transform: rotate(-0.5deg); }
+  .scenarios .card:nth-child(3n + 2), .lab-grid .card:nth-child(2n) { transform: rotate(0.4deg); }
+  .scenarios .card, .lab-grid .card { transition: transform 0.15s; }
+  .scenarios .card:hover, .lab-grid .card:hover, .scenarios .card:focus-within, .lab-grid .card:focus-within { transform: none; }
+}
+
+/* ---------- narrower screens ---------- */
+@media (max-width: 980px) {
+  .play-grid, .mind-grid { grid-template-columns: minmax(0, 1fr); }
+  .scenarios .group.owner { grid-column: auto; }
+  .feed { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  body { font-size: 14.5px; }
+  .topbar { position: static; padding-block: 8px; gap: 8px 12px; }
+  .brand-sub { display: none; }
+  .brand-name { font-size: 18px; }
+  .timectl { margin-left: 0; width: 100%; }
+  #speed { flex: 1 1 10em; max-width: none; font-size: 13px; }
+  .jumps { width: 100%; }
+  .jumps .btn { flex: 1 1 auto; justify-content: center; }
+  .stage-frame { padding: 5px; box-shadow: 6px 6px 0 var(--yellow); }
+  .duck3d-readout { padding: 4px 8px; font-size: 11.5px; }
+  .duck3d-place, .duck3d-live, .duck3d-voice { padding: 4px 8px; gap: 6px; }
+  .duck3d-live #liveStatus, .duck3d-live label:nth-of-type(2) { display: none; }
+  .duck3d-world { padding: 4px 8px; font-size: 11.5px; }
+  .duck3d-caption { font-size: 13px; max-width: calc(100% - 24px); top: 62px; }
+  /* A phone: the label keeps to its title, clear of the right-hand column (its words go into
+     the readout under the view). */
+  .stage-mode { max-width: calc(62% - 28px); padding: 4px 7px; }
+  .stage-mode b { font-size: 12.5px; white-space: normal; }
+  .stage-mode span { display: none; }
+  .stage-side { top: 112px; width: min(38%, 136px); gap: 8px; }
+  /* the view's tools (近看小鴨, ⛶) stack at the top right, so the clock keeps its width and the
+     duck's head stays clear of it */
+  .duck3d-clock { max-width: calc(100% - 104px); }
+  .stage-tools { flex-direction: column; align-items: flex-end; gap: 6px; }
+  .stage-tools .expand-btn { padding: 4px 8px; }
+  .trust-badge { padding: 4px 7px; font-size: 12px; }
+  .eye-toggle { font-size: 11.5px; padding: 4px 6px; }
+  .eye-body { padding: 4px; }
+  .eye-note.routine { display: none; } /* (how old the picture is; errors and notes still show) */
+  .duck-name h1 { font-size: clamp(52px, 17vw, 88px); }
+  .banner-main strong { font-size: 21px; }
+  .banner-main span { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .banner-tags { display: none; }
+  .ticker { margin-top: -20px; }
+  .ticker-track { font-size: 13px; padding-block: 9px; }
+  .section { padding: 56px var(--gutter) 64px; }
+  .section.dark { padding-block: calc(56px + 3.2vw); }
+  .section-head { margin-bottom: 26px; }
+  .card { padding: 14px 14px 16px; box-shadow: 6px 6px 0 var(--accent); }
+  .card-title { font-size: 20px; }
+  .persona { font-size: 19px; padding: 8px 16px; }
+  .cmd, .query-form { flex-wrap: wrap; }
+  #graph { height: 380px; }
+  .evidence li { grid-template-columns: 1fr; gap: 0; }
+  .footer { flex-direction: column; }
+}
+/* Touch screens: every control at least 40–44 px tall. */
+@media (pointer: coarse) {
+  .btn, .persona, .toggle, select, input[type="text"], input[type="number"] { min-height: 44px; }
+  .btn.small, .tabs button, .eye-toggle, .trust-badge summary { min-height: 40px; }
+  .trust-badge summary { display: flex; flex-wrap: wrap; align-items: center; align-content: center; }
+  .trust-badge:not([open]) summary::after { flex: 1 0 100%; }
+  .suggest button { min-height: 36px; }
+  .eid { display: inline-block; min-height: 28px; line-height: 24px; }
+  .duck3d-voice #callMute { min-height: 44px; }
+  .duck3d-voice input[type="range"] { height: 44px; width: 140px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero::before, .ticker-inner { animation: none; }
+  .duck-stage *, .duck-stage { animation: none !important; transition: none !important; }
+  .duck3d-fx span, .duck3d-zzz span { animation: none; opacity: 0.8; }
+  .scenarios .card, .lab-grid .card { transform: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* 動作試玩 (neuro.js): every trained motion, one button each with its gate verdict (docs/simulator-style.md) */
+.neuro-motions { margin-top: 30px; display: grid; gap: 10px; }
+.neuro-motions .card-title { margin: 0; }
+.neuro-motions .hint { margin: 0; }
+.motion-groups { display: grid; gap: 12px; }
+.motion-group .eyebrow { margin: 0 0 6px; }
+.motion-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5em, 1fr)); gap: 10px; }
+.motion-btn { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 52px; text-align: left; white-space: normal; }
+.motion-btn.sent { background: var(--yellow); }
+.motion-btn .mn { font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.mv { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.mv::before { content: ""; width: 8px; height: 8px; flex: none; border: 1.5px solid var(--ink); background: var(--truth); }
+[data-verdict="limits"] > .mv::before, .motion-item[data-verdict="limits"] .mv::before { background: var(--orange); }
+[data-verdict="fail"] > .mv::before, .motion-item[data-verdict="fail"] .mv::before { background: var(--magenta); }
+.motion-note { font-weight: 700; color: var(--ink); }
+.motion-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.motion-item { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid var(--ink); font-size: 13.5px; }
+.motion-item strong { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.motion-item .motion-limit, .motion-item .motion-where, .motion-item .motion-brain { color: var(--muted); }
+@media (max-width: 760px) {
+  .neuro-motions { margin-top: 22px; }
+  .motion-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .motion-btn { min-height: 56px; }
+  .neuro-motions summary { min-height: 44px; display: flex; align-items: center; }
+}
+
+/* ---------- app shell (UI rebuild 2026-10-10, docs/design/UI-REBUILD-2026-10-10.md) ----------
+   The duck is always on screen and the buttons are beside it: on a desktop the view fills the
+   left of the screen and the control panel (tabs) is the right column, scrolling by itself; a
+   phone gets the view on top and the panel as a sheet under it; enlarged (⛶), the view fills the
+   screen and the same panel floats at the bottom right, semi-transparent, and shuts to a small
+   button. shell.js keeps the tabs and the open/closed state; nothing here moves an element.
+   Tokens and the standard's components only: square corners, ink borders, hard shadows. */
+:root { --topbar-h: 56px; --ctl-w: clamp(390px, 31vw, 500px); }
+
+/* the header, compact: brand, the duck's name and temperament, the time, the two pages */
+.topbar { padding-block: 8px; gap: 8px 16px; }
+.hdr-duck { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hdr-duck h1 {
+  font-family: var(--font-display); font-weight: 900; font-synthesis: none; text-transform: uppercase;
+  font-size: 26px; line-height: 1; letter-spacing: 0.01em; color: var(--yellow);
+  text-shadow: 3px 3px 0 var(--ink-deep), -2px 0 0 var(--cyan), 2px 0 0 var(--magenta);
+  overflow-wrap: anywhere;
+}
+.hdr-duck .pill { margin: 0; padding: 5px 8px; font-size: 12px; }
+.jumpnav a[aria-current="page"] { color: var(--on-dark); border-bottom-color: var(--yellow); }
+
+/* the app: the view and the panel fill what is under the header */
+.hero.app { padding: 12px 14px 30px; }
+.app .duck-view {
+  display: flex; flex-direction: column; gap: 12px;
+  height: calc(100dvh - var(--topbar-h) - 42px); min-height: 460px;
+}
+.stage-col { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* Long translated controls scroll inside the frame instead of spilling over the model credit. */
+.stage-col .stage-frame { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior: contain; box-shadow: 8px 8px 0 var(--yellow); }
+.stage-col .stage-area { flex: 1 1 auto; min-height: 34dvh; }
+.stage-col .duck3d-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
+.stage-col .duck-stage { flex: 1 1 auto; aspect-ratio: auto; max-height: none; min-height: 0; }
+.stage-col > .hint { flex: none; margin: 8px 0 0; font-size: 11.5px; line-height: 1.3; color: var(--on-dark-3); }
+/* under the view: the stimuli and the voice in one bar */
+.stage-bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; background: var(--ink); border-top: 1px solid var(--on-dark-3); }
+.stage-bar > .stage-stim { flex: 1 1 auto; min-width: 0; border-top: 0; }
+.stage-bar > .duck3d-voice { flex: 0 1 auto; margin-left: auto; border-top: 0; background: var(--ink); }
+.stage-bar .call-note { flex: 0 1 22em; }
+/* the physics' own readouts: a tab of the panel */
+.phys-card { display: grid; gap: 8px; }
+.phys-card .card-title { margin: 0; }
+.phys-card .duck3d-readout, .phys-card .duck3d-place, .phys-card .duck3d-live, .phys-card .duck3d-world, .phys-card .duck3d-battery { border: 2px solid var(--ink); }
+.phys-card .duck3d-readout { max-height: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+.duck3d-battery { margin: 0; padding: 5px 10px; background: var(--ink-2); }
+.duck3d-battery .bar { height: 12px; border-color: var(--on-dark-2); }
+.ctl .duck3d-battery, .ctl .duck3d-battery .mono { color: var(--on-dark-2); }
+.ctl .duck3d-battery .bar { border-color: var(--on-dark-2); }
+.ctl .duck3d-battery .mono { color: var(--on-dark); }
+
+/* HUD: what it does now, what the body really does, the newest reflex; 「腦」 opens the full brain */
+.hud {
+  position: absolute; left: 10px; bottom: 10px; z-index: 4;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: start;
+  max-width: min(46%, 400px); padding: 7px 10px 8px;
+  background: var(--white); color: var(--ink);
+  border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--truth);
+  font: 600 13px/1.35 var(--font-body);
+}
+.hud > * { grid-column: 1; }
+.hud-main { margin: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
+.hud-k { font: 700 11px/1 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--orange-ink); }
+.hud-main strong { font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 20px; line-height: 1.1; }
+.hud-line { margin: 0; font-size: 12px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.hud-body { padding: 2px 6px; border-left: 4px solid var(--truth); background: var(--paper); }
+.hud-body[data-state="mismatch"] { border-left-color: var(--magenta); }
+.hud-reflex { color: var(--muted); }
+.hud > .hud-brain { grid-column: 2; grid-row: 1; }
+
+/* the control panel */
+.ctl {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  background: var(--dots-ink), var(--paper); color: var(--ink);
+  border: 2.5px solid var(--ink); box-shadow: 8px 8px 0 var(--magenta);
+}
+.ctl-handle {
+  display: none; align-items: center; justify-content: center; gap: 10px; flex: none; width: 100%;
+  min-height: 44px; border: 0; border-bottom: 2px solid var(--ink); background: var(--yellow); color: var(--ink);
+  font: 800 14px/1.2 var(--font-body); letter-spacing: 0.04em; cursor: pointer; touch-action: none;
+}
+.ctl-grip { width: 34px; height: 5px; background: var(--ink); }
+.ctl-caret { font-size: 12px; }
+.duck-view[data-ctl="open"] .ctl-caret { transform: rotate(180deg); }
+.ctl-main { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.ctl-tabs { display: flex; flex-wrap: wrap; gap: 2px; flex: none; background: var(--ink); border-bottom: 2.5px solid var(--ink); }
+.ctl-tab {
+  flex: 1 1 calc(25% - 2px); min-height: 40px; border: 0; padding: 8px 6px;
+  background: var(--white); color: var(--ink); cursor: pointer;
+  font: 800 14px/1.2 var(--font-body); letter-spacing: 0.03em; overflow-wrap: anywhere;
+}
+.ctl-tab:hover { background: var(--cream); }
+.ctl-tab[aria-selected="true"] { background: var(--yellow); }
+.ctl-tab:focus-visible { outline-offset: -3px; }
+.ctl-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 16px; }
+.ctl-panel > * + * { margin-top: 14px; }
+.ctl .card { box-shadow: 4px 4px 0 var(--accent); padding: 12px 14px 14px; margin: 0 4px 0 0; }
+.ctl .card .card { box-shadow: none; }
+.ctl .neuro-stim, .ctl .neuro-motions { margin-top: 0; }
+.ctl-panel > * + .neuro-stim, .ctl-panel > * + .neuro-motions { margin-top: 14px; }
+.ctl .neuro-picker, .ctl .who { max-width: none; margin: 0; }
+.ctl .live-voice { margin: 0; }
+.ctl .scenarios { gap: 18px; grid-template-columns: minmax(0, 1fr); }
+.ctl .scenarios .card, .ctl .lab-grid .card { transform: none !important; }
+.ctl .scenarios .group.owner { grid-column: auto; }
+.ctl .play-grid { grid-template-columns: minmax(0, 1fr); margin-top: 18px; gap: 18px; }
+.ctl .feed { grid-template-columns: minmax(0, 1fr); }
+.ctl .lab-grid { gap: 18px; grid-template-columns: minmax(0, 1fr); }
+.ctl .lab { padding: 0; }
+.ctl .status-core { display: grid; gap: 14px; }
+.ctl .status-core .eyebrow, .ctl .status-core .tagline { margin: 0; }
+.ctl .reason, .ctl .battery { color: var(--muted); }
+.ctl .battery .mono { color: var(--ink); }
+.ctl .battery .bar { border-color: var(--ink); }
+.ctl .eyebrow.on-dark { color: var(--orange-ink); }
+.ctl .neuro-line { color: var(--ink); }
+#emotionGroups .motion-group > .eyebrow { display: none; }
+
+/* the data page: the evidence, the nine skills (nothing here is on the simulator page) */
+.view[hidden] { display: none; }
+.data-head .section-head { margin-bottom: 26px; }
+.data-head .display { font-size: clamp(40px, 5.2vw, 78px); }
+.data-head .btn { margin-top: 14px; }
+.data-head .neuro-skills { max-width: 1100px; margin: 0 auto; }
+.view-sim > .ticker { margin: 8px -24px 34px; }
+
+/* a desktop: the view on the left, the panel is the right column and scrolls by itself */
+@media (min-width: 1024px) {
+  .app .duck-view { display: grid; grid-template-columns: minmax(0, 1fr) var(--ctl-w); gap: 18px; }
+  .app .ctl { height: 100%; }
+  .app .ctl-main { display: flex; }
+}
+
+/* a phone or a tablet: the view on top, the panel is a sheet under it (pull up the handle) */
+@media (max-width: 1023.98px) {
+  .app .ctl { flex: none; box-shadow: none; }
+  .app .ctl-handle { display: flex; }
+  .app .ctl-main { display: none; }
+  .app .duck-view[data-ctl="open"] .ctl { height: min(58dvh, 600px); }
+  .app .duck-view[data-ctl="open"] .ctl-main { display: flex; }
+  .app .duck-view[data-ctl="open"] .ctl-handle { border-bottom-width: 2px; }
+  /* the sheet is open: its tabs reach everything the strips under the view do, so those give way */
+  .app .duck-view[data-ctl="open"] .stage-col > .hint,
+  .app .duck-view[data-ctl="open"] .stage-frame > :not(.stage-area) { display: none; }
+  .app .duck-view[data-ctl="open"] .ctl { height: min(50dvh, 560px); }
+  /* the sheet is open and the view is short: only what it says and what it does stays over the duck */
+  .app .duck-view[data-ctl="open"] .duck3d-clock,
+  .app .duck-view[data-ctl="open"] .stage-mode,
+  .app .duck-view[data-ctl="open"] .stage-side { display: none; }
+  .app .duck-view[data-ctl="open"] .duck3d-caption { top: 10px; max-width: calc(100% - 130px); }
+  .ctl-body { padding: 10px 10px 14px; }
+}
+
+/* enlarged (⛶): the view fills the screen, the panel floats at the bottom right */
+.duck-view:fullscreen, .duck-view:-webkit-full-screen { background: var(--ink); }
+.duck-view.expanded {
+  position: fixed; inset: 0; z-index: 60; background: var(--ink); height: auto; min-height: 0;
+}
+body.duck-expanded { overflow: hidden; }
+.app .duck-view.is-big { display: block; position: relative; height: 100%; min-height: 0; padding: 0; background: var(--ink); }
+.duck-view.is-big .stage-col {
+  position: absolute; inset: 0; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+}
+/* Keep the closed floating handle and its hard shadow below the scrollable controls. */
+.duck-view.is-big[data-ctl="closed"] .stage-col { padding-bottom: calc(max(18px, env(safe-area-inset-bottom)) + 62px); }
+.duck-view.is-big .stage-col .stage-frame { box-shadow: none; }
+.duck-view.is-big .stage-col > .hint { display: none; }
+.duck-view.is-big .stage-frame > .stage-bar { display: flex; }
+.duck-view.is-big .stage-side { width: min(24%, 130px); }
+.duck-view.is-big .eye-body img { max-height: 16vh; width: auto; max-width: 100%; margin-inline: auto; }
+.app .duck-view.is-big[data-ctl="open"] .stage-bar { margin-right: calc(min(430px, 100% - 36px) + 14px); }
+.duck-view.is-big .stage-bar > .duck3d-voice { margin-left: 0; }
+.app .duck-view.is-big .ctl {
+  position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 30;
+  width: min(430px, calc(100% - 36px)); height: auto; max-height: min(54%, 520px);
+  background: color-mix(in srgb, var(--ink) 80%, transparent); border-color: var(--ink); box-shadow: 6px 6px 0 var(--magenta);
+}
+.app .duck-view.is-big .ctl[hidden] { display: none; }
+.app .duck-view.is-big .ctl-handle { display: flex; }
+.app .duck-view.is-big .ctl-main { display: none; }
+.app .duck-view.is-big[data-ctl="open"] .ctl-main { display: flex; }
+.app .duck-view.is-big[data-ctl="closed"] .ctl { width: auto; max-height: none; }
+.app .duck-view.is-big[data-ctl="closed"] .ctl-handle { border-bottom: 0; padding-inline: 18px; }
+.app .duck-view.is-big .ctl-tabs { background: var(--ink); }
+.app .duck-view.is-big .ctl-tab { background: color-mix(in srgb, var(--white) 92%, transparent); }
+.app .duck-view.is-big .ctl-tab[aria-selected="true"] { background: var(--yellow); }
+.app .duck-view.is-big .ctl-body { background: transparent; }
+.app .duck-view.is-big .ctl .card { background: color-mix(in srgb, var(--white) 90%, transparent); }
+.app .duck-view.is-big .ctl .neuro-stim .hint, .app .duck-view.is-big .ctl .neuro-help .hint { font-weight: 600; }
+
+@media (max-width: 699.98px) {
+  .app .duck-view.is-big[data-ctl="open"] .stage-bar { margin-right: 0; }
+}
+
+/* a phone: the header keeps to one line; its name stays, the long words go */
+@media (max-width: 760px) {
+  .topbar { gap: 6px 10px; }
+  .brand-text, .clock { display: none; }
+  .hdr-duck h1 { font-size: 22px; }
+  .hdr-duck .pill { font-size: 11px; padding: 4px 6px; }
+  .jumpnav { gap: 12px; font-size: 13px; }
+  .jumpnav a[href="/#mind"] { display: none; }
+  .hero.app { padding: 8px 8px 26px; }
+  .app .duck-view { height: calc(100dvh - var(--topbar-h) - 34px); min-height: 420px; gap: 8px; }
+  .stage-col .stage-frame { box-shadow: 5px 5px 0 var(--yellow); }
+  .hud { max-width: calc(100% - 20px); padding: 5px 8px 6px; gap: 2px; }
+  .hud-main strong { font-size: 17px; }
+  .hud-body, .hud-reflex { display: none; }
+  .ctl-tab { flex-basis: 24%; min-height: 44px; padding-inline: 3px; font-size: 13px; }
+  .ctl .card { margin-right: 3px; }
+}
+@media (pointer: coarse) {
+  .ctl-tab, .ctl-handle { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctl-caret { transition: none; }
+}
+.data-head .cap-intro { max-width: 46em; margin: 12px auto 0; text-align: center; }
+
+/* ---- the minimap on the view (minimap.js; owner 2026-10-11) ----
+   The home from above, small, with the duck's live place. It always sits on the LEFT edge of the stage (owner
+   2026-10-11: never toward the centre, never next to the control panel), in the left column between the 物理真相
+   label and the 現在在做 card (the HUD). Paper look inside the tokens: a thin translucent paper card, 2 px ink
+   border, hard 4 px ink shadow, square corners. It folds to its title bar (remembered by this viewer) and a tap
+   makes it bigger for a moment, growing to the right but never past the middle of the view. minimap.js measures
+   the cards around it: it lifts above the HUD and the duck's words (--mm-lift), shrinks to the room between the
+   label above and the cards below (--mm-fit), and when there is no room it keeps its title bar, then only its
+   icon, still on the left. */
+.minimap {
+  --mm-w: 164px;
+  position: absolute; left: 10px; bottom: calc(10px + var(--mm-lift, 0px)); z-index: 4;
+  max-width: calc(50% - 14px);
+  background: color-mix(in srgb, var(--paper) 90%, transparent); color: var(--ink);
+  border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
+  font: 600 12px/1.2 var(--font-body);
+}
+.minimap[hidden] { display: none; }
+.minimap[data-size="large"] { --mm-w: 300px; }
+.mm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 2px 8px; background: var(--ink); color: var(--on-dark); }
+.mm-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 800 11px/1.2 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.mm-fold, .mm-knows {
+  flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  border: 2px solid var(--ink); background: var(--white); color: var(--ink); cursor: pointer; font: 800 12px/1 var(--font-body);
+}
+.mm-fold:hover, .mm-knows:hover { background: var(--yellow); }
+/* (MAP-EXPLORE 2026-10-12) what the duck itself knows of the home: a faint layer in the plan colour (the duck's belief, not the
+   physics), toggled by .mm-knows (pressed = yellow, the "selected" token); hidden with the map folded or squeezed to its icon */
+.mm-tools { display: flex; flex: none; gap: 2px; }
+.mm-knows[hidden] { display: none; }
+.mm-knows[aria-pressed="true"] { background: var(--yellow); }
+.mm-knows svg { display: block; width: 14px; height: 14px; }
+.minimap[data-state="folded"] .mm-knows, .minimap[data-fit="head"] .mm-knows, .minimap[data-fit="icon"] .mm-knows { display: none; }
+/* open with its map: the card is as wide as the map (a long title gives way, ellipsis), never a blank strip beside it */
+.minimap[data-state="open"]:not([data-fit="head"]):not([data-fit="icon"]) { width: min-content; }
+.minimap[data-state="open"]:not([data-fit="head"]):not([data-fit="icon"]) .mm-head { gap: 4px; }
+.minimap[data-state="open"]:not([data-fit="head"]):not([data-fit="icon"]) .mm-title { width: 0; flex: 1 1 0; }
+.mm-knows-layer { pointer-events: none; }
+.mm-kn-free { fill: var(--plan); fill-opacity: 0.22; shape-rendering: crispEdges; }
+.mm-kn-unsure { fill: var(--plan); fill-opacity: 0.08; shape-rendering: crispEdges; }
+.mm-kn-thing { fill: var(--plan); fill-opacity: 0.6; shape-rendering: crispEdges; }
+.mm-caret { display: block; }
+.minimap[data-state="folded"] .mm-caret { transform: rotate(90deg); }
+.mm-body { display: block; width: min(var(--mm-w), var(--mm-fit, 9999px)); margin: 0; padding: 0; border: 0; background: transparent; color: inherit; cursor: zoom-in; touch-action: manipulation; }
+.minimap[data-size="large"] .mm-body { cursor: zoom-out; }
+.minimap[data-state="folded"] .mm-body, .minimap[data-fit="head"] .mm-body, .minimap[data-fit="icon"] .mm-body { display: none; }
+.minimap button:focus-visible { outline: 3px solid var(--orange); outline-offset: -3px; }
+.mm-svg { display: block; width: 100%; height: auto; }
+.mm-room { fill: var(--cream); stroke: var(--ink); stroke-width: 1px; stroke-opacity: 0.3; vector-effect: non-scaling-stroke; }
+.mm-fixed { stroke: var(--ink); stroke-width: 0.75px; stroke-opacity: 0.7; vector-effect: non-scaling-stroke; fill-opacity: 0.9; }
+.mm-fixed.mm-k-rug { fill-opacity: 0.45; stroke-opacity: 0.25; }
+.mm-fixed.mm-k-wall { fill: var(--ink) !important; fill-opacity: 1; stroke-opacity: 1; }
+.mm-fixed.mm-k-window { fill: var(--cyan) !important; fill-opacity: 0.55; }
+line.mm-fixed { fill: none; stroke-linecap: round; }
+.mm-mat { fill: none; stroke: var(--green); stroke-width: 1.5px; vector-effect: non-scaling-stroke; stroke-dasharray: 4 3; }
+.mm-door { stroke: var(--orange); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-dasharray: 3 2; }
+.mm-label { font-family: var(--font-body); font-weight: 800; fill: var(--ink); fill-opacity: 0.7; pointer-events: none; stroke: var(--paper); stroke-width: 3px; stroke-opacity: 0.85; paint-order: stroke; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.mm-person { fill: var(--magenta); stroke: var(--ink); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.mm-dot { fill: var(--orange); stroke: var(--ink); stroke-width: 1.75px; vector-effect: non-scaling-stroke; }
+.mm-halo { fill: none; stroke: var(--magenta); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.mm-tick { stroke: var(--ink); stroke-width: 2.5px; stroke-linecap: butt; vector-effect: non-scaling-stroke; }
+/* only its icon (a phone folded it, or there is no room for more): a square map button, no title */
+.mm-icon { display: none; width: 16px; height: 16px; }
+.minimap[data-fit="icon"] { width: max-content; }
+.minimap[data-fit="icon"] .mm-title { display: none; }
+.minimap[data-fit="icon"] .mm-head { padding: 0; }
+.minimap[data-fit="icon"] .mm-caret { display: none; }
+.minimap[data-fit="icon"] .mm-icon { display: block; }
+.minimap[data-fit="icon"] .mm-fold { border: 0; }
+@media (max-width: 760px) {
+  .minimap { --mm-w: 128px; }
+  .minimap[data-size="large"] { --mm-w: 240px; }
+  .minimap[data-state="folded"] { width: max-content; }
+  .minimap[data-state="folded"] .mm-title { display: none; }
+  .minimap[data-state="folded"] .mm-head { padding: 0; }
+  .minimap[data-state="folded"] .mm-caret { display: none; }
+  .minimap[data-state="folded"] .mm-icon { display: block; }
+  .minimap[data-state="folded"] .mm-fold { border: 0; }
+}
+@media (pointer: coarse) {
+  .mm-fold, .mm-knows { width: 44px; height: 44px; }
+}
+/* a sheet is open under the view: the view is short, and only what the duck says and does stays over it */
+@media (max-width: 1023.98px) {
+  .app .duck-view:not(.is-big)[data-ctl="open"] .minimap { display: none; }
+}
+/* enlarged on a phone, the open panel is as wide as the screen: nothing of the view's left shows beside it */
+@media (max-width: 760px) {
+  .duck-view.is-big[data-ctl="open"] .minimap { display: none; }
+}
+
+/* 指令列 (commands v1, neuro.js): under the stage bar, the same ink row as the stimuli and the voice. A text box, a send
+   button, the buttons for what the duck knows and the tricks it is yet to be taught (locked), a slot for the remote
+   toggle, and the outcome of the last command. docs/simulator-style.md: tokens and the standard's parts only. */
+.cmd-strip {
+  flex: none; display: flex; flex-direction: column; gap: 6px; margin: 0;
+  padding: 6px 10px 8px; background: var(--ink); color: var(--on-dark);
+  border-top: 1px solid var(--on-dark-3); font: 600 12.5px var(--font-body);
+}
+.cmd-strip[hidden] { display: none; }
+.cmd-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.cmd-label { font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 15px; letter-spacing: 0.02em; color: var(--yellow); }
+.cmd-say { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.cmd-say input[type="text"] { flex: 1 1 auto; min-width: 0; padding: 4px 8px; font-size: 13px; }
+.cmd-say .btn.small, .cmd-keys .btn.small { box-shadow: 2px 2px 0 var(--orange); }
+.cmd-say .btn.small.primary { box-shadow: 2px 2px 0 var(--magenta); }
+.cmd-say .btn.small:active, .cmd-keys .btn.small:active { box-shadow: 0 0 0 var(--orange); }
+.cmd-say .btn.small[disabled] { box-shadow: none; }
+.cmd-remote { flex: 0 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cmd-remote:empty { display: none; }
+.cmd-keys { margin: 0; }
+.cmd-keys > summary {
+  cursor: pointer; list-style: none; display: inline-block; padding: 2px 8px; margin-bottom: 4px;
+  font: 800 11px/1.4 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--orange);
+  border: 2px solid var(--on-dark-3);
+}
+.cmd-keys > summary::-webkit-details-marker { display: none; }
+.cmd-keys > summary::before { content: "▸ "; }
+.cmd-keys[open] > summary::before { content: "▾ "; }
+.cmd-keys > summary:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.cmd-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 4px; }
+.cmd-group-label { font: 700 11px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--on-dark-2); margin-right: 2px; }
+.cmd-keys .btn.small.sent { background: var(--yellow); }
+.cmd-keys .btn.small.cmd-locked { background: transparent; color: var(--on-dark); border-color: var(--on-dark-2); box-shadow: none; }
+.cmd-keys .btn.small.cmd-locked:hover { background: var(--ink-2); color: var(--yellow); }
+.cmd-keys .btn.small.cmd-locked.sent { background: var(--ink-2); color: var(--yellow); }
+.cmd-out {
+  margin: 0; padding: 3px 8px; min-height: 1.5em; overflow-wrap: anywhere;
+  font: 600 12.5px/1.4 var(--font-body); color: var(--on-dark);
+  border-left: 4px solid var(--on-dark-3); background: var(--ink-2);
+}
+.cmd-out[data-state="heard"], .cmd-out[data-state="doing"] { border-left-color: var(--orange); }
+.cmd-out[data-state="done"] { border-left-color: var(--green); }
+.cmd-out[data-state="refused"], .cmd-out[data-state="gave_up"], .cmd-out[data-state="interrupted"], .cmd-out[data-state="error"] { border-left-color: var(--magenta); }
+.cmd-strip .btn.small:focus-visible, .cmd-say input[type="text"]:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+/* the view is enlarged (⛶): the strip stays under the stage, clear of the floating panel */
+.duck-view.is-big .stage-frame > .cmd-strip { display: flex; }
+.app .duck-view.is-big[data-ctl="open"] .cmd-strip { margin-right: calc(min(430px, 100% - 36px) + 14px); }
+@media (max-width: 699.98px) {
+  .app .duck-view.is-big[data-ctl="open"] .cmd-strip { margin-right: 0; }
+}
+/* a phone: every control at least 44 px tall, the buttons wrap (never a sideways scroll) */
+@media (max-width: 520px) {
+  .cmd-say input[type="text"], .cmd-say .btn.small, .cmd-keys .btn.small, .cmd-keys > summary { min-height: 44px; }
+  .cmd-say .btn.small, .cmd-keys .btn.small { padding: 4px 10px; font-size: 13.5px; }
+  .cmd-keys > summary { display: inline-flex; align-items: center; }
+}
+@media (pointer: coarse) {
+  .cmd-say input[type="text"], .cmd-say .btn.small, .cmd-keys .btn.small, .cmd-keys > summary { min-height: 44px; }
+  .cmd-keys > summary { display: inline-flex; align-items: center; }
+}
+
+/* 遙控與點地板 (remote.js, duck3d.js; docs/design/neural-duck/REMOTE-GOTHERE-2026-10-23.md): inside the command strip. The remote
+   toggle is the standard 開關 (yellow when on) with the strip's offset shadow; the four on-screen buttons are the strip's small
+   buttons at 44 px (they only show while remote is on, and are always big enough for a thumb); one status line says on or off and
+   the measured delay; one hint line under the last command says how to point at the floor, then how the walk there went.
+   Tokens and the standard's parts only: no new colour, no round corner, no soft shadow. */
+.cmd-remote { flex-wrap: wrap; }
+.cmd-remote .toggle { padding: 4px 9px; color: var(--ink); font: 700 12.5px/1.2 var(--font-body); box-shadow: 2px 2px 0 var(--orange); transition: transform 0.08s, box-shadow 0.08s, background 0.12s; }
+.cmd-remote .toggle:hover { background: var(--yellow); }
+.cmd-remote .toggle[aria-pressed="true"] { background: var(--yellow); box-shadow: 2px 2px 0 var(--magenta); }
+.cmd-remote .toggle:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--orange); }
+.cmd-remote .toggle:focus-visible, .remote-pad .btn:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.remote-pad { display: flex; align-items: center; gap: 6px; }
+.remote-pad .btn.small {
+  width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center;
+  font-size: 16px; line-height: 1; box-shadow: 2px 2px 0 var(--orange);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.remote-pad .btn.small[data-held="true"] { background: var(--yellow); transform: translate(2px, 2px); box-shadow: 0 0 0 var(--orange); }
+.remote-state {
+  min-width: 0; padding: 2px 8px; overflow-wrap: anywhere;
+  font: 600 12.5px/1.4 var(--font-body); color: var(--on-dark-2);
+  border-left: 4px solid var(--on-dark-3); background: var(--ink-2);
+}
+.remote-state[data-state="connecting"] { border-left-color: var(--orange); }
+.remote-state[data-state="on"] { border-left-color: var(--green); color: var(--on-dark); }
+.remote-state[data-state="notice"] { border-left-color: var(--magenta); color: var(--on-dark); }
+.cmd-point {
+  margin: 0; padding: 2px 8px; overflow-wrap: anywhere;
+  font: 600 12px/1.4 var(--font-body); color: var(--on-dark-2);
+  border-left: 4px solid var(--on-dark-3);
+}
+.cmd-point[data-state="sent"], .cmd-point[data-state="walking"] { border-left-color: var(--orange); color: var(--on-dark); }
+.cmd-point[data-state="done"] { border-left-color: var(--green); color: var(--on-dark); }
+.cmd-point[data-state="refused"] { border-left-color: var(--magenta); color: var(--on-dark); }
+@media (max-width: 520px) {
+  .cmd-remote { flex: 1 1 100%; }
+  .cmd-remote .toggle { min-height: 44px; }
+  .remote-state { flex: 1 1 100%; }
+}
+
+/* 學會聽話 (tricks.js; docs/design/neural-duck/LEARN-TRICKS-2026-10-25.md): the three feedback buttons in the command strip
+   (稱讚 the primary: orange, magenta shadow; 點心 and 不對 the strip's small buttons) with the answer line beside them, and the
+   訓練 tab's trick book: one white row per trick (ink border, hard ink shadow; the one to practise next a magenta shadow and an
+   ink-and-yellow marker), the standard's .bar as the proficiency, a .chip for the state, a small button that sends the command.
+   Tokens and the standard's parts only: no new colour, no round corner, no soft shadow. */
+.cmd-feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.cmd-feedback .btn.small { box-shadow: 2px 2px 0 var(--orange); }
+.cmd-feedback .btn.small.primary { box-shadow: 2px 2px 0 var(--magenta); }
+.cmd-feedback .btn.small:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--orange); }
+.cmd-feedback .btn.small.sent { background: var(--yellow); }
+.cmd-feedback .btn.small[disabled] { box-shadow: none; }
+.cmd-feedback-out {
+  flex: 1 1 220px; min-width: 0; margin: 0; padding: 2px 8px; overflow-wrap: anywhere;
+  font: 600 12.5px/1.4 var(--font-body); color: var(--on-dark-2);
+  border-left: 4px solid var(--on-dark-3); background: var(--ink-2);
+}
+.cmd-feedback-out[data-state="sending"], .cmd-feedback-out[data-state="none"] { border-left-color: var(--orange); color: var(--on-dark); }
+.cmd-feedback-out[data-state="up"] { border-left-color: var(--green); color: var(--on-dark); }
+.cmd-feedback-out[data-state="down"], .cmd-feedback-out[data-state="error"] { border-left-color: var(--magenta); color: var(--on-dark); }
+@media (max-width: 520px) {
+  .cmd-feedback .btn.small { min-height: 44px; padding: 4px 12px; font-size: 13.5px; }
+  .cmd-feedback-out { flex-basis: 100%; }
+}
+@media (pointer: coarse) {
+  .cmd-feedback .btn.small { min-height: 44px; }
+}
+
+.trick-status { margin: 10px 0 0; }
+.trick-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 12px; }
+.trick-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head head" "meter do" "today do";
+  gap: 6px 12px; align-items: center; padding: 8px 10px;
+  background: var(--white); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink);
+}
+.trick-row[data-suggest] { box-shadow: 4px 4px 0 var(--magenta); }
+.trick-row[data-state="locked"] { background: var(--cream); }
+.trick-head { grid-area: head; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.trick-name { font-family: var(--font-display); font-weight: 900; font-synthesis: none; font-size: 18px; line-height: 1.15; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
+.trick-head .chip.trick-state { white-space: normal; padding: 2px 8px; border: 2px solid var(--ink); background: var(--white); font-size: 12.5px; font-weight: 700; }
+.trick-row[data-state="half"] .trick-state::before { background: var(--orange); }
+.trick-row[data-state="learned"] .trick-state::before { background: var(--green); }
+.trick-row[data-state="locked"] .trick-state::before { background: var(--muted); }
+.trick-suggest {
+  padding: 3px 8px; background: var(--ink); color: var(--yellow); box-shadow: 2px 2px 0 var(--magenta);
+  font: 800 11.5px/1.2 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase;
+}
+.trick-meter { grid-area: meter; display: grid; grid-template-columns: minmax(0, 1fr) 3.4em; gap: 10px; align-items: center; min-width: 0; }
+.trick-bar i { background: var(--orange); }
+.trick-row[data-state="learned"] .trick-bar i { background: var(--green); }
+.trick-pct { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+.trick-today { grid-area: today; margin: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; color: var(--muted); min-width: 0; }
+.trick-capped { font-weight: 700; color: var(--orange-ink); }
+.trick-locked { font-weight: 700; color: var(--ink); }
+.trick-do { grid-area: do; align-self: center; }
+.trick-do.sent { background: var(--yellow); }
+.trick-note {
+  margin: 10px 0 0; padding: 4px 10px; overflow-wrap: anywhere; font-size: 13.5px; font-weight: 600;
+  background: var(--white); border: 2px solid var(--ink); border-left-width: 8px; border-left-color: var(--cyan);
+}
+.trick-note[data-state="sending"], .trick-note[data-state="none"] { border-left-color: var(--orange); }
+.trick-note[data-state="up"] { border-left-color: var(--green); }
+.trick-note[data-state="down"], .trick-note[data-state="error"] { border-left-color: var(--magenta); }
+@media (max-width: 520px), (pointer: coarse) {
+  .trick-do { min-height: 44px; padding: 4px 12px; font-size: 13.5px; }
+}
+/* the card's own three feedback buttons (a phone puts the command strip away while the panel is open) */
+.trick-feedback { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 0; }
+.trick-feedback .btn.small.primary { box-shadow: 2px 2px 0 var(--magenta); }
+.trick-feedback .btn.small.primary:active { box-shadow: 0 0 0 var(--magenta); }
+.trick-feedback .btn.small.sent { background: var(--yellow); }
+@media (max-width: 520px), (pointer: coarse) {
+  .trick-feedback .btn.small { min-height: 44px; padding: 4px 12px; font-size: 13.5px; }
+}

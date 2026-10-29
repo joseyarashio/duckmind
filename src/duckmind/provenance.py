@@ -1,0 +1,199 @@
+"""Append-only event and learning provenance schemas."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import StrEnum
+from types import MappingProxyType
+from typing import Mapping
+
+
+def _non_empty(value: str, field_name: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must not be empty")
+
+
+_SCALARS = (str, bool, int)
+
+
+def _freeze_json(value: object) -> object:
+    """Copy JSON-shaped evidence so a caller cannot rewrite it after capture."""
+
+    kind = type(value)
+    # Fast paths for the exact built-in types (the same result as the general checks
+    # below; a year of a duck's life appends hundreds of thousands of events).
+    if kind is str or kind is int or kind is bool or value is None:
+        return value
+    if kind is dict or kind is MappingProxyType:
+        mapping = value  # type: ignore[assignment]
+        if any(type(key) is not str and not isinstance(key, str) for key in mapping):  # type: ignore[attr-defined]
+            raise ValueError("evidence object keys must be text")
+        return MappingProxyType({key: _freeze_json(item) for key, item in mapping.items()})  # type: ignore[attr-defined]
+    if kind is list or kind is tuple:
+        return tuple(_freeze_json(item) for item in value)  # type: ignore[attr-defined]
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise ValueError("evidence object keys must be text")
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_json(item) for item in value)
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float) and math.isfinite(value):
+        return value
+    raise ValueError("evidence payload must contain only finite JSON values")
+
+
+@dataclass(frozen=True, slots=True)
+class SourceRef:
+    kind: str
+    source_id: str
+    reliability: float
+    version: str | None = None
+
+    def __post_init__(self) -> None:
+        _non_empty(self.kind, "kind")
+        _non_empty(self.source_id, "source_id")
+        if (
+            isinstance(self.reliability, bool)
+            or not isinstance(self.reliability, (int, float))
+            or not math.isfinite(self.reliability)
+            or not 0.0 <= self.reliability <= 1.0
+        ):
+            raise ValueError("reliability must be between 0 and 1")
+
+
+@dataclass(frozen=True, slots=True)
+class Event:
+    event_id: str
+    kind: str
+    occurred_at: datetime
+    observed_at: datetime
+    source: SourceRef
+    trace_id: str
+    payload: Mapping[str, object]
+    parent_event_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for name in ("event_id", "kind", "trace_id"):
+            _non_empty(getattr(self, name), name)
+        if self.occurred_at.utcoffset() is None or self.observed_at.utcoffset() is None:
+            raise ValueError("event timestamps must be timezone-aware")
+        if len(set(self.parent_event_ids)) != len(self.parent_event_ids):
+            raise ValueError("parent event IDs must be unique")
+        if self.event_id in self.parent_event_ids:
+            raise ValueError("event cannot be its own parent")
+        if not isinstance(self.payload, Mapping):
+            raise ValueError("event payload must be an object")
+        object.__setattr__(self, "payload", _freeze_json(self.payload))
+
+
+@dataclass(frozen=True, slots=True)
+class Episode:
+    episode_id: str
+    trace_id: str
+    started_at: datetime
+    ended_at: datetime | None
+    event_ids: tuple[str, ...]
+    intent_ids: tuple[str, ...]
+    outcome_ids: tuple[str, ...] = ()
+    state_before_hash: str | None = None
+    state_after_hash: str | None = None
+    runtime_versions: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _non_empty(self.episode_id, "episode_id")
+        _non_empty(self.trace_id, "trace_id")
+        if not self.event_ids:
+            raise ValueError("episode requires at least one event")
+        if self.started_at.utcoffset() is None or (
+            self.ended_at is not None and self.ended_at.utcoffset() is None
+        ):
+            raise ValueError("episode timestamps must be timezone-aware")
+        if self.ended_at is not None and self.ended_at < self.started_at:
+            raise ValueError("episode cannot end before it starts")
+        for name in ("event_ids", "intent_ids", "outcome_ids"):
+            ids = getattr(self, name)
+            if len(set(ids)) != len(ids):
+                raise ValueError(f"{name} must contain unique IDs")
+        if not isinstance(self.runtime_versions, Mapping) or any(
+            not isinstance(key, str) or not isinstance(value, str)
+            for key, value in self.runtime_versions.items()
+        ):
+            raise ValueError("runtime versions must be text")
+        object.__setattr__(self, "runtime_versions", MappingProxyType(dict(self.runtime_versions)))
+
+
+class OutcomeVerdict(StrEnum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+    INTERRUPTED = "interrupted"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class Outcome:
+    outcome_id: str
+    episode_id: str
+    verdict: OutcomeVerdict
+    evaluator_version: str
+    evidence_event_ids: tuple[str, ...]
+    metrics: Mapping[str, float] = field(default_factory=dict)
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("outcome_id", "episode_id", "evaluator_version"):
+            _non_empty(getattr(self, name), name)
+        if not self.evidence_event_ids:
+            raise ValueError("outcome requires evidence events")
+        if len(set(self.evidence_event_ids)) != len(self.evidence_event_ids):
+            raise ValueError("outcome evidence event IDs must be unique")
+        if not isinstance(self.metrics, Mapping) or any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            for value in self.metrics.values()
+        ):
+            raise ValueError("outcome metrics must be finite")
+        object.__setattr__(self, "metrics", MappingProxyType(dict(self.metrics)))
+
+
+class LearningStatus(StrEnum):
+    PROPOSED = "proposed"
+    COMMITTED = "committed"
+    REJECTED = "rejected"
+    ROLLED_BACK = "rolled_back"
+
+
+@dataclass(frozen=True, slots=True)
+class LearningUpdate:
+    update_id: str
+    episode_id: str
+    parameter: str
+    before: float
+    after: float
+    max_abs_delta: float
+    rule_version: str
+    outcome_ids: tuple[str, ...]
+    status: LearningStatus
+
+    def __post_init__(self) -> None:
+        for name in ("update_id", "episode_id", "parameter", "rule_version"):
+            _non_empty(getattr(self, name), name)
+        if not self.outcome_ids:
+            raise ValueError("learning update requires outcome evidence")
+        if len(set(self.outcome_ids)) != len(self.outcome_ids):
+            raise ValueError("learning outcome IDs must be unique")
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            for value in (self.before, self.after, self.max_abs_delta)
+        ):
+            raise ValueError("learning values must be finite")
+        if self.max_abs_delta < 0:
+            raise ValueError("max_abs_delta cannot be negative")
+        if abs(self.after - self.before) > self.max_abs_delta + 1e-12:
+            raise ValueError("learning update exceeds the slow-plasticity bound")

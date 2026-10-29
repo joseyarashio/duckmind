@@ -1,0 +1,138 @@
+{
+ "format": 1,
+ "scenario_id": "echo_only",
+ "scenario_hash": "5d15525f6b6894cb5f8cdaa624e9e7281efbc78fe678ec10bfd1ad400e7780df",
+ "complete": true,
+ "inputs": {
+  "format": 1,
+  "scenario": "echo_only",
+  "temperament": "explorer",
+  "seed": 7,
+  "length_s": 11.0,
+  "tail_s": 5.0,
+  "duck": {
+   "name": "蛋黃",
+   "genome_seed": 4107,
+   "gd": 60,
+   "voice_seed": 936833334,
+   "voice_bank_version": 5,
+   "at_m": [
+    0.0,
+    0.0
+   ]
+  },
+  "model": "gemini-3.8-live",
+  "tool_schema": {
+   "version": "tools-1",
+   "hash": "eab9e6f92cf7f578"
+  },
+  "soul": {
+   "version": "soul-2",
+   "sha256": "4d5b405477a21cf5249665b118b555cc70ee10a1971b3685c052505d8688e254"
+  },
+  "session": {
+   "context_period_s": 5.0,
+   "image_period_s": 1.0,
+   "hold_audio_s": 2.0
+  },
+  "setup": {
+   "response_modalities": [
+    "AUDIO"
+   ],
+   "input_transcription": true,
+   "output_transcription": true,
+   "compression": true,
+   "vad": {
+    "start": "START_SENSITIVITY_HIGH",
+    "end": "END_SENSITIVITY_LOW",
+    "prefix_ms": 300,
+    "silence_ms": 500
+   },
+   "media_resolution": null
+  },
+  "say": [],
+  "duck_calls": [
+   {
+    "t": 2.0,
+    "tag": "greet",
+    "level": 0.8
+   },
+   {
+    "t": 3.8,
+    "tag": "chirp",
+    "level": 0.6
+   },
+   {
+    "t": 5.6,
+    "tag": "greet",
+    "level": 0.8
+   },
+   {
+    "t": 7.4,
+    "tag": "inquire",
+    "level": 0.7
+   },
+   {
+    "t": 9.0,
+    "tag": "coo",
+    "level": 0.5
+   }
+  ],
+  "images": [],
+  "context": [
+   {
+    "t": 0.0,
+    "behaviour": "坐著看四周",
+    "valence": 0.15,
+    "drives": {
+     "social": 0.3,
+     "curiosity": 0.7,
+     "fear": 0.05,
+     "energy": 0.8,
+     "play": 0.45,
+     "comfort": 0.55,
+     "boredom": 0.35,
+     "sleep_pressure": 0.2
+    },
+    "known_people": [],
+    "in_view": [],
+    "notes": [
+     "小鴨會自己叫，叫的聲音會從喇叭傳回麥克風"
+    ]
+   }
+  ]
+ },
+ "meta": {
+  "opens": [
+   {
+    "t": 0.0,
+    "resume": false
+   }
+  ],
+  "audio_out_bytes": 0,
+  "audio_out_span_s": [],
+  "run_id": "echo_only__explorer__s7",
+  "faults": 0,
+  "wall_s": 17.0,
+  "commit": "5dd94de+dirty",
+  "sdk": "google-genai 2.27.0",
+  "python": "3.12.13",
+  "recorded_utc": "2026-10-29T11:59:54+00:00"
+ },
+ "events": [
+  {
+   "t": 0.643,
+   "kind": "opened",
+   "data": {
+    "resumed": false
+   }
+  },
+  {
+   "t": 0.643,
+   "kind": "resumption",
+   "data": {
+    "resumable": true
+   }
+  }
+ ]
+}

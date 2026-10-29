@@ -1,0 +1,4 @@
+{
+  "about": "Known places where Duck Core writes a sense of its own instead of receiving it as an input (physical-design spec §2.2 rule R2; §8.10 G29–G37). Checked by tests/test_no_self_sensing.py. This list may only shrink: remove an entry when its site is gone, never add one. Phase 4 (2026-09-27) emptied it: the 14 entries of v4 (G29–G37 and four sensor-signed records) are gone — LegacyWorld sends the same draws in as percepts, and what Duck Core writes about itself is signed self. It stays empty.",
+  "exceptions": []
+}

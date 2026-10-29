@@ -1,0 +1,40 @@
+[Unit]
+Description=Duck Mind local pet service (supervised first-board slice)
+Documentation=file:///opt/duckmind/current/README.md
+After=robotd.service local-fs.target
+Wants=robotd.service
+
+[Service]
+Type=exec
+User=duckmind
+Group=duckmind
+SupplementaryGroups=robot
+UMask=0077
+WorkingDirectory=/var/lib/duckmind
+# A failed guard leaves the service failed instead of running a split release.
+ExecStartPre=/opt/duckmind/current/board-boot-guard.sh
+ExecStart=/opt/duckmind/current/venv/bin/duckmindd --state /var/lib/duckmind/duckmind.sqlite3 --socket /run/duckmind/duckmind.sock --robotd /run/robotd.sock --backend real --identity duck
+# This does not cut motor torque. It asks robotd to zero locomotion intent;
+# the physical kill switch/operator remains the emergency safety layer.
+ExecStopPost=-/opt/duckmind/current/venv/bin/python -m duckmind.safety_stop --robotd /run/robotd.sock
+Restart=on-failure
+RestartSec=3s
+StateDirectory=duckmind
+StateDirectoryMode=0700
+RuntimeDirectory=duckmind
+RuntimeDirectoryMode=0700
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

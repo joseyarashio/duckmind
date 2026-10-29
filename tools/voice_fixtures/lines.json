@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "note": "Scripted family lines for the live-voice simulator tests. Text is the 繁體中文 source, spoken as written by Qwen3-TTS VoiceDesign (synth_qwen.py). Speakers are sound characters (a voice-design description each), not people's names; `persona` is the simulator family member who says it by default (duckmind.world.people.PERSONAS). Optional per line: `say`, the words handed to the TTS when they differ from `text`; `take`, the take build.py keeps instead of the one it would pick.",
+  "speakers": {
+    "mom": {
+      "persona": "partner",
+      "instruction": "一位温柔的中年女性，声音清晰亲切，语速适中。"
+    },
+    "dad": {
+      "persona": "owner",
+      "instruction": "一位沉稳的中年男性，声音低沉温和，语速适中。"
+    },
+    "child": {
+      "persona": "child",
+      "instruction": "一个活泼的小孩子，声音清脆明亮，语气开心。"
+    },
+    "grandpa": {
+      "persona": "elder",
+      "instruction": "一位年长的男性，声音略带沙哑，语速缓慢，语气慈祥。"
+    }
+  },
+  "lines": [
+    {"id": "call_name", "text": "蛋黃，過來這裡。", "speaker": "mom", "name": "蛋黃", "intent": "call_name", "seed": 11},
+    {"id": "call_name_short", "text": "蛋黃！", "speaker": "child", "name": "蛋黃", "intent": "call_name", "seed": 12},
+    {"id": "hello", "text": "你好！", "speaker": "mom", "intent": "greet", "seed": 13},
+    {"id": "hello_kid", "text": "嗨，小鴨！", "say": "嗨，小鸭！", "speaker": "child", "intent": "greet", "seed": 14},
+    {"id": "intro_mom", "text": "這是媽媽。", "speaker": "dad", "intent": "introduce", "seed": 15},
+    {"id": "intro_grandpa", "text": "這是爺爺。", "speaker": "dad", "intent": "introduce", "seed": 16},
+    {"id": "what_do_you_see", "text": "你看到什麼？", "speaker": "dad", "intent": "ask_see", "seed": 17},
+    {"id": "stop_calling", "text": "不要叫了。", "speaker": "mom", "intent": "stop_calling", "seed": 18, "take": 6, "why_take": "the barge-in scenario: mom must start clearly over the duck's call and talk past its end"},
+    {"id": "how_are_you", "text": "你今天好不好？", "speaker": "mom", "intent": "question", "seed": 19},
+    {"id": "praise", "text": "好乖，真棒！", "speaker": "grandpa", "intent": "praise", "seed": 20},
+    {"id": "other_name", "text": "小美，吃飯了！", "speaker": "mom", "intent": "other_speech", "seed": 21},
+    {"id": "goodnight", "text": "晚安，該睡覺了。", "speaker": "mom", "intent": "goodnight", "seed": 22},
+    {"id": "what_is_this", "text": "這是什麼東西？", "speaker": "child", "intent": "question", "seed": 23}
+  ]
+}

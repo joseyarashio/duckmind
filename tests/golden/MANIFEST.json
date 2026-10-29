@@ -1,0 +1,84 @@
+{
+ "format": "duckmind-golden-manifest-v1",
+ "about": "Five small sessions of the phase-4 golden corpus (phase4/golden in the measurement records, not in the repo; 50 sessions recorded 2026-09-27 on the unchanged v4 engine, duckcore tree cdc8ead = git 79cc25d), vendored so CI replays them on every run: each file is a Config, the inputs the duck was given and the chain head v4 produced. Chosen for coverage: hands and a head hold (g04), falls, righting, struggling, docking and the nest look (g07, g41), a legacy household with parties (g20), failed stand-ups (g45, the only session with body.stand_failed). tests/test_golden_corpus.py replays them, and all 50 when the full corpus is on this machine. Plus one prefix (prefixes): g48's first two inputs, the corpus's session with an expression caps file, with the caps file itself (caps/).",
+ "engine": {
+  "engine_rev": "v4_0",
+  "core_version": "duckcore-1",
+  "tables": [
+   "d56679edadd377a9"
+  ],
+  "v4_merge": "79cc25d66ecc9c06442c8204f600204ef892ba18",
+  "recorded_at": "37a54cb7eec971f1a43164ab3e36d665412ae88c",
+  "duckcore_tree": "cdc8eadc7ad3c73791f06673a29b8b969605248e",
+  "provenance_blob": "e17a9c90dc313aa61c4603ec8379028610e72008",
+  "expression_sweep_tree": "b15fe19acb67ba6f4a0dd35d3d265ddbc5d9b42f",
+  "frozen_src": "phase4/engine_37a54cb/src (measurement records, not in the repo)"
+ },
+ "sessions": [
+  {
+   "id": "g04_web_young_s2026",
+   "kind": "web",
+   "sha256": "6441865e23573fd3d9c87aacbf3956001ba04fd26d5879774ee8af35b8707822",
+   "head": "51760e5947fd8e29861ab2b4bf2ba62f4c2e85eb89f1692f94ac3d32a1007818",
+   "events": 1254,
+   "inputs": 86,
+   "seed": 2026,
+   "file": "g04_web_young_s2026.json.gz"
+  },
+  {
+   "id": "g07_web_clumsy_dual7_s5",
+   "kind": "web",
+   "sha256": "f60bb309b6b9e3bc4998d4382ea7c1b6f7f2c537b9a24b272c70c08c3bb240fa",
+   "head": "a10ed27dcd215a20df43943a465d49511a8745a210296ccae63fd7087a8393b5",
+   "events": 6817,
+   "inputs": 38,
+   "seed": 5,
+   "file": "g07_web_clumsy_dual7_s5.json.gz"
+  },
+  {
+   "id": "g20_legacy_party_s301",
+   "kind": "legacy",
+   "sha256": "86d76cadd02ba6251c6ff0b04f5e0c8b38a3f13829a11a142d39c663601734aa",
+   "head": "4b091787268130f6428991cca1ef4dea2d7b8a7ac4e3d00f4a11be83c01aa802",
+   "events": 3122,
+   "inputs": 5,
+   "seed": 301,
+   "file": "g20_legacy_party_s301.json.gz"
+  },
+  {
+   "id": "g41_cfg_clumsy_hard_s403",
+   "kind": "config",
+   "sha256": "f096821d98692cd1c9b5512d20ae6d38fee93904a2fb82a50d73d62c26bc2a08",
+   "head": "9b0ffd4c3ec7308fdc7d738ea1c9bcd8e1cb69d433c3ad991b75f7251b149324",
+   "events": 6852,
+   "inputs": 300,
+   "seed": 403,
+   "file": "g41_cfg_clumsy_hard_s403.json.gz"
+  },
+  {
+   "id": "g45_cfg_stand_fail_elder21",
+   "kind": "config",
+   "sha256": "6312066e19884624063f1af41e67ac576f6ee4ef951b70fe3b836bb9bb1efc76",
+   "head": "cacf44b0ed50a9fc04e7416e2525658f46fe0fcad0400bfe4cdba1238313de89",
+   "events": 28985,
+   "inputs": 1,
+   "seed": 10017,
+   "file": "g45_cfg_stand_fail_elder21.json.gz"
+  }
+ ],
+ "caps_file": "caps/expression_caps.json",
+ "caps_sha256": "2fafde153bcf7fd9e2f4e3f58d2f2b64f518178e3e5039b16d427710d0ebed6b",
+ "prefixes": [
+  {
+   "id": "g48_cfg_caps_s410_first2",
+   "kind": "config",
+   "file": "g48_cfg_caps_s410_first2.json.gz",
+   "sha256": "c25f45c4f69ebfc64fd44698ef3fe6ad87a91120c02a831bd749f781c1a74ac6",
+   "head": "749ec8e44f1e0ebf5cfbdb7e5e41295844978abe93331e84e712cc61c51587f3",
+   "events": 4481,
+   "inputs": 2,
+   "prefix_of": "g48_cfg_caps_s410",
+   "about": "The first two inputs of g48 (the corpus's one session with an expression caps file; the phase-4 review's test gap: 蛋黃 also has one): its Config names caps/expression_caps.json relative to this folder, vendored byte-identical to the corpus's (caps_sha256). Head and events are v4's own marks after input 2."
+  }
+ ]
+}

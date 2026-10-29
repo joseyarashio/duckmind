@@ -1,0 +1,295 @@
+"""A small, deterministic Chinese command language for the simulator's prompt box.
+
+The simulator deliberately does not route text through an LLM: every command maps to
+one engine call, so what you type is exactly what the duck perceives. Several commands
+can be chained with 「，」「然後」「再」 or 「;」.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+from duckmind.duckcore import content
+
+PERSONA_WORDS = (
+    ("owner", ("主人", "我來", "我摸", "我抱", "我按", "我說")),
+    ("partner", ("伴侶", "太太", "老婆", "先生", "老公", "爸爸", "媽媽")),
+    ("child", ("小孩", "孩子", "兒子", "女兒", "寶寶", "小朋友")),
+    ("guest", ("訪客", "客人", "朋友", "阿姨", "叔叔")),
+)
+ROUTINES = {
+    # First match wins, so 「每天放在地上」 is the floor routine, not the daily one.
+    "地上": "floor",
+    "地板": "floor",
+    "每天": "daily",
+    "日常": "daily",
+    "每週三次": "three_per_week",
+    "一週三次": "three_per_week",
+    "週末": "weekends",
+    "假日": "weekends",
+    "插電": "docked",
+    "常駐": "docked",
+    "很少": "neglect",
+    "偶爾": "neglect",
+}
+UNIT_MINUTES = {
+    "分鐘": 1,
+    "分": 1,
+    "小時": 60,
+    "天": 1440,
+    "日": 1440,
+    "週": 10080,
+    "星期": 10080,
+    "個月": 43200,
+}
+# 「第一個字…」: which of the five words (the longest match first: 啾・啾・咻 before 啾).
+FIRST_WORD_PATTERNS = (
+    (r"啾.?啾.?咻|咻|yay|B", "yay"),
+    (r"嘎|hi", "hi"),
+    (r"咕|mm", "mm"),
+    (r"嗯|hm", "hm"),
+    (r"啾|peep", "peep"),
+)
+BRANCH_WORDS = {
+    "愛唱歌": "songbird",
+    "唱歌": "songbird",
+    "好奇": "explorer",
+    "依偎": "snuggler",
+    "悠哉": "dreamer",
+}
+SPLIT = re.compile(r"[，,；;]|然後|接著|再來")
+SUGGESTIONS = (
+    "小孩摸頭 10 秒",
+    "主人說你好",
+    "按乖",
+    "扶住頭",
+    "小孩叫牠的名字",
+    "抱起來",
+    "用手把玩 10 分鐘",
+    "放在地上",
+    "過 1 小時",
+    "照每天的作息過 30 天",
+    "為什麼不動？",
+    "為什麼不走？",
+    "你記得誰常摸你？",
+    "查 歌",
+    "忘記 電視",
+)
+
+
+@dataclass(slots=True)
+class Command:
+    kind: str  # act | advance | live | setting | choose | query | why | diary | status | forget | undo | unknown
+    method: str = ""
+    params: dict[str, Any] = field(default_factory=dict)
+    persona: str | None = None
+    text: str = ""
+
+
+def _persona(clause: str, default: str) -> str:
+    for persona, words in PERSONA_WORDS:
+        if any(word in clause for word in words):
+            return persona
+    return default
+
+
+def _number(clause: str, unit_pattern: str, default: int) -> int:
+    match = re.search(r"(\d+)\s*" + unit_pattern, clause)
+    return int(match.group(1)) if match else default
+
+
+def parse(text: str, default_persona: str = "owner") -> list[Command]:
+    commands: list[Command] = []
+    for raw in SPLIT.split(text):
+        clause = raw.strip()
+        if not clause:
+            continue
+        commands.append(_parse_clause(clause, default_persona))
+    return commands
+
+
+def _parse_clause(clause: str, default_persona: str) -> Command:
+    persona = _persona(clause, default_persona)
+
+    # Questions first, so 「為什麼不摸」 is never read as a touch.
+    if "為什麼" in clause or "怎麼不" in clause:
+        return Command("why", "why", {"question": clause}, persona, clause)
+    if re.search(r"日記", clause):
+        return Command("diary", "diary", {}, persona, clause)
+    if re.search(r"^(狀態|現在怎樣|在幹嘛|在做什麼)", clause):
+        return Command("status", "state", {}, persona, clause)
+    forget = re.search(r"^(忘記|忘掉|刪掉)\s*(.+)", clause)
+    if forget:
+        return Command("forget", "forget_by_query", {"query": forget.group(2)}, persona, clause)
+    if re.search(r"復原忘記|取消忘記", clause):
+        return Command("undo", "undo_forget", {}, persona, clause)
+    if re.search(r"復原(片語)?$", clause):
+        return Command("undo", "undo_promotion", {}, persona, clause)
+    if re.search(r"(你)?記得|記憶|^查|有關|關於|想起", clause):
+        question = re.sub(r"^(查詢|查)\s*", "", clause)
+        return Command("query", "query", {"q": question}, persona, clause)
+
+    # Time.
+    live = re.search(r"過\s*(\d+)\s*(天|日)", clause)
+    if live and any(word in clause for word in ROUTINES):
+        routine = next(value for word, value in ROUTINES.items() if word in clause)
+        return Command(
+            "live", "live", {"days": int(live.group(1)), "routine": routine}, persona, clause
+        )
+    if re.search(r"(跳|過|快轉)到?(早上|明天早上|天亮)", clause):
+        return Command("advance", "advance", {"until": "07:00"}, persona, clause)
+    advance = re.search(r"過\s*(\d+)\s*(分鐘|分|小時|天|日|週|星期|個月)", clause)
+    if advance:
+        minutes = int(advance.group(1)) * UNIT_MINUTES[advance.group(2)]
+        return Command("advance", "advance", {"minutes": minutes}, persona, clause)
+
+    # Settings and choices.
+    if re.search(r"放回桌|回到桌|放到桌|(關|取消|結束|離開)掉?地板模式", clause):
+        return Command("setting", "set_setting", {"key": "floor", "value": False}, persona, clause)
+    if re.search(r"放(在|到)?地(上|板)|地板模式", clause):
+        return Command("setting", "set_setting", {"key": "floor", "value": True}, persona, clause)
+    if "開電視" in clause:
+        return Command("act", "tv", {"on": True}, persona, clause)
+    if "關電視" in clause:
+        return Command("act", "tv", {"on": False}, persona, clause)
+    if re.search(r"插電|常駐|充電模式", clause):
+        return Command("setting", "set_setting", {"key": "docked", "value": True}, persona, clause)
+    if re.search(r"拔插頭|用電池", clause):
+        return Command("setting", "set_setting", {"key": "docked", "value": False}, persona, clause)
+    if re.search(r"(沒有|關掉|斷|沒).*(網路|NTP|校時|校正)", clause, re.IGNORECASE):
+        return Command("setting", "set_setting", {"key": "ntp_ok", "value": False}, persona, clause)
+    if re.search(r"(恢復|打開|連上).*(網路|NTP|校時|校正)", clause, re.IGNORECASE):
+        return Command("setting", "set_setting", {"key": "ntp_ok", "value": True}, persona, clause)
+    if re.search(r"過熱|很熱|好燙", clause):
+        return Command("setting", "set_setting", {"key": "hot", "value": True}, persona, clause)
+    if re.search(r"降溫|不熱了|涼了", clause):
+        return Command("setting", "set_setting", {"key": "hot", "value": False}, persona, clause)
+    if re.search(r"工作台(通過|過關)|解除保守", clause):
+        return Command(
+            "setting", "set_setting", {"key": "conservative", "value": False}, persona, clause
+        )
+    if "第一個字" in clause:
+        option = "hi"
+        for pattern, word in FIRST_WORD_PATTERNS:
+            if re.search(pattern, clause, re.IGNORECASE):
+                option = word
+                break
+        return Command(
+            "choose", "choose", {"kind": "first_word", "option": option}, persona, clause
+        )
+    if "換羽" in clause:
+        option = "keep" if re.search(r"維持|不換|不要", clause) else "change"
+        return Command("choose", "choose", {"kind": "molt", "option": option}, persona, clause)
+    if re.search(r"維持現狀", clause):
+        return Command("choose", "choose", {"kind": "molt", "option": "keep"}, persona, clause)
+    for word, branch in BRANCH_WORDS.items():
+        if re.search(r"改(選|成)?", clause) and word in clause:
+            return Command(
+                "choose", "choose", {"kind": "branch", "option": branch}, persona, clause
+            )
+    if "訪客模式" in clause:
+        return Command("act", "pad_guest", {}, persona, clause)
+
+    # The day at home (a duck with a nest).
+    if re.search(r"(放|抱)(回|進)窩", clause):
+        return Command("act", "place_on_nest", {}, persona, clause)
+    if re.search(r"(家人|大家|我們|全家).*出門|出門了", clause):
+        return Command("act", "family_leave", {}, persona, clause)
+    if re.search(r"到家|回家了|回來了", clause):
+        return Command("act", "family_return", {}, persona, clause)
+    if re.search(r"晚安", clause) and not re.search(r"關機", clause):
+        # The bedtime cue, like the 晚安 button (switching it off is 「關機」).
+        return Command("act", "goodnight", {}, persona, clause)
+
+    # Body and voice.
+    if re.search(r"叫醒|吵醒|搖醒", clause):
+        return Command("act", "wake", {}, persona, clause)
+    if re.search(r"扶起來|扶正|扶牠起來", clause):
+        return Command("act", "set_upright", {}, persona, clause)
+    if re.search(r"換新電池|換上新電池", clause):
+        return Command("act", "swap_battery", {}, persona, clause)
+    if re.search(r"好了.*可以動|可以動了|不用安靜", clause):
+        return Command("act", "end_quiet", {}, persona, clause)
+    if re.search(r"開機|醒來|放電池|起床", clause):
+        return Command("act", "power_on", {}, persona, clause)
+    if re.search(r"關機|睡覺吧|換電池|拔電池", clause):
+        return Command("act", "power_off", {}, persona, clause)
+    if re.search(r"扶(住)?(牠的)?頭|按住頭|抱住頭", clause):
+        return Command("act", "hold_head", {}, persona, clause)
+    if re.search(r"手把|遙控|帶牠(走|玩)", clause):
+        minutes = _number(clause, r"分", 10)
+        return Command("act", "pad_play", {"minutes": min(60, max(1, minutes))}, persona, clause)
+    hand = re.search(r"手.*(靠近|伸)", clause)
+    if hand:
+        speed = "fast" if re.search(r"快|突然|猛", clause) else "slow"
+        return Command("act", "hand_near", {"speed": speed}, persona, clause)
+    if re.search(r"抱", clause):
+        return Command("act", "pickup", {}, persona, clause)
+    if re.search(r"摸|搔|撫|拍拍|順毛", clause):
+        seconds = _number(clause, r"秒", 5)
+        where = "beak" if re.search(r"嘴", clause) else "crown"
+        firmness = (
+            "light"
+            if re.search(r"輕", clause)
+            else "scratch"
+            if re.search(r"搔|用力", clause)
+            else "normal"
+        )
+        return Command(
+            "act",
+            "touch",
+            {"seconds": min(60, max(1, seconds)), "where": where, "firmness": firmness},
+            persona,
+            clause,
+        )
+    if re.search(r"去走走|走一走|散步", clause):
+        return Command(
+            "act",
+            "owner_walk" if persona == "owner" else "say",
+            {} if persona == "owner" else {"kind": "voice"},
+            persona,
+            clause,
+        )
+    if re.search(r"叫(牠|它|他|她)?(的)?名字|喊(牠|它|他|她)", clause):
+        return Command("act", "call_name", {}, persona, clause)
+    if re.search(r"不是那個|不要那個|別這樣", clause):
+        return Command(
+            "act",
+            "owner_not_that" if persona == "owner" else "say",
+            {} if persona == "owner" else {"kind": "voice"},
+            persona,
+            clause,
+        )
+    if re.search(r"夠了|安靜|噓", clause):
+        return Command(
+            "act",
+            "owner_enough" if persona == "owner" else "say",
+            {} if persona == "owner" else {"kind": "voice"},
+            persona,
+            clause,
+        )
+    if re.search(r"乖|好棒|很棒|讚|做得好|good", clause, re.IGNORECASE):
+        use_pad = persona != "owner" or re.search(r"手把|按", clause) is not None
+        return Command("act", "pad_good" if use_pad else "owner_good", {}, persona, clause)
+    if re.search(r"你好|哈囉|嗨|hello|hi", clause, re.IGNORECASE):
+        return Command(
+            "act",
+            "owner_hello" if persona == "owner" else "say",
+            {} if persona == "owner" else {"kind": "voice"},
+            persona,
+            clause,
+        )
+    if re.search(r"拍手|大聲|敲|砰", clause):
+        return Command("act", "say", {"kind": "noise"}, persona, clause)
+    if re.search(r"說話|聊天|講話|叫牠|唱歌給", clause):
+        return Command("act", "say", {"kind": "voice"}, persona, clause)
+    return Command("unknown", "", {"suggestions": list(SUGGESTIONS)}, persona, clause)
+
+
+def verb_from_text(text: str) -> str | None:
+    for verb in content.VERBS:
+        if verb.zh in text:
+            return verb.verb_id
+    return None

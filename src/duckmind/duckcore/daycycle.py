@@ -1,0 +1,673 @@
+"""A day at home (Duck Core v4, part A): the family's rhythm as the duck perceives it.
+
+The duck knows the time, and from the sounds and sights of the house (voices, steps, the
+front door, the head camera seeing someone, consenting phones, the family app's buttons)
+it forms a belief about the family: up, asleep, out, or not sure. Only counts are kept,
+never audio or images. Cues come in through ``hear_home`` (an input), gather in RAM and
+reach the L1 log as the duck's own summary ``duck.heard`` (signed ``self``, with the sensor
+each kind of cue came from: the ear, the head camera, a phone over BLE) at most every few
+minutes (at once when they could change the belief), and every "how long since" is counted
+from those logged moments, so the log alone decides what the duck believed.
+
+The belief and the clock give the day its phases: ``night`` (asleep in the nest),
+``dawn`` (07:00, it wakes by itself and stays on the nest a little), ``solo`` (the family
+still asleep: quiet walks close to the nest), ``family`` (ordinary life), ``alone``
+(everyone out: it rests in the nest, and wakes before they usually come home once it has
+learned when that is) and ``wind_down`` (21:30: back to the nest and goodnight).
+
+Only ducks with a charging nest (``HardwareConfig.nest``) live by this; the legacy desk
+and cable ducks keep their visits. Pure integers; draws only through the core's own
+counters.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from datetime import date, datetime, time, timedelta
+from typing import TYPE_CHECKING, Any
+
+from duckmind.duckcore import content, moments, rng
+from duckmind.duckcore.fixed import SCALE, clamp
+
+if TYPE_CHECKING:
+    from duckmind.duckcore.engine import DuckCore
+
+R: dict[str, Any] = content.RHYTHM
+CUE_KINDS = ("voice", "steps", "door", "person", "phone_in", "phone_out", "tv_voice")
+PHASE_ZH = {
+    "night": "晚上睡覺",
+    "dawn": "剛睡醒",
+    "solo": "家人還在睡",
+    "family": "家人在家",
+    "alone": "家裡沒人",
+    "wind_down": "準備睡覺",
+}
+FAMILY_ZH = {
+    "awake": "家人醒著在家",
+    "asleep": "家人在睡覺",
+    "away": "家人出門了",
+    "unknown": "不確定家裡有沒有人",
+}
+# The sensor each kind of cue comes from (G37: the summary no longer signs every cue as the
+# ear's; physical-design spec §7.2).
+CUE_SENSOR = {
+    "voice": "ear",
+    "steps": "ear",
+    "door": "ear",
+    "tv_voice": "ear",
+    "person": "camera",
+    "phone_in": "ble",
+    "phone_out": "ble",
+}
+# Someone is right here because they just did something to it (a touch, a lift, a word, the
+# phone's buttons): a "person" cue like one the camera saw, but known from that input, which
+# names its own sensor. Its key is ``person:contact`` (the base kind stays ``person``).
+CONTACT = "contact"
+PERSON_CONTACT = f"person:{CONTACT}"
+CUE_ZH = {
+    "voice": "人聲",
+    "steps": "腳步聲",
+    "door": "開關門",
+    "person": "看到人",
+    "phone_in": "手機回來",
+    "phone_out": "手機離開",
+    "tv_voice": "電視的聲音",
+}
+
+
+def minute_of_day(moment: datetime) -> int:
+    return moment.hour * 60 + moment.minute
+
+
+def daytype(day: date) -> str:
+    """Weekday or weekend: the family's two rhythms."""
+    return "we" if day.weekday() >= 5 else "wd"
+
+
+def _clock(core: DuckCore, day: date, minute: int) -> datetime:
+    return datetime.combine(day, time(minute // 60, minute % 60), core.s.now.tzinfo)
+
+
+def minutes_since(core: DuckCore, moment: datetime | None) -> int | None:
+    if moment is None:
+        return None
+    return int((core.s.now - moment).total_seconds()) // 60
+
+
+def recent(core: DuckCore, moment: datetime | None, minutes: int) -> bool:
+    since = minutes_since(core, moment)
+    return since is not None and since <= minutes
+
+
+def someone_here(core: DuckCore, minutes: int = int(R["room_timeout_min"])) -> bool:
+    """The family is up and someone was right here recently (logged), or just now paid it
+    attention (an interaction is logged the moment it happens)."""
+    s = core.s
+    if s.presence_at is not None and s.now - s.presence_at <= timedelta(minutes=minutes):
+        return True
+    return s.family == "awake" and recent(core, s.room_logged_at, minutes)
+
+
+# ---------------------------------------------------------------------------- set-up
+
+
+def hatch(core: DuckCore) -> None:
+    """A new duck with a nest: its chronotype, and tomorrow's wake-up."""
+    s = core.s
+    s.temperament.setdefault(
+        "chronotype",
+        2000
+        + rng.unit(rng.draw(core.seed, core.table, "temperament.chronotype", 1)) * 6000 // SCALE,
+    )
+    s.family_since = s.phase_since = s.now
+    plan_wake(core, s.now.date() + timedelta(days=1))
+
+
+def plan_wake(core: DuckCore, day: date) -> None:
+    """Tomorrow's self-wake: 07:00 plus a few minutes, drawn once for the day."""
+    s = core.s
+    jitter = rng.pick_index(core._rand("cycle.wake"), int(R["wake_jitter_min"]) + 1)
+    s.wake_plan = _clock(core, day, int(R["wake_min"]) + jitter)
+
+
+def new_day(core: DuckCore) -> None:
+    """Midnight: the next day's plan (called from the day's roll-over)."""
+    s = core.s
+    s.solo_exc_s = 0
+    s.bedtime_nest = False
+    s.goodnight_at = None
+    s.anticipate_at = None
+    s.anticipating = None
+    plan_wake(core, s.day_date)
+
+
+# ---------------------------------------------------------------------------- cues
+
+
+def hear(core: DuckCore, kind: str, *, room: bool = False, persona: str | None = None) -> None:
+    """One cue (RAM only until the next flush logs it as counts)."""
+    s = core.s
+    key = kind if persona is None or not kind.startswith("phone") else f"{kind}:{persona}"
+    s.cue_buffer[key] = s.cue_buffer.get(key, 0) + 1
+    if room:
+        s.cue_room = True
+
+
+def _base(kind: str) -> str:
+    return kind.split(":", 1)[0]
+
+
+def _sensors(keys: Iterable[str]) -> dict[str, str]:
+    """Each base kind's sensor(s) in a flush: ``person`` is the camera's when it was seen,
+    ``contact`` when someone did something to the duck, ``camera+contact`` when both."""
+    found: dict[str, set[str]] = {}
+    for key in keys:
+        base = _base(key)
+        sensor = CONTACT if key == PERSON_CONTACT else CUE_SENSOR[base]
+        found.setdefault(base, set()).add(sensor)
+    return {base: "+".join(sorted(found[base])) for base in sorted(found)}
+
+
+def flush(core: DuckCore, *, react: bool = False) -> dict[str, int] | None:
+    """Log what was heard as ``duck.heard`` (every few minutes, at once when it matters):
+    the duck's own summary of the cues it took in since the last one (the cues themselves
+    were inputs), with the sensor behind each kind. ``react``: the duck's own minute, where
+    a cue may start one of its moments.
+
+    Returns the counts that were logged (None when nothing was)."""
+    s = core.s
+    if not s.cue_buffer:
+        return None
+    kinds = {_base(key) for key in s.cue_buffer}
+    changing = bool(kinds & {"door", "phone_in", "phone_out"}) or s.family != "awake"
+    last = s.cue_logged_at
+    gap = int(R["cue_log_gap_min"])
+    if not changing and last is not None and s.now - last < timedelta(minutes=gap):
+        return None
+    counts = dict(sorted(s.cue_buffer.items()))
+    room = s.cue_room
+    s.cue_buffer = {}
+    s.cue_room = False
+    tv_only = s.tv_on and not (kinds & {"person", "door"}) and not room
+    counted = {
+        key: value
+        for key, value in counts.items()
+        if not (tv_only and _base(key) in {"voice", "tv_voice"}) and _base(key) != "tv_voice"
+    }
+    cue = core._emit(
+        "duck.heard",
+        {
+            "counts": counts,
+            "room": room,
+            "since": last.isoformat() if last is not None else None,
+            "tv_on": s.tv_on,
+            "counted": sorted({_base(key) for key in counted}),
+            "sources": _sensors(counts),
+        },
+    )
+    if react and "tv_voice" in {_base(key) for key in counts}:
+        moments.cue(core, {"tv_voice"}, False, cue)  # (the TV only, as far as it can tell)
+    if not counted:
+        return {}
+    s.cue_logged_at = s.now
+    bases = {_base(key) for key in counted}
+    if room or "person" in bases:
+        s.room_logged_at = s.now
+        s.room_cue_event = cue.event_id
+    if "voice" in bases or "steps" in bases:
+        s.voice_logged_at = s.now
+    if "door" in bases:
+        s.door_logged_at = s.now
+        if s.family == "awake":
+            s.door_hold_until = s.now + timedelta(minutes=int(R["away_after_door_min"]))
+    elif bases & {"voice", "person"} or room:
+        s.door_hold_until = None  # someone is still here: not a leaving after all
+    for key in counts:
+        if key.startswith("phone_in:"):
+            who = key.split(":", 1)[1]
+            if who not in s.phones_home:
+                s.phones_home.append(who)
+        elif key.startswith("phone_out:"):
+            who = key.split(":", 1)[1]
+            if who in s.phones_home:
+                s.phones_home.remove(who)
+    if react:
+        moments.cue(core, bases, room, cue)
+    return {_base(key): value for key, value in counted.items()}
+
+
+# ---------------------------------------------------------------------------- the family
+
+
+def transition(
+    core: DuckCore,
+    to: str,
+    by: list[str],
+    confidence: int,
+    *,
+    source: str = "self",
+    parents: tuple[str, ...] = (),
+) -> None:
+    s = core.s
+    before = s.family
+    if before == to:
+        return
+    s.family = to
+    s.family_since = s.now
+    event = core._emit(
+        "env.family",
+        {"from": before, "to": to, "by": sorted(by), "confidence": confidence},
+        source=source,
+        parents=parents,
+    )
+    moments.family(core, to, event)
+    if to in ("away", "unknown") and before in ("awake", "asleep"):
+        s.away_since = s.now
+        s.door_hold_until = None
+        if before == "awake" and to == "away":
+            _learn(core, "depart", event)
+        _plan_anticipation(core)
+    if to == "awake" and before in ("away", "unknown"):
+        _reunion(core, event)
+    if to == "awake":
+        # A new stretch of the family being home: asking for attention starts afresh.
+        s.come_play_this_visit = False
+        s.bids_stopped = False
+        s.unanswered = 0
+        s.bid_backoff = SCALE
+
+
+def update_family(core: DuckCore, counts: dict[str, int] | None) -> None:
+    """The belief follows logged cues and the clock (spec table 3.3)."""
+    s = core.s
+    m = minute_of_day(s.now)
+    kinds = set(counts or {})
+    if counts:
+        if s.family == "asleep" and m >= int(R["awake_cue_after_min"]):
+            woke = kinds & {"voice", "person", "door", "steps"}
+            if woke:
+                transition(core, "awake", sorted(woke), 8000)
+                return
+        if s.family in ("away", "unknown"):
+            if "person" in kinds:
+                transition(core, "awake", ["person"], 9500)
+                return
+            door_voice = int(R["door_voice_min"])
+            if "door" in kinds and (
+                "voice" in kinds or recent(core, s.voice_logged_at, door_voice)
+            ):
+                transition(core, "awake", ["door", "voice"], 8500)
+                return
+            if "voice" in kinds and recent(core, s.door_logged_at, door_voice):
+                transition(core, "awake", ["door", "voice"], 8500)
+                return
+        if s.family == "awake" and "phone_out" in kinds and not s.phones_home:
+            transition(core, "away", ["phone_out"], 9000)
+            return
+    if s.family == "awake":
+        quiet = minutes_since(core, s.cue_logged_at or s.family_since) or 0
+        door = s.door_logged_at
+        if (
+            door is not None
+            and s.cue_logged_at == door
+            and minutes_since(core, door) is not None
+            and (minutes_since(core, door) or 0) >= int(R["away_after_door_min"])
+        ):
+            transition(core, "away", ["door", "quiet"], 8000)
+        elif int(R["away_quiet_from_min"]) <= m < int(R["away_quiet_to_min"]) and quiet >= int(
+            R["away_after_quiet_min"]
+        ):
+            transition(core, "away", ["quiet"], 6000)
+        elif (m >= int(R["asleep_from_min"]) or m < int(R["awake_cue_after_min"])) and quiet >= int(
+            R["asleep_after_quiet_min"]
+        ):
+            transition(core, "asleep", ["quiet", "clock"], 7000)
+    elif s.family == "asleep" and int(R["unknown_at_min"]) <= m < int(R["night_min"]):
+        transition(core, "unknown", ["quiet", "clock"], 5000)
+
+
+def owner_button(core: DuckCore, to: str, parents: tuple[str, ...]) -> None:
+    """The family app's 出門 / 到家: authoritative."""
+    core.s.door_hold_until = None
+    transition(core, to, ["app"], SCALE, source="owner", parents=parents)
+    refresh_phase(core)
+
+
+# ---------------------------------------------------------------------------- learning when
+
+
+def _model(core: DuckCore, which: str, kind: str) -> list[int]:
+    s = core.s
+    models = s.return_model if which == "return" else s.depart_model
+    defaults: dict[str, int] = R[
+        "return_default_min" if which == "return" else "depart_default_min"
+    ]
+    return models.setdefault(kind, [int(defaults[kind]), 0])
+
+
+def _learn(core: DuckCore, which: str, evidence: Any) -> None:
+    """return-time-v1 / depart-time-v1: a quarter of the error, at most 30 minutes."""
+    s = core.s
+    if which == "return":
+        if s.away_since is None:
+            return
+        gone = int((s.now - s.away_since).total_seconds()) // 60
+        if gone < int(R["model_min_absence_min"]):
+            return
+    elif minute_of_day(s.now) >= 720:
+        return  # only a morning leaving is "going out for the day"
+    kind = daytype(s.now.date())
+    model = _model(core, which, kind)
+    before = model[0]
+    error = minute_of_day(s.now) - before
+    limit = int(R["model_step_max_min"])
+    step = clamp(error * int(R["model_gain"]) // SCALE, -limit, limit)
+    model[0] = before + step
+    model[1] += 1
+    core._emit(
+        "learning.committed",
+        {
+            "update_id": f"U-{evidence.event_id}-{which}",
+            "parameter": f"self.{which}_time:{kind}",
+            "before": before,
+            "after": model[0],
+            "samples": model[1],
+            "max_abs_delta": limit,
+            "rule_version": f"{which}-time-v1",
+            "evidence_event_ids": [evidence.event_id],
+        },
+        parents=(evidence.event_id,),
+    )
+
+
+def relax_models(core: DuckCore) -> None:
+    """Each growth day the learned times drift 3% back toward the defaults."""
+    keep = int(R["model_relax_keep"])
+    for which, defaults in (
+        ("return", R["return_default_min"]),
+        ("depart", R["depart_default_min"]),
+    ):
+        models = core.s.return_model if which == "return" else core.s.depart_model
+        for kind, model in models.items():
+            base = int(defaults[kind])
+            model[0] = base + (model[0] - base) * keep // SCALE
+
+
+def _plan_anticipation(core: DuckCore) -> None:
+    """Out for the day and it knows when they usually come back: wake a little before."""
+    s = core.s
+    kind = daytype(s.now.date())
+    model = s.return_model.get(kind)
+    if model is None or model[1] < int(R["anticipate_min_samples"]):
+        return
+    low, high = R["anticipate_lead_min"]
+    lead = int(low) + rng.pick_index(core._rand("cycle.lead"), int(high) - int(low) + 1)
+    at = _clock(core, s.now.date(), max(0, min(1439, model[0] - lead)))
+    if at > s.now and minute_of_day(at) < int(R["wind_down_min"]):
+        s.anticipate_at = at
+        s.anticipating = {"expect_min": model[0], "lead": lead, "samples": model[1]}
+
+
+def _anticipate(core: DuckCore) -> None:
+    """The time they usually come home is near: awake on the nest, facing the door."""
+    s = core.s
+    plan = s.anticipating or {}
+    s.anticipate_at = None
+    if core._until(s.napping_until):
+        core._end_nap("anticipate")
+    window = [-int(plan.get("lead", 0)), int(R["anticipate_window_after_min"])]
+    predict = core._emit(
+        "duck.predict",
+        {
+            "model": "return",
+            "expect_min": plan.get("expect_min"),
+            "window": window,
+            "n": plan.get("samples"),
+        },
+    )
+    core._emit(
+        "duck.anticipate",
+        {"expect_min": plan.get("expect_min"), "text": "快到你們平常回家的時間了，醒來看著門口"},
+        parents=(predict.event_id,),
+    )
+    core._express(
+        "perk_tilt",
+        reason="anticipate",
+        parents=(predict.event_id,),
+        force_sound=() if s.hush else ("chirp",),
+    )
+    until = s.now + timedelta(minutes=int(plan.get("lead", 0)) + window[1])
+    s.anticipating = {**plan, "predict": predict.event_id, "until": until}
+
+
+def _anticipation_outcome(core: DuckCore, hit: bool) -> None:
+    s = core.s
+    plan = s.anticipating
+    if plan is None or "predict" not in plan:
+        s.anticipating = None
+        return
+    s.anticipating = None
+    expect = int(plan.get("expect_min", 0))
+    outcome = core._emit(
+        "duck.predict_outcome",
+        {
+            "model": "return",
+            "hit": hit,
+            "error_min": minute_of_day(s.now) - expect if hit else None,
+        },
+        parents=(str(plan["predict"]),),
+    )
+    moments.anticipation(core, hit, str(plan["predict"]), outcome)
+
+
+def _reunion(core: DuckCore, evidence: Any) -> None:
+    """They came home: a greeting as warm as the time apart, then out to say hello."""
+    s = core.s
+    away_h = None
+    if s.away_since is not None:
+        away_h = int((s.now - s.away_since).total_seconds()) // 3600
+    tier, sounds = core._greeting_sounds(away_h)
+    if s.anticipating is not None and "predict" in s.anticipating:
+        _anticipation_outcome(core, True)
+    s.anticipate_at = None
+    s.anticipating = None
+    if s.hush or s.phase in ("night", "wind_down"):
+        sounds = ()
+    core._emit(
+        "duck.greeting",
+        {
+            "kind": "reunion",
+            "tier": tier,
+            "away_h": away_h,
+            "sounds": list(sounds),
+            "text": f"你們回來了！重逢招呼（{content.phrase_text(sounds) if sounds else '小聲地'}）",
+        },
+        parents=(evidence.event_id,),
+    )
+    core._contact("reunion")
+    _learn(core, "return", evidence)
+    s.rest_spell_until = None
+    m = minute_of_day(s.now)
+    if s.battery >= 5000 and m < int(R["wind_down_min"]) and m >= int(R["wake_min"]):
+        s.reunion_until = s.now + timedelta(minutes=int(R["reunion_leave_min"]))
+    if core._until(s.napping_until) and s.nap_reason == "away_rest":
+        core._end_nap("reunion", parents=(evidence.event_id,))
+
+
+# ---------------------------------------------------------------------------- phases
+
+
+def set_phase(core: DuckCore, to: str, why: str) -> None:
+    s = core.s
+    if s.phase == to:
+        return
+    before = s.phase
+    s.phase = to
+    s.phase_since = s.now
+    s.hush = to == "solo"
+    core._emit("duck.phase", {"from": before, "to": to, "why": why})
+    if to == "night" and before != "night":
+        _consolidate_day(core)
+
+
+def _consolidate_day(core: DuckCore) -> None:
+    """Asleep for the night: the day becomes a memory (like a bird's sleep)."""
+    s = core.s
+    ids = list(s.visit_events)
+    if not ids:
+        return
+    summary = core._visit_summary(ids)
+    core._emit(
+        "memory.consolidated",
+        {"segment": "day", "day": s.trace, "summary": summary, "rule": "consolidate-v2"},
+        parents=(ids[0],),
+    )
+    s.last_visit = summary
+
+
+def refresh_phase(core: DuckCore) -> None:
+    """The belief just changed in the daytime: the day's phase follows at once (night,
+    dawn and the wind-down keep their own clock)."""
+    s = core.s
+    if s.phase in ("solo", "family", "alone") and not (
+        minute_of_day(s.now) >= int(R["night_min"]) or minute_of_day(s.now) < int(R["wake_min"])
+    ):
+        target = _by_family(core)
+        if target != s.phase:
+            set_phase(core, target, s.family)
+
+
+def _by_family(core: DuckCore) -> str:
+    return {"asleep": "solo", "awake": "family"}.get(core.s.family, "alone")
+
+
+def _self_wake(core: DuckCore) -> None:
+    s = core.s
+    s.woke_at = s.now
+    planned = s.wake_plan
+    s.wake_plan = None
+    core._end_nap("clock")
+    chronotype = int(s.temperament.get("chronotype", 5000))
+    low, high = R["inertia_min"]
+    # An early bird (low chronotype) is up at once; a late riser dozes on a while.
+    top = int(low) + (int(high) - int(low)) * (chronotype - 2000) // 6000
+    inertia = max(0, top - 5 + rng.pick_index(core._rand("cycle.inertia"), 6))
+    s.trace = f"day-{s.now.date():%Y%m%d}"
+    s.visit_events = []
+    woke = core._emit(
+        "duck.self_wake",
+        {
+            "at_min": minute_of_day(s.now),
+            "jitter": minute_of_day(s.now) - int(R["wake_min"]) if planned else 0,
+            "chronotype": chronotype,
+            "inertia_min": inertia,
+        },
+    )
+    if s.milestones.get("morning_habit", {}).get("status") == "debuted":
+        core._express(
+            "wake_ritual",
+            reason="wake",
+            parents=(woke.event_id,),
+            force_sound=("coo",) if s.family == "asleep" else ("coo", "chirp"),
+        )
+    s.come_play_this_visit = False
+    s.anticipating = None
+    s.dawn_until = s.now + timedelta(minutes=inertia)
+    set_phase(core, "dawn", "self_wake")
+    moments.dawn(core, woke.event_id)  # (a late riser may stand up and sit straight back)
+
+
+def minute(core: DuckCore) -> None:
+    """The duck's minute, for the day's rhythm (after the battery, before everything else)."""
+    s = core.s
+    counts = flush(core, react=True)
+    update_family(core, counts)
+    m = minute_of_day(s.now)
+    night = m >= int(R["night_min"]) or m < int(R["wake_min"])
+    if s.wake_plan is not None and s.now >= s.wake_plan and not night:
+        # 07:00: it wakes by itself (with verified time, asleep in its nest or on its
+        # cable). Otherwise the family's own morning sounds wake it.
+        if (
+            s.ntp_ok
+            and (s.nested or s.docked)
+            and core._until(s.napping_until)
+            and s.nap_reason == "quiet_hours"
+        ):
+            _self_wake(core)
+            return
+        s.wake_plan = None
+    # Out: the time they usually come home is near.
+    if s.anticipate_at is not None and s.now >= s.anticipate_at and s.family in ("away", "unknown"):
+        _anticipate(core)
+    elif (
+        s.anticipating is not None
+        and "until" in s.anticipating
+        and s.now >= s.anticipating["until"]
+    ):
+        _anticipation_outcome(core, False)
+    if s.phase == "dawn" and s.dawn_until is not None and s.now < s.dawn_until:
+        return
+    if night:
+        if s.phase != "night":
+            set_phase(core, "night", "clock")
+        return
+    if s.phase == "night":
+        if s.bedtime_nest:
+            return  # said goodnight early (after 21:00): asleep for the night already
+        woke_today = s.woke_at is not None and s.woke_at.date() == s.now.date()
+        if not woke_today:
+            # Morning, but no self-wake yet (07:00–07:04, or no verified time): it sleeps
+            # on until the wake-up, or until the family's sounds wake it.
+            if s.wake_plan is not None or s.family != "awake":
+                return
+            if core._until(s.napping_until) and s.nap_reason == "quiet_hours":
+                core._end_nap("cue")
+            s.woke_at = s.now
+    wind = m >= int(R["wind_down_min"]) or (
+        s.goodnight_at is not None and m >= int(R["goodnight_after_min"])
+    )
+    if wind:
+        set_phase(core, "wind_down", "goodnight" if m < int(R["wind_down_min"]) else "clock")
+        return
+    target = _by_family(core)
+    if target != s.phase:
+        set_phase(core, target, s.family)
+
+
+def next_alarm(core: DuckCore) -> datetime | None:
+    """The next moment the day's rhythm has to look again (so a long sleep in the nest can
+    be lived in one step, and still wakes at the same second a minute-by-minute run would)."""
+    s = core.s
+    today = s.now.date()
+    points: list[datetime] = []
+    for pending in (s.wake_plan, s.anticipate_at):
+        if pending is not None:
+            points.append(pending)  # one-shot: due until the minute handles it
+    for moment in (s.reunion_until, s.door_hold_until, s.dawn_until):
+        if moment is not None and moment > s.now:
+            points.append(moment)
+    if s.anticipating is not None and "until" in s.anticipating:
+        points.append(s.anticipating["until"])
+    for minute_ in (
+        int(R["wake_min"]),
+        int(R["unknown_at_min"]),
+        int(R["away_quiet_from_min"]),
+        int(R["goodnight_after_min"]),
+        int(R["wind_down_min"]),
+        int(R["in_nest_by_min"]),
+        int(R["night_min"]),
+        int(R["asleep_from_min"]),
+    ):
+        moment = _clock(core, today, minute_)
+        points.append(moment if moment > s.now else moment + timedelta(days=1))
+    if s.family == "awake":
+        quiet_from = s.cue_logged_at or s.family_since or s.now
+        for minutes in (
+            int(R["asleep_after_quiet_min"]),
+            int(R["away_after_quiet_min"]),
+            int(R["away_after_door_min"]),
+        ):
+            moment = quiet_from + timedelta(minutes=minutes)
+            if moment > s.now:
+                points.append(moment)
+    return min(points) if points else None

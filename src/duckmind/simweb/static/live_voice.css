@@ -1,0 +1,83 @@
+/* 說話 (live voice, LV5): the talk panel (live_voice.js).
+ * docs/simulator-style.md: the standard's own look (cards, chips, buttons, fields), tokens only —
+ * no new colours, no rounded corners, no soft shadows. The chips say what leaves the machine: a yellow
+ * chip with a magenta hard shadow means "being sent now". */
+.live-voice { max-width: 1100px; margin: 0 auto 30px; }
+.live-voice .card-title { margin-bottom: 12px; }
+
+/* the cloud switch and what is leaving */
+.live-cloud { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.live-switch { min-height: 44px; padding: 8px 14px; font-size: 15px; font-weight: 800; }
+.live-sending { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.live-sending .live-chip { border: 2px solid var(--ink); background: var(--white); padding: 5px 10px; font: 600 13px/1.25 var(--font-body); white-space: normal; }
+.live-sending .live-chip b { font-weight: 800; }
+.live-sending .live-chip[data-sending="on"] { background: var(--yellow); box-shadow: 3px 3px 0 var(--magenta); }
+.live-chip[data-sending="on"]::before { background: var(--green); }
+.live-chip[data-sending="wait"]::before { background: var(--orange); }
+.live-chip[data-sending="bad"]::before { background: var(--magenta); }
+.live-state { margin: 10px 0 0; padding: 6px 10px; background: var(--paper); border-left: 4px solid var(--ink); font-weight: 600; font-size: 13.5px; line-height: 1.5; }
+.live-state[data-state="online"] { border-left-color: var(--green); }
+.live-state[data-state="connecting"], .live-state[data-state="reconnecting"] { border-left-color: var(--orange); }
+.live-state[data-state="down"], .live-state[data-state="quota"], .live-state[data-state="capped"], .live-state[data-state="no_key"] { border-left-color: var(--magenta); box-shadow: 3px 3px 0 var(--magenta); }
+.live-state:empty { display: none; }
+.live-error { margin-top: 6px; font-weight: 500; }
+
+/* the microphone */
+.live-mic, .live-lines { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-top: 14px; }
+.live-lines { margin-top: 8px; }
+.live-mic .btn { white-space: normal; text-align: left; min-height: 40px; }
+.live-mic .btn[aria-pressed="true"] { background: var(--yellow); box-shadow: 4px 4px 0 var(--magenta); }
+.live-field { display: grid; gap: 4px; font: 700 12px/1.3 var(--font-body); min-width: 0; }
+.live-field select { max-width: 100%; }
+.live-level { display: inline-block; align-self: center; width: 96px; height: 14px; border: 2px solid var(--ink); background: var(--cream); overflow: hidden; }
+.live-level i { display: block; width: 100%; height: 100%; background: var(--green); transform-origin: left center; transform: scaleX(0); }
+.live-mic-note { display: grid; gap: 2px; }
+.live-mic-note:empty { display: none; }
+
+/* what was heard, what the duck did, what its eyes show, who it knows */
+.live-grid { display: grid; gap: 18px 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+.live-block { border-top: 2px solid var(--ink); padding-top: 10px; min-width: 0; }
+.live-block .eyebrow { margin-bottom: 8px; }
+.live-list { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; max-height: 280px; overflow: auto; }
+.live-list li { padding: 5px 4px; border-bottom: 1px dashed var(--hair); font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; min-width: 0; }
+.live-list li.empty { color: var(--muted); border-bottom: 0; }
+.live-t { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 8px; white-space: nowrap; }
+.live-list q { font-weight: 700; }
+.live-echo { display: block; margin-top: 2px; padding-left: 6px; border-left: 4px solid var(--magenta); font-size: 12px; font-weight: 700; color: var(--muted); }
+.live-list li[data-echo="true"] q { color: var(--muted); font-weight: 500; }
+.live-call-head, .live-call-out { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.live-call-out { margin-top: 3px; }
+.live-tool { display: inline-block; padding: 1px 7px; border: 2px solid var(--ink); background: var(--cream); font-size: 12px; font-weight: 800; line-height: 1.35; }
+.live-tagname { padding: 0 5px; border: 2px solid var(--ink); background: var(--yellow); font-weight: 600; }
+.live-meaning { color: var(--muted); font-size: 12.5px; }
+.live-out::before { background: var(--muted); }
+.live-out { font-weight: 800; font-size: 12.5px; white-space: normal; }
+.live-out[data-outcome="voiced"]::before, .live-out[data-outcome="attended"]::before, .live-out[data-outcome="bound"]::before, .live-out[data-outcome="noted"]::before, .live-out[data-outcome="felt"]::before { background: var(--green); }
+.live-out[data-outcome="waiting"]::before, .live-out[data-outcome="pending"]::before { background: var(--orange); }
+.live-out[data-outcome="refused"]::before { background: var(--magenta); }
+.live-reason { font-size: 12.5px; color: var(--muted); }
+.live-eye { margin: 0; }
+.live-eye img { display: block; width: auto; max-width: 100%; max-height: 300px; height: auto; border: 2px solid var(--ink); background: var(--cream); }
+.live-eye figcaption { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.live-seen, .live-attended { margin: 8px 0 0; font-size: 13px; line-height: 1.5; }
+.live-attended .live-call-out { margin-top: 4px; }
+.live-name { font-weight: 800; }
+.live-usage { margin: 16px 0 0; padding-top: 10px; border-top: 2px solid var(--ink); font: 500 12.5px/1.6 var(--font-body); color: var(--muted); font-variant-numeric: tabular-nums; }
+.live-usage:empty { display: none; }
+
+@media (max-width: 980px) {
+  .live-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .live-voice { padding: 14px 14px 16px; box-shadow: 6px 6px 0 var(--accent); }
+  .live-switch, .live-mic .btn, .live-lines .btn, .live-voice select { min-height: 44px; }
+  .live-mic .btn { flex: 1 1 100%; justify-content: center; text-align: center; }
+  .live-field { flex: 1 1 100%; }
+  .live-field select { width: 100%; }
+  .live-mic .toggle { min-height: 44px; flex: 1 1 100%; }
+  .live-lines .btn { flex: 1 1 100%; justify-content: center; }
+  .live-sending .live-chip { flex: 1 1 100%; }
+}
+@media (pointer: coarse) {
+  .live-switch, .live-mic .btn, .live-lines .btn, .live-voice select { min-height: 44px; }
+}

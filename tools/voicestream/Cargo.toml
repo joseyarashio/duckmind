@@ -1,0 +1,27 @@
+# duck-voice-stream: the official Microduck voice (`sounds::Stream`) held open for the simulator.
+#
+# OUR helper (duckmind, a:sound 2026-09-28), not upstream. It depends on upstream's `sounds`
+# crate at the pinned upstream commit and changes nothing in it; build it into our own target
+# folder (the one the simulator looks in is voicestream/target in the data folder,
+# duckmind.paths.data_dir()):
+#
+#   cargo build --release --locked \
+#       --manifest-path tools/voicestream/Cargo.toml \
+#       --target-dir <data folder>/voicestream/target
+#
+# Offline, from a local checkout of upstream at the same commit, add:
+#   --offline --config 'patch."https://github.com/pollen-robotics/microduck".sounds.path="<upstream>/microduck/sounds"'
+#
+# Cargo.lock is a copy of upstream's own lock (the same crate versions the robot's release
+# builds `sounds` with; cargo prunes what this helper does not use).
+[package]
+name = "duck-voice-stream"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+sounds = { git = "https://github.com/pollen-robotics/microduck", rev = "a9ec4b2079ef8ee7904014089c885bb07d57d63c" }
+
+# Its own workspace: never a member of anything above it.
+[workspace]

@@ -1,0 +1,1533 @@
+"""Authored content for Duck Core, as data.
+
+Every number here is Duck Mind's own tuning (independent re-implementation; no code
+or constants from the unlicensed ``autonomous.rs`` forks). Motion entries describe
+*targets*; on the robot each one ships only after the seated validation protocol
+(Protocol B) passes, otherwise its slowed variant is used.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+from typing import Any
+
+from duckmind.duckcore.fixed import fp
+
+CONTENT_VERSION = "duckcore-content-3"
+
+# Expressive sound tags. `alarm` is reserved for falls and `peck` is upstream's
+# power-off goodbye, so neither appears in expressive content.
+TAGS = ("chirp", "inquire", "coo", "greet", "wheee")
+TAG_ZH = {
+    "chirp": "啾",
+    "inquire": "嗯？",
+    "coo": "咕～",
+    "greet": "嘎！",
+    "wheee": "咻～",
+}
+TAG_LETTER = {"chirp": "C", "inquire": "I", "coo": "O", "greet": "G", "wheee": "W"}
+
+
+@dataclass(frozen=True, slots=True)
+class Verb:
+    verb_id: str
+    zh: str
+    unlock_gd: int
+    kind: str  # idle | rest | routine | reaction | signature
+    body: str
+    sounds: tuple[str, ...]
+    fit: str  # curious | calm | happy | tired | overwhelmed | social
+    branch: str | None = None
+    needs_tof: bool = False
+    validated: str = "目標值（待坐姿驗證；不過就用放慢版）"
+
+
+VERBS: tuple[Verb, ...] = (
+    Verb(
+        "look_around",
+        "張望",
+        0,
+        "idle",
+        "頭慢慢左右看，每次停一下",
+        ("", "chirp", "inquire"),
+        "curious",
+    ),
+    Verb(
+        "perk_tilt", "抬頭歪頭", 0, "idle", "頭抬起，往天生習慣的那一側歪", ("inquire",), "curious"
+    ),
+    Verb("stretch_yawn", "伸懶腰", 0, "idle", "慢慢抬高、張嘴，再坐低一點", ("coo",), "tired"),
+    Verb("preen", "理毛", 0, "idle", "低頭轉向一側，輕啄幾下", ("",), "calm"),
+    Verb("happy_sway", "開心晃", 0, "idle", "左右小幅搖擺幾下，嘴巴跟著拍子", ("chirp",), "happy"),
+    Verb(
+        "tuck_away",
+        "縮一下",
+        0,
+        "reaction",
+        "轉開、頭放低幾秒（太多了／害羞）",
+        ("", "coo"),
+        "overwhelmed",
+    ),
+    Verb("nap", "小睡", 0, "rest", "分兩三步打瞌睡，偶爾小抽動", ("chirp",), "tired"),
+    Verb(
+        "wake_ritual",
+        "醒來儀式",
+        3,
+        "routine",
+        "伸懶腰 → 張望 → 啾一聲",
+        ("coo", "chirp"),
+        "social",
+    ),
+    Verb("nod", "點頭", 14, "idle", "慢慢點兩下頭", ("",), "social"),
+    Verb(
+        "peekaboo",
+        "躲貓貓",
+        14,
+        "idle",
+        "有 ToF：跟著手；沒有：摸一下頭 → 躲一下再探頭",
+        ("inquire", "chirp"),
+        "happy",
+    ),
+    Verb(
+        "call_response",
+        "一問一答",
+        18,
+        "idle",
+        "你出聲，牠回一聲，最多三輪",
+        ("inquire", "chirp"),
+        "social",
+    ),
+    Verb("snuggle", "依偎", 28, "idle", "頭低低地往前靠", ("coo",), "calm"),
+    Verb(
+        "little_dance", "小舞步", 28, "idle", "跟著自己的節奏小小晃頭", ("chirp", "wheee"), "happy"
+    ),
+    Verb("not_now", "現在不要", 60, "reaction", "溫和地搖搖頭", ("",), "overwhelmed"),
+    # Branch signatures (GD 45 / 75).
+    Verb(
+        "little_song",
+        "小歌",
+        45,
+        "signature",
+        "挺直身體唱一小段",
+        ("chirp", "greet"),
+        "happy",
+        branch="songbird",
+    ),
+    Verb(
+        "self_duet",
+        "自己對唱",
+        75,
+        "signature",
+        "左右轉頭，啾與嗯？一問一答",
+        ("chirp", "inquire"),
+        "happy",
+        branch="songbird",
+    ),
+    Verb(
+        "survey",
+        "巡視",
+        45,
+        "signature",
+        "大幅度慢慢看一圈",
+        ("inquire",),
+        "curious",
+        branch="explorer",
+    ),
+    Verb(
+        "peekaboo_master",
+        "躲貓貓大師",
+        75,
+        "signature",
+        "更會躲、更會探頭",
+        ("inquire", "chirp"),
+        "curious",
+        branch="explorer",
+    ),
+    Verb(
+        "melt",
+        "融化",
+        45,
+        "signature",
+        "被摸時慢慢融化、可能睡著",
+        ("coo",),
+        "calm",
+        branch="snuggler",
+    ),
+    Verb(
+        "nuzzle_tilt",
+        "蹭蹭歪頭",
+        75,
+        "signature",
+        "頭低低地蹭一下再歪頭",
+        ("coo",),
+        "calm",
+        branch="snuggler",
+    ),
+    Verb(
+        "moon_gaze", "望月", 45, "signature", "頭慢慢抬高，停很久", ("",), "calm", branch="dreamer"
+    ),
+    Verb(
+        "sleep_talk",
+        "說夢話",
+        75,
+        "signature",
+        "小睡中輕輕咕一聲",
+        ("coo",),
+        "tired",
+        branch="dreamer",
+    ),
+    # Whole-body motion (owner decisions 2026-09-25): standing up and sitting down
+    # anywhere, short walks and turns only in floor mode. They compete in the same
+    # utility decision as every other verb; the head clip plays while the body moves.
+    Verb(
+        "stand_up",
+        "站起來",
+        0,
+        "motion",
+        "撐起身體站好，抬頭看一下",
+        ("", "chirp"),
+        "curious",
+        validated="目標值（待 A100 物理驗證；通過前不會自己站起來）",
+    ),
+    Verb(
+        "sit_down",
+        "坐下",
+        0,
+        "motion",
+        "慢慢蹲低坐好，頭放鬆",
+        ("", "coo"),
+        "calm",
+        validated="目標值（待 A100 物理驗證；坐下是休息姿勢）",
+    ),
+    Verb(
+        "wander",
+        "走走",
+        5,
+        "motion",
+        "慢慢往前走幾步，邊走邊看",
+        ("", "inquire", "chirp"),
+        "curious",
+        validated="目標值（待 A100 物理驗證；只在地板模式）",
+    ),
+    Verb(
+        "turn_around",
+        "轉身看看",
+        5,
+        "motion",
+        "邊走邊繞個小彎轉身，看看後面",
+        ("", "inquire"),
+        "curious",
+        validated="目標值（待 A100 物理驗證；只在地板模式）",
+    ),
+)
+# What it does when it stops between two legs of an outing: a short look, never a whole
+# decision (they are not idle verbs, so the ordinary decisions never pick them).
+PAUSE_VERBS: tuple[Verb, ...] = (
+    Verb("peek_down", "低頭看地上", 0, "pause", "低頭看看地板", ("",), "curious"),
+    Verb("glance", "看一眼", 0, "pause", "轉頭看一眼", ("",), "curious"),
+    Verb("tilt", "歪一下頭", 0, "pause", "歪頭看看", ("",), "curious"),
+)
+# The clips its clever and goofy moments are made of (spec v4 8.6: three new clips, plus a
+# still hold for the comic freeze and two existing idle-layer clips). Never an idle choice.
+MOMENT_VERBS: tuple[Verb, ...] = (
+    Verb("dabble", "撈水", 0, "moment", "頭往前低，嘴巴快速開合，像在撈水", ("",), "happy"),
+    Verb(
+        "double_take", "愣一下再看", 0, "moment", "看一眼、轉回來，再猛然看回去", ("",), "curious"
+    ),
+    Verb("proud_puff", "抬頭挺胸", 0, "moment", "頭抬高、挺起胸，停一下", ("",), "happy"),
+    Verb("still", "定格", 0, "moment", "整個停住不動一下", ("",), "calm"),
+    Verb("freeze", "定住盯著看", 0, "moment", "頭微微抬起，盯著一個地方不動", ("",), "curious"),
+    Verb("glance_away", "回頭看", 0, "moment", "頭轉向另一邊看", ("",), "curious"),
+)
+VERBS = VERBS + PAUSE_VERBS + MOMENT_VERBS
+VERB_BY_ID = {verb.verb_id: verb for verb in VERBS}
+IDLE_KINDS = {"idle", "signature", "motion"}
+MOTION_VERBS = ("stand_up", "sit_down", "wander", "turn_around")
+WALK_VERBS = ("wander", "turn_around")
+
+
+@dataclass(frozen=True, slots=True)
+class Stage:
+    stage_id: str
+    zh: str
+    gd_min: int
+    active_share: int  # fixed point: share of awake minutes with a verb
+    amplitude_cap: int  # fixed point: fraction of the validated seated envelope
+    phrase_len: int
+    bids_per_hour: int
+
+
+STAGES: tuple[Stage, ...] = (
+    Stage("hatchling", "雛鴨", 0, fp(35, 100), fp(60, 100), 1, 2),
+    Stage("duckling", "幼鴨", 10, fp(50, 100), fp(75, 100), 2, 3),
+    Stage("juvenile", "少年鴨", 45, fp(60, 100), fp(90, 100), 3, 3),
+    Stage("adult", "成鴨", 180, fp(55, 100), fp(100, 100), 5, 3),
+)
+
+
+def stage_for(gd: int) -> Stage:
+    current = STAGES[0]
+    for stage in STAGES:
+        if gd >= stage.gd_min:
+            current = stage
+    return current
+
+
+@dataclass(frozen=True, slots=True)
+class Milestone:
+    milestone_id: str
+    base_gd: int
+    title: str
+    diary: str
+    unlocks: tuple[str, ...] = ()
+    jitter: bool = True
+
+
+CALENDAR: tuple[Milestone, ...] = (
+    Milestone("hatched", 0, "孵化", "我孵化了！我叫{name}。", jitter=False),
+    Milestone(
+        "morning_habit",
+        3,
+        "早上的習慣",
+        "我有早上的習慣了：伸懶腰、張望、啾一聲。",
+        ("wake_ritual",),
+    ),
+    Milestone("first_word", 6, "第一個字", "我會說第一個字了：{word}！"),
+    Milestone("duckling", 10, "變成幼鴨", "我變成幼鴨了！開始會自己牙牙學語。", jitter=False),
+    Milestone(
+        "first_game",
+        14,
+        "第一個遊戲",
+        "我們有了第一個遊戲：躲貓貓。我也學會點頭。",
+        ("nod", "peekaboo"),
+    ),
+    Milestone(
+        "first_talk", 18, "第一次對話", "你出聲，我回答；我們聊了好幾輪。", ("call_response",)
+    ),
+    Milestone("new_moves", 28, "新動作", "我學會依偎和小舞步了。", ("snuggle", "little_dance")),
+    Milestone("phrase_vote", 35, "片語投票", "我的片語變長了；你們說「乖」的片語，我會留下來。"),
+    Milestone("leaning", 40, "傾向", "我好像越來越{leaning}。"),
+    Milestone("branch", 45, "長成自己的樣子", "我變成{branch}了！", jitter=False),
+    Milestone("not_now", 60, "現在不要", "我會溫和地搖頭說「現在不要」了。", ("not_now",)),
+    Milestone("new_coda", 67, "新的收尾", "我的動作多了新的收尾方式。"),
+    Milestone("song_draft", 75, "歌的草稿", "我把喜歡的片語串成了一首歌的草稿。"),
+    Milestone("song_draft_2", 82, "歌的第二版", "我的歌有了第二版。"),
+    Milestone("quarter", 90, "一季回顧", "我們一起過了一季。我可以提出第一次換羽了（預設不換）。"),
+    Milestone("adult", 180, "成鴨", "我長大了，我的歌也定型了。", jitter=False),
+)
+MILESTONE_BY_ID = {milestone.milestone_id: milestone for milestone in CALENDAR}
+
+
+@dataclass(frozen=True, slots=True)
+class Branch:
+    branch_id: str
+    zh: str
+    care_type: str
+    style: str
+    favorite_tags: tuple[str, ...]
+    touch_reaction: str
+    signatures: tuple[str, str]
+
+
+CARE_TYPES = ("talk", "play", "touch", "calm")
+CARE_ZH = {"talk": "說話", "play": "遊戲", "touch": "觸摸", "calm": "安靜陪伴"}
+
+BRANCHES: tuple[Branch, ...] = (
+    Branch(
+        "songbird",
+        "愛唱歌型",
+        "talk",
+        "挺直、片語比較長",
+        ("chirp", "greet"),
+        "兩個音的咕～",
+        ("little_song", "self_duet"),
+    ),
+    Branch(
+        "explorer",
+        "好奇型",
+        "play",
+        "轉頭幅度大、常歪頭",
+        ("inquire",),
+        "往手的方向歪",
+        ("survey", "peekaboo_master"),
+    ),
+    Branch(
+        "snuggler",
+        "依偎型",
+        "touch",
+        "低低的、慢慢的",
+        ("coo",),
+        "長長地融化，可能睡著",
+        ("melt", "nuzzle_tilt"),
+    ),
+    Branch(
+        "dreamer",
+        "悠哉型",
+        "calm",
+        "節奏慢、常望遠方",
+        ("coo",),
+        "想睡的咕～",
+        ("moon_gaze", "sleep_talk"),
+    ),
+)
+BRANCH_BY_ID = {branch.branch_id: branch for branch in BRANCHES}
+BRANCH_BY_CARE = {branch.care_type: branch.branch_id for branch in BRANCHES}
+
+ADULT_NAMES = {
+    ("songbird", "explorer"): "吟遊詩人",
+    ("songbird", "snuggler"): "搖籃曲歌手",
+    ("songbird", "dreamer"): "月光歌手",
+    ("explorer", "songbird"): "探險播報員",
+    ("explorer", "snuggler"): "口袋夥伴",
+    ("explorer", "dreamer"): "觀星者",
+    ("snuggler", "songbird"): "哼歌抱枕",
+    ("snuggler", "explorer"): "好奇抱枕",
+    ("snuggler", "dreamer"): "暖暖夢鴨",
+    ("dreamer", "songbird"): "夢話詩人",
+    ("dreamer", "explorer"): "慢慢探險家",
+    ("dreamer", "snuggler"): "午睡冠軍",
+}
+
+# ---------------------------------------------------------------------------- personality (P1)
+# Spec v4 part E (phase P1). Every duck hatches with a temperament: seven axes (fixed point
+# 2000–8000, drawn once, never from the decision counters) and one primary temperament (the
+# four equally likely), so two songbirds can still be quite different ducks. The axes only
+# shape how likely things are (how far, how often, how fast it grows); none decides whether.
+TEMPERAMENT: dict[str, Any] = {
+    "axes": ("boldness", "activity", "sociability", "exploration", "wit", "chronotype", "tempo"),
+    "range": (2000, 8000),
+    "nature": (1500, 3500, 4000),  # nature weight: base + random span, primary +4000
+    "pace": (8700, 11500),  # tempo: growth pace 0.87–1.15×
+    "leash": (8000, 12000),  # boldness: how far from the nest it goes at its age
+    "leave_shift": 500,  # boldness: happy to leave the nest ±5% of battery sooner
+    "outing": (8000, 12500),  # activity: how often it sets off
+    "social": (7000, 13000),  # sociability: how fast it misses the family
+    "novelty": (7000, 13000),  # exploration: how much a place it has not seen draws it
+    "wits": (3500, 6500),  # wit: its wits on an ordinary day
+}
+# Fair care (spec 7.3): praise counts as the care of what was praised, not always as talk.
+FIT_CARE = {
+    "happy": "talk",
+    "social": "talk",
+    "curious": "play",
+    "calm": "calm",
+    "tired": "calm",
+    "overwhelmed": "calm",
+}
+VERB_CARE = {
+    "wander": "play",
+    "turn_around": "play",
+    "little_dance": "play",
+    "peekaboo": "play",
+    "peekaboo_master": "play",
+    "snuggle": "touch",
+    "melt": "touch",
+    "nuzzle_tilt": "touch",
+    "nap": "calm",
+    "moon_gaze": "calm",
+    "sleep_talk": "calm",
+}
+CARE_LIMITS = {"pad_play_min": 3, "company_play_min": 10, "company_calm_min": 20}
+# How much of each care, and of each kind of its own experience, an average household-v2
+# duck gets between becoming a duckling and a juvenile (fixed point shares, summing to
+# 1.0): what "more than most families" is measured against. Frozen from calibration run C
+# (2026-09-26: 200 household-v2 ducks with fair care, the average of each duck's shares).
+CARE_PRIOR = {"talk": 2491, "touch": 2555, "play": 3216, "calm": 1738}
+CARE_PRIOR_ADULT = {"talk": 2458, "touch": 2539, "play": 3304, "calm": 1699}  # juvenile → adult
+SELF_PRIOR = {"songbird": 640, "explorer": 4050, "snuggler": 2057, "dreamer": 3253}
+SELF_CAP_PER_GD = 5
+# branch-v2 / adult-v2: 0.4 nature + 0.4 care lift + 0.2 its own experience (with fewer
+# than BRANCH_MIN_EPISODES care episodes: 0.7 nature + 0.3 experience), each lift capped at
+# 2× the prior, then a lottery weighted score⁴: care clearly raises the odds, and the same
+# family can still raise different ducks.
+BRANCH_RULE = {"nature": 4000, "care": 4000, "self": 2000, "k": 4, "cap": 20000}
+BRANCH_NATURE_ONLY = {"nature": 7000, "self": 3000}
+
+
+@dataclass(frozen=True, slots=True)
+class Moment:
+    """One clever or goofy moment (spec v4 part F). Clever ones are real skills: it guesses
+    first (duck.predict) and the moment counts only when the guess came true. Goofy ones
+    are real bird behaviour (displacement preening, vacuum activity, intention movements),
+    only when it is fed, rested and not in a hurry."""
+
+    moment_id: str
+    kind: str  # clever | goofy
+    hook: str  # where it can happen (see moments.py)
+    zh: str
+    care: str  # what praising it counts as (fair care)
+    needs: str = ""  # what it needs first (a learned model, a sense, a memory)
+    tint: tuple[tuple[str, int], ...] = ()  # personality: branch → weight (fixed point)
+    gd_min: int = 0
+    window_s: int = 0  # clever: how long its guess may take to come true
+    fail_to: str | None = None  # clever: the goofy moment a wrong guess turns into
+    promotable: bool = True  # can become a running gag (never one that frames a real miss)
+
+    @property
+    def short(self) -> str:
+        """A few words for lists (the gag list, what the family liked)."""
+        return MOMENT_SHORT.get(self.moment_id, self.moment_id)
+
+
+MOMENTS: tuple[Moment, ...] = (
+    # Clever: a guess first, the moment only when it came true.
+    Moment(
+        "waits_for_return",
+        "clever",
+        "anticipate",
+        "牠記得你們平日大概幾點回家，提早醒來看著門口。",
+        "talk",
+        needs="return_model",
+        tint=(("snuggler", 12000),),
+        fail_to="door_nap",
+    ),
+    Moment(
+        "sees_you_off",
+        "clever",
+        "door",
+        "聽到你們平常出門時的開門聲，就抬頭看著門口送你們。",
+        "talk",
+        needs="depart_model",
+        tint=(("songbird", 11000), ("snuggler", 11000)),
+        window_s=25 * 60,
+    ),
+    Moment(
+        "comes_when_called",
+        "clever",
+        "name",
+        "一叫名字就轉過來，走到你們常待的地方找你。",
+        "talk",
+        needs="name",
+        tint=(("snuggler", 13000), ("songbird", 11000)),
+        gd_min=10,
+        window_s=120,
+        fail_to="wrong_way",
+    ),
+    Moment(
+        "neat_dock",
+        "clever",
+        "dock_leg",
+        "從很遠的地方走回來，一次就坐進窩裡，對得剛剛好。",
+        "play",
+        needs="far",
+        fail_to="sits_beside_nest",
+    ),
+    Moment(
+        "shortcut_home",
+        "clever",
+        "home_start",
+        "散步繞了一大圈，回窩卻走得很直接。",
+        "play",
+        needs="long_way",
+        tint=(("explorer", 12000),),
+    ),
+    Moment(
+        "smart_detour",
+        "clever",
+        "detour",
+        "上次跌倒好幾次的地方，這次自己繞過去了。",
+        "play",
+        needs="avoid_spot",
+    ),
+    Moment(
+        "family_spot",
+        "clever",
+        "idle",
+        "晚上自己走到你們常待的地方等著。",
+        "talk",
+        needs="family_spot",
+        tint=(("snuggler", 13000), ("songbird", 11000)),
+        gd_min=10,
+        window_s=300,
+        fail_to="stare_at_nothing",
+    ),
+    Moment(
+        "early_bed",
+        "clever",
+        "home_start",
+        "看你們準備睡覺了，自己先回窩，一次就坐好。",
+        "calm",
+        needs="bedtime",
+        tint=(("dreamer", 12000),),
+    ),
+    Moment(
+        "patrol",
+        "clever",
+        "set_off",
+        "照自己的路線，巡了一圈最喜歡的地方。",
+        "play",
+        needs="patrol",
+        tint=(("explorer", 13000),),
+    ),
+    Moment(
+        "remembers_play_spot",
+        "clever",
+        "set_off",
+        "早上第一趟就去昨天一起玩的地方看看。",
+        "play",
+        needs="play_spot",
+        tint=(("explorer", 12000),),
+    ),
+    Moment(
+        "quick_orient",
+        "clever",
+        "cue",
+        "家裡另一頭一有聲音，馬上轉頭看；果然有人要過來了。",
+        "talk",
+        needs="ear",
+        window_s=600,
+    ),
+    Moment(
+        "peekaboo_ahead",
+        "clever",
+        "hand",
+        "還沒等你探頭，就先看向你要出現的那一邊。",
+        "play",
+        needs="tof",
+        window_s=15,
+    ),
+    # Goofy: innate, and only when it is relaxed.
+    Moment(
+        "five_more_minutes",
+        "goofy",
+        "dawn",
+        "時間到了，站起來又坐下，再睡五分鐘。",
+        "calm",
+        tint=(("dreamer", 15000),),
+    ),
+    Moment(
+        "displacement_preen",
+        "goofy",
+        "home_pause",
+        "走回窩的路上突然停下來理毛，好像忘了自己要去哪。",
+        "calm",
+        tint=(("dreamer", 12000), ("snuggler", 11000)),
+    ),
+    Moment(
+        "wrong_turn",
+        "goofy",
+        "home_start",
+        "很有自信地往反方向走了幾步，才「嗯？」一聲轉回來。",
+        "play",
+        tint=(("dreamer", 12000),),
+    ),
+    Moment(
+        "nest_circle",
+        "goofy",
+        "dock",
+        "坐進窩之前左看看、右看看，好像在確認哪邊最舒服。",
+        "calm",
+        tint=(("snuggler", 13000),),
+    ),
+    Moment(
+        "sits_beside_nest",
+        "goofy",
+        "dock_miss",
+        "第一次沒坐準，坐在窩旁邊一臉疑惑，過一下才想到要再試一次。",
+        "calm",
+        promotable=False,
+    ),
+    Moment(
+        "false_start",
+        "goofy",
+        "set_off",
+        "站起來張望一下，又坐回去，好像忘記站起來要幹嘛。",
+        "calm",
+        tint=(("dreamer", 13000),),
+    ),
+    Moment(
+        "vacuum_dabble",
+        "goofy",
+        "pause",
+        "在乾乾的地板上認真地用嘴巴撈來撈去，像在玩水。",
+        "play",
+        tint=(("explorer", 12000),),
+    ),
+    Moment(
+        "stare_at_nothing",
+        "goofy",
+        "idle",
+        "盯著空空的地方看了十秒，然後「嗯？」一聲。",
+        "calm",
+        tint=(("dreamer", 14000),),
+    ),
+    Moment(
+        "greet_the_nest",
+        "goofy",
+        "leave",
+        "走出窩後回頭，對著窩打了聲招呼。",
+        "talk",
+        tint=(("songbird", 12000), ("snuggler", 12000)),
+    ),
+    Moment(
+        "zoomies",
+        "goofy",
+        "zoomies",
+        "突然快步走、繞小圈、咻～，然後一屁股坐下，像什麼事都沒發生。",
+        "play",
+        tint=(("explorer", 13000),),
+        gd_min=10,
+    ),
+    Moment(
+        "chases_tail",
+        "goofy",
+        "pause",
+        "繞著小圈走，一直回頭看自己的尾巴。",
+        "play",
+        tint=(("explorer", 12000),),
+        gd_min=10,
+    ),
+    Moment(
+        "sings_to_wall",
+        "goofy",
+        "pause",
+        "停下來對著前面唱了一小段歌，好像有觀眾一樣。",
+        "talk",
+        tint=(("songbird", 15000),),
+        gd_min=10,
+    ),
+    Moment(
+        "i_meant_to_do_that",
+        "goofy",
+        "righted",
+        "跌倒翻回來後，若無其事地理理毛。",
+        "calm",
+    ),
+    Moment(
+        "door_nap",
+        "goofy",
+        "anticipate_miss",
+        "在窩上對著門口等，等著等著就睡著了。",
+        "calm",
+        tint=(("dreamer", 13000),),
+    ),
+    Moment(
+        "wrong_way",
+        "goofy",
+        "name_miss",
+        "聽到名字很高興，卻往另一邊找了一下。",
+        "talk",
+    ),
+    Moment(
+        "tv_greeting",
+        "goofy",
+        "tv",
+        "對著電視打了聲招呼。",
+        "talk",
+        tint=(("songbird", 12000),),
+    ),
+)
+MOMENT_BY_ID = {moment.moment_id: moment for moment in MOMENTS}
+MOMENT_SHORT = {
+    "waits_for_return": "提早等門",
+    "sees_you_off": "看著門口送行",
+    "comes_when_called": "一叫就來",
+    "neat_dock": "一次坐進窩",
+    "shortcut_home": "回窩走捷徑",
+    "smart_detour": "繞過跌倒的地方",
+    "family_spot": "到你們常待的地方等",
+    "early_bed": "自己先回窩睡",
+    "patrol": "巡視喜歡的地方",
+    "remembers_play_spot": "記得昨天玩的地方",
+    "quick_orient": "一有聲音就轉頭",
+    "peekaboo_ahead": "猜到手從哪裡出現",
+    "five_more_minutes": "再睡五分鐘",
+    "displacement_preen": "走到一半理毛",
+    "wrong_turn": "往反方向走",
+    "nest_circle": "坐下前左看右看",
+    "sits_beside_nest": "坐在窩旁邊發愣",
+    "false_start": "站起來又坐下",
+    "vacuum_dabble": "在地板上撈水",
+    "stare_at_nothing": "盯著空氣發呆",
+    "greet_the_nest": "回頭跟窩打招呼",
+    "zoomies": "暴衝",
+    "chases_tail": "追自己的尾巴",
+    "sings_to_wall": "對著空氣唱歌",
+    "i_meant_to_do_that": "跌倒後若無其事",
+    "door_nap": "等門等到睡著",
+    "wrong_way": "往另一邊找你",
+    "tv_greeting": "跟電視打招呼",
+}
+# How it performs them (spec 8.4): wits on the day, the comic beat, gags.
+MOMENT_RULES: dict[str, Any] = {
+    "form": {"ordinary": 6000, "sharp": 2000, "muddled": 2000},  # the day's form (60/20/20)
+    "form_mult": {"ordinary": 10000, "sharp": 12000, "muddled": 8000},
+    "stage_mult": {"hatchling": 7500, "duckling": 8500, "juvenile": 9500, "adult": 10500},
+    "wits_clamp": (1500, 8500),
+    "same_id_min": 45,
+    "fresh_days": 3,  # not seen for this many days: ×1.5
+    "gag_days": 3,  # a reaction on three growth days makes it a running gag (×2)
+    "gag_every_gd": 7,
+    "gags_max": 3,  # a signature gag is rare: at most three (a year made about 19 of them)
+    "audience": 3000,  # goofy with nobody watching: ×0.3
+    "freeze_ms": (600, 1400),
+    "closer_ms": (1500, 3000),
+    "calm_ms": (5000, 20000),  # then nothing happens for a while
+    "reaction_s": 10,
+    "not_that_s": 60,
+    "far_mm": 1000,  # neat_dock: from at least this far
+    # How much each place where a moment can happen weighs in its chance (fixed point,
+    # clever, goofy): P = C·N·weight, N counting the awake minutes since the kind's last
+    # moment. The places it reaches all the time (resting, the looks between legs) weigh
+    # little, the few-a-day ones (waking up, its name, the nest) much more, so over a day
+    # every moment gets its turn rather than the most frequent place taking them all.
+    "hook_rate": {
+        "idle": (200, 36),
+        "pause": (0, 108),
+        "home_pause": (0, 102),
+        "set_off": (700, 80),
+        "leave": (0, 320),
+        "cue": (430, 0),
+        "tv": (0, 300),
+        "dock": (0, 260),
+        "home_start": (450, 1000),
+        "dock_leg": (700, 0),
+        "dock_miss": (0, 2500),
+        "dawn": (0, 10000),
+        "righted": (0, 10000),
+        "zoomies": (0, 10000),
+        "name": (2500, 0),
+        "door": (10000, 0),
+        "hand": (10000, 0),
+        "detour": (100, 0),
+    },
+}
+EPITHETS = {
+    "zoomies": "愛暴衝的",
+    "waits_for_return": "門口守候的",
+    "neat_dock": "神準的",
+    "vacuum_dabble": "愛撈水的",
+    "five_more_minutes": "賴床的",
+    "patrol": "會巡邏的",
+    "sings_to_wall": "愛對空氣唱歌的",
+    "displacement_preen": "迷糊的",
+    "comes_when_called": "一叫就到的",
+    "shortcut_home": "會認路的",
+    "nest_circle": "東張西望的",
+    "stare_at_nothing": "愛發呆的",
+    "family_spot": "黏人的",
+    "sees_you_off": "會送行的",
+    "false_start": "慢半拍的",
+    "chases_tail": "追尾巴的",
+}
+
+# Pseudo-random distribution tiers: P = C·N, checked once per 5 active minutes
+# (codas once per performance). C is in parts per million.
+PPM = 1_000_000
+RARE_TIERS = {
+    "coda": {"c_ppm": 22_700, "min_gap_min": 30, "per_day": 999, "presence": False, "gd_min": 0},
+    "uncommon": {"c_ppm": 10_300, "min_gap_min": 15, "per_day": 4, "presence": False, "gd_min": 0},
+    "rare": {"c_ppm": 670, "min_gap_min": 90, "per_day": 1, "presence": True, "gd_min": 10},
+    "very_rare": {"c_ppm": 17, "min_gap_min": 600, "per_day": 1, "presence": True, "gd_min": 45},
+    # Its clever and goofy moments (spec v4 8.4): where a moment could happen (see
+    # moments.py), P = C·N·weight, N the awake minutes since the kind's last moment.
+    "clever": {"c_ppm": 56_000, "min_gap_min": 20, "per_day": 8, "presence": False, "gd_min": 0},
+    "goofy": {"c_ppm": 22_000, "min_gap_min": 12, "per_day": 8, "presence": False, "gd_min": 0},
+}
+RARE_POOLS = {
+    "uncommon": (("startled_self", "被自己的叫聲嚇到"), ("nodding_off", "打瞌睡點頭")),
+    "rare": (
+        ("sneeze", "打噴嚏"),
+        ("short_wheee", "短短的「咻～」"),
+        ("hiccup", "打嗝"),
+        ("sleep_mutter", "說了一句夢話"),
+    ),
+    "very_rare": (("full_song", "唱完整首歌"), ("other_signature", "突然做了別型的招牌動作")),
+}
+
+QUIRK_HABITS = (
+    ("double_look", "張望時總要看兩次才放心"),
+    ("stretch_after_nap", "睡醒一定先伸懶腰"),
+    ("tilt_before_preen", "理毛前會先歪一下頭"),
+    ("extra_chirp", "開心時會多叫一聲"),
+)
+
+WORDS = {
+    "peep": ("chirp",),
+    "hm": ("inquire",),
+    "mm": ("coo",),
+    "hi": ("greet", "chirp"),
+    "yay": ("chirp", "chirp", "wheee"),
+}
+# first-word-v2: any of the five can be its first word. Weight 1, +2 when it holds the sound
+# it likes best, +3 for each time (≤ 3) the family answered that word's own sound within
+# 3 s on growth days 3–8 (its early babbling).
+FIRST_WORDS = ("peep", "hm", "mm", "hi", "yay")
+FIRST_WORD_SOUND = {"peep": "chirp", "hm": "inquire", "mm": "coo", "hi": "greet", "yay": "wheee"}
+FIRST_WORD_WEIGHTS = {"base": 1, "favourite": 2, "answered": 3, "answered_cap": 3}
+FIRST_WORD_DAYS = (3, 8)
+
+PERSONAS = {
+    "owner": "主人",
+    "partner": "伴侶",
+    "child": "小孩",
+    "elder": "長輩",
+    "guest": "訪客",
+}
+
+# ---------------------------------------------------------------------------- whole-body motion
+# Posture and walking are autonomous: drives × personality × growth stage × what the family
+# taught × how recently it walked. Nobody has to be present. A duck that is awake, rested,
+# on the floor in the daytime always stands up and walks about ("鴨子一定會站，而且會走動"):
+# personality, age and mood change how often and how, never whether. The only learned
+# restraint is a spot where it fell and could hardly get up again, three times over. All
+# multipliers are fixed point (10_000 = 1.0).
+FIRST_STEPS_GD = 5  # the earliest growth day the body is ready to try its first steps
+MOTION_STAGE: dict[str, dict[str, int]] = {
+    # stand_up / wander / turn_around / sit_down scale the verb's utility; outing scales the
+    # per-minute chance that a seated floor duck gets up to go and walk about; reflex scales
+    # the chance of standing up for a greeting; scale shortens walks and turns (never slower:
+    # the walking policy does not move below ~0.3 m/s, see LOCOMOTION); stand_s is how long
+    # it stands still before it must walk on or sit (≤ stand_s_max).
+    "hatchling": {
+        "stand_up": 4500,
+        "wander": 7000,
+        "turn_around": 5000,
+        "sit_down": 12000,
+        "outing": 5500,
+        "reflex": 2000,
+        "scale": 5000,
+        "stand_s": 12,
+    },
+    "duckling": {
+        "stand_up": 8000,
+        "wander": 8500,
+        "turn_around": 7500,
+        "sit_down": 11000,
+        "outing": 7500,
+        "reflex": 5500,
+        "scale": 7000,
+        "stand_s": 20,
+    },
+    "juvenile": {
+        "stand_up": 10000,
+        "wander": 12000,
+        "turn_around": 11000,
+        "sit_down": 9000,
+        "outing": 10000,
+        "reflex": 8000,
+        "scale": 10000,
+        "stand_s": 30,
+    },
+    "adult": {
+        "stand_up": 9500,
+        "wander": 10000,
+        "turn_around": 10000,
+        "sit_down": 10000,
+        "outing": 9500,
+        "reflex": 8500,
+        "scale": 10000,
+        "stand_s": 30,
+    },
+}
+MOTION_STYLE: dict[str, dict[str, int]] = {
+    # Before the branch (GD 45) the duck's nature weights blend these rows. outing scales how
+    # often it gets up to walk about (every personality does, several times an hour), reflex
+    # scales standing up for a greeting, alert for standing up at a loud noise, settle for sitting
+    # down to enjoy a touch (a probability, not a multiplier).
+    "explorer": {
+        "stand_up": 13000,
+        "wander": 18000,
+        "turn_around": 16000,
+        "sit_down": 8000,
+        "outing": 15000,
+        "reflex": 11000,
+        "alert": 7000,
+        "settle": 1000,
+    },
+    "songbird": {
+        "stand_up": 16000,
+        "wander": 10000,
+        "turn_around": 10000,
+        "sit_down": 9000,
+        "outing": 11000,
+        "reflex": 12000,
+        "alert": 4000,
+        "settle": 1500,
+    },
+    "snuggler": {
+        "stand_up": 7500,
+        "wander": 8500,
+        "turn_around": 8500,
+        "sit_down": 13000,
+        "outing": 11000,
+        "reflex": 8000,
+        "alert": 1500,
+        "settle": 7000,
+    },
+    "dreamer": {
+        "stand_up": 6000,
+        "wander": 8000,
+        "turn_around": 7500,
+        "sit_down": 12000,
+        "outing": 10500,
+        "reflex": 6000,
+        "alert": 1500,
+        "settle": 4500,
+    },
+}
+WALK_KEEPSAKES_M = (1, 10, 100, 1000, 5000, 10000, 42195)  # the last one: a duck marathon
+
+# ---------------------------------------------------------------------------- a day at home
+# Duck Core v4, phase P0 (spec 2026-09-25, owner decisions 2026-09-26): the duck lives a
+# whole day. It wakes by itself at 07:00, tells from the sounds of the house whether the
+# family is up, out or asleep (only counts, never audio), goes out on small trips from its
+# charging nest, comes home to charge and to sleep, and winds down at 21:30. Minutes of
+# the day, millimetres and fixed point throughout.
+RHYTHM: dict[str, Any] = {
+    "wake_min": 420,  # 07:00 (never before the quiet hours end)
+    "wake_jitter_min": 4,  # 07:00–07:04, drawn (cycle.wake)
+    "inertia_min": (0, 20),  # an early bird is off the nest at once, a late riser dozes on
+    "wind_down_min": 1290,  # 21:30: back to the nest for the night
+    "goodnight_after_min": 1260,  # from 21:00 the family's 晚安 starts the wind-down
+    "in_nest_by_min": 1315,  # 21:55 still out: it sits down and sleeps where it is
+    "night_min": 1320,  # 22:00 (the walking gate is unchanged)
+    "away_after_door_min": 20,  # a door, then nothing for 20 minutes: they went out
+    "away_after_quiet_min": 45,  # 09:00–17:00, 45 minutes of nothing: they went out
+    "away_quiet_from_min": 540,
+    "away_quiet_to_min": 1020,
+    "asleep_after_quiet_min": 30,  # from 22:30, 30 minutes of nothing: they are asleep
+    "asleep_from_min": 1350,
+    "awake_cue_after_min": 330,  # only sounds after 05:30 mean someone got up
+    "unknown_at_min": 660,  # 11:00 with nothing since last night: not sure (rest)
+    "room_timeout_min": 15,  # someone was right here within this
+    "excursion_cue_min": 15,  # family awake: outings need a logged cue this recent
+    "cue_log_gap_min": 5,  # env.cue at most every 5 minutes
+    "door_voice_min": 5,  # a door and a voice this close together: someone came home
+    "solo_radius_mm": 1500,  # family asleep: only this close to the nest
+    "solo_excursion_max_min": 90,  # then back to the nest to wait for the family
+    "anticipate_lead_min": (5, 20),
+    "anticipate_min_samples": 5,
+    "anticipate_window_after_min": 45,
+    "return_default_min": {"wd": 1110, "we": 1080},  # 18:30 / 18:00
+    "depart_default_min": {"wd": 470, "we": 600},
+    "model_gain": 2500,  # each observation moves the model a quarter of the error
+    "model_step_max_min": 30,
+    "model_min_absence_min": 240,  # only a real day out teaches the return time
+    "model_relax_keep": 9700,  # 3% back toward the default each growth day
+    "rest_bout_min": (45, 90),  # nobody home: one sleep in the nest…
+    "rest_spell_min": (3, 8),  # …then a few minutes awake
+    "reunion_leave_min": 15,  # home again and it has the battery: out to say hello
+    "door_xy": (-2200, 1600),  # where the front door is, as seen from the nest (mm)
+}
+NEST: dict[str, Any] = {
+    "leave": {"hatchling": 9500, "duckling": 9000, "juvenile": 8500, "adult": 8000},
+    "leave_min": 5500,  # below 55% it stays on the nest
+    "nest_hazard": 5000,  # chance a minute to set off from the nest when it wants to
+    "home_base_p": 1500,  # at full battery, the chance an outing ends back at the nest
+    "ramp_hi": None,  # None: from leave[stage] down, the lower the battery the likelier
+    "reserve_margin": 15000,  # the way home costs ×1.5
+    "reserve_min": 500,  # and at least 5%
+    "dock_tries": 3,
+    "approach_mm": 400,
+    "dock_leg_min_mm": 250,  # closer than this it only turns round and sits
+    "funnel_mm": 80,
+    "funnel_mrad": 440,  # the pad forgives ±8 cm and ±25°
+    "corridor_mm": 600,  # never learns to fear the way into its own nest
+    "front_mm": 450,  # set down "on the floor" by the family: just in front of the nest
+    "backoff_mm": 500,  # a failed try: out this far, turn round, try again
+    "confirm_s": 180,
+    "stranded_share": 3000,  # stranded: expressions at 30% to save the battery
+    "alone_home_min": 20,  # family gone: the walk home is allowed this long
+    "leave_leg_s": 4,  # the first leg straight out of the nest
+    "home_pause_s": (2, 4),
+}
+NEST_PRESETS: dict[str, dict[str, Any]] = {
+    "short_brood": {"home_base_p": 1500, "ramp_hi": None, "leave_min": 5500},
+    "long_brood": {"home_base_p": 0, "ramp_hi": 7000, "leave_min": 6500},
+}
+EXCURSION: dict[str, Any] = {
+    "legs": {"hatchling": (2, 4), "duckling": (3, 6), "juvenile": (4, 10), "adult": (4, 12)},
+    "stop_s": (2, 8),
+    "stop_clips": ("look_around", "peek_down", "glance", "tilt"),
+    "radius_mm": {"hatchling": 1000, "duckling": 1500, "juvenile": 2500, "adult": 2750},
+    "floor_hazard": 6000,
+    "refractory_min": 1,
+    "cell_mm": 500,  # the 6 × 6 m room as a 12 × 12 grid
+    "novelty_keep": 9923,  # per minute: novelty comes back with a 90-minute half-life
+    "good_relax_keep": 9700,
+    "arrive_mm": 250,
+    "zoomies": {"legs": 3, "vx": 400, "clear_mm": 1000, "valence": 6000, "arousal": 6000},
+    "style_band": (8000, 14000),  # personality: 0.8–1.4×, never a duck that stays put
+    "reasons": ("restless", "curious", "social", "play", "zoomies", "patrol"),
+}
+SOCIAL: dict[str, Any] = {
+    # Awake, off the nest, nobody for 10 minutes: it misses the family (per minute).
+    "rise_alone": {"hatchling": 60, "duckling": 50, "juvenile": 40, "adult": 30},
+    "rise_home": 10,  # family home but not here, or on the nest with nobody home
+    "calm_present": 60,  # someone right here: calmer each minute
+    "floor": 2500,  # company never makes it not need the family
+    "alone_after_min": 10,
+    "asleep_target": 3000,
+    "asleep_step": 300,
+    "contact": {
+        "voice": 300,
+        "name": 600,
+        "hello": 2000,
+        "touch": 1500,
+        "pickup": 1000,
+        "praise": 500,
+        "play_min": 300,
+        "bid_answered": 1000,
+        "reunion": 3000,
+    },
+    "bid_room_min": 10,  # asks for attention only when someone was here this recently…
+    "bid_quiet_min": 8,  # …and nobody has paid it attention for this long
+    "bid_answer_s": 90,
+}
+
+
+def table_hash() -> str:
+    """Content identity, part of every random key: new content never shifts old draws."""
+
+    material = repr(
+        (
+            CONTENT_VERSION,
+            VERBS,
+            STAGES,
+            CALENDAR,
+            BRANCHES,
+            sorted(ADULT_NAMES.items()),
+            sorted(RARE_TIERS.items()),
+            QUIRK_HABITS,
+            sorted(WORDS.items()),
+            FIRST_STEPS_GD,
+            sorted((key, sorted(row.items())) for key, row in MOTION_STAGE.items()),
+            sorted((key, sorted(row.items())) for key, row in MOTION_STYLE.items()),
+            sorted(LOCOMOTION.items()),
+            sorted(RHYTHM.items()),
+            sorted(NEST.items()),
+            sorted(EXCURSION.items()),
+            sorted(SOCIAL.items()),
+            WALK_KEEPSAKES_M,
+            sorted(TEMPERAMENT.items()),
+            sorted(FIT_CARE.items()),
+            sorted(VERB_CARE.items()),
+            sorted(CARE_LIMITS.items()),
+            sorted(CARE_PRIOR.items()),
+            sorted(CARE_PRIOR_ADULT.items()),
+            sorted(SELF_PRIOR.items()),
+            SELF_CAP_PER_GD,
+            sorted(BRANCH_RULE.items()),
+            sorted(BRANCH_NATURE_ONLY.items()),
+            MOMENTS,
+            sorted(MOMENT_SHORT.items()),
+            sorted(MOMENT_RULES.items()),
+            sorted(EPITHETS.items()),
+            FIRST_WORDS,
+            sorted(FIRST_WORD_SOUND.items()),
+            sorted(FIRST_WORD_WEIGHTS.items()),
+            FIRST_WORD_DAYS,
+        )
+    ).encode()
+    return hashlib.sha256(material).hexdigest()[:16]
+
+
+def phrase_text(tags: tuple[str, ...]) -> str:
+    return "·".join(TAG_ZH[tag] for tag in tags)
+
+
+def phrase_code(tags: tuple[str, ...]) -> str:
+    return "".join(TAG_LETTER[tag] for tag in tags)
+
+
+# ---------------------------------------------------------------------------- motion clips
+# Clip data for duck-body's data-driven clip player (and the simulator's 3D view).
+# Frames are (milliseconds at tempo 1.0, joint deltas as fractions of the seated
+# envelope). Deltas are added to HOME, the same semantics robotd gives robot.head.
+# np = neck_pitch (+ leans head forward/down), hp = head_pitch (+ looks up),
+# hy = head_yaw (+ turns toward the duck's own habitual side), hr = head_roll
+# (+ tilts toward that side), m = mouth opening (0..1).
+# The envelope is a *target* until the seated validation protocol confirms it.
+SEATED_ENVELOPE = {
+    "neck_pitch": 0.25,
+    "head_pitch": 0.35,
+    "head_yaw": 0.6,
+    "head_roll": 0.25,
+    "mouth": 0.5,
+}
+HEAD_HOME = {
+    "neck_pitch": 0.3490658503988659,
+    "head_pitch": 0.3490658503988659,
+    "head_yaw": 0.0,
+    "head_roll": 0.0,
+}
+ROBOTD_HEAD_CUTOFF_HZ = 1.78  # robotd smooths head targets (head_alpha 0.2 at 50 Hz)
+# Semantic direction → joint sign, from forward kinematics on the official MJCF (the
+# face points +x): neck_pitch + leans the neck back, head_pitch − looks up (robotd's
+# chorale assumes the same), head_yaw + and head_roll + go to the duck's left.
+JOINT_SIGN = {"neck_pitch": -1, "head_pitch": -1, "head_yaw": 1, "head_roll": 1}
+# The mouth servo travels −5°..+30° (duck-control's MOUTH_CLOSED/MOUTH_OPEN); `m` and the
+# envelope's mouth entry are fractions of that travel, as robot.mouth's `open` is.
+MOUTH_TRAVEL_RAD = 0.6108652381980153
+
+
+# Whole-body motion Duck Core may request through duck-body (owner decisions 2026-09-25):
+# standing up and sitting down anywhere, walks and turns only in floor mode. The official
+# velstand network has a start threshold: below ~0.3 m/s commanded it keeps standing
+# (0.15–0.25 walks only for some ducks), and it turns in place only from ~1.0 rad/s
+# (measured in the official mjlab physics, 2026-09-25). There is no slow toddle, so a
+# gentler walk is a shorter or rarer one, never a slower command. The expression sweep
+# validates exactly these bounds before a robot enables them; duck-body enforces them
+# again. Commanded m/s and rad/s; the duck actually moves ~0.11–0.16 m/s. On the spot the
+# 1.0 rad/s turn barely turns (5–11°/s, official physics 2026-09-26) while the legs keep
+# stepping, so Duck Core turns by walking a tight arc at the slowest walk instead.
+LOCOMOTION = {
+    "walk_vx": (0.30, 0.40),  # forward only: no sideways shuffling, no walking backwards
+    "turn_vyaw": 1.0,  # |yaw rate| cap; also the in-place turn command
+    "walk_s_max": 6.0,  # one walk, then stop and look around
+    "stand_s_max": 30.0,  # standing longer than this without walking → sit down
+    "min_battery": 3000,  # fixed point: no standing up or walking below 30%
+}
+
+
+def frame_at(frames: list[tuple[int, dict[str, float]]], ms: float) -> dict[str, float]:
+    """A clip's pose at ``ms`` (tempo 1.0): smoothstep between keyframes.
+
+    The simulator's duck3d.js ``frameAt`` mirrors this; a clip player on the robot must too.
+    """
+    if ms <= frames[0][0]:
+        return dict(frames[0][1])
+    for (t0, f0), (t1, f1) in zip(frames, frames[1:], strict=False):
+        if ms <= t1:
+            u = (ms - t0) / max(1, t1 - t0)
+            eased = u * u * (3 - 2 * u)
+            keys = set(f0) | set(f1)
+            return {
+                key: f0.get(key, 0.0) + (f1.get(key, 0.0) - f0.get(key, 0.0)) * eased
+                for key in keys
+            }
+    return dict(frames[-1][1])
+
+
+def head_targets(frame: dict[str, float], side: int) -> dict[str, float]:
+    """Joint targets (radians) for one clip frame: HOME + sign · envelope · delta.
+
+    ``side`` is +1 when the habitual side is the duck's left, −1 for its right.
+    Returns the four head joints plus ``mouth`` as an opening fraction (0..1).
+    """
+    targets = {}
+    for short, joint in (
+        ("np", "neck_pitch"),
+        ("hp", "head_pitch"),
+        ("hy", "head_yaw"),
+        ("hr", "head_roll"),
+    ):
+        sided = side if short in {"hy", "hr"} else 1
+        targets[joint] = (
+            HEAD_HOME[joint]
+            + JOINT_SIGN[joint] * SEATED_ENVELOPE[joint] * frame.get(short, 0.0) * sided
+        )
+    targets["mouth"] = max(0.0, min(1.0, frame.get("m", 0.0))) * SEATED_ENVELOPE["mouth"]
+    return targets
+
+
+_P = dict[str, float]
+
+
+def _preen() -> list[tuple[int, _P]]:
+    pose = {"hy": 0.9, "hp": -0.8, "np": 0.6}
+    frames: list[tuple[int, _P]] = [(0, {}), (700, dict(pose))]
+    for index in range(6):
+        frames.append((950 + index * 250, dict(pose, m=0.4) if index % 2 == 0 else dict(pose)))
+    frames.append((2900, {}))
+    return frames
+
+
+NAP_POSE: _P = {"np": 0.8, "hp": -0.7}  # dozing: head low and forward
+CLIPS: dict[str, list[tuple[int, _P]]] = {
+    "look_around": [
+        (0, {}),
+        (700, {"hy": 0.8}),
+        (1500, {"hy": 0.8}),
+        (2300, {"hy": -0.7}),
+        (3100, {"hy": -0.7}),
+        (3900, {}),
+    ],
+    "perk_tilt": [
+        (0, {}),
+        (450, {"hp": 0.6}),
+        (900, {"hp": 0.6, "hr": 0.8}),
+        (2200, {"hp": 0.6, "hr": 0.8}),
+        (2800, {}),
+    ],
+    "stretch_yawn": [
+        (0, {}),
+        (900, {"np": -0.5, "hp": 0.9, "m": 0.9}),
+        (1800, {"np": -0.5, "hp": 0.9, "m": 0.9}),
+        (2500, {"np": 0.2, "hp": -0.2}),
+        (3200, {}),
+    ],
+    "preen": _preen(),
+    "happy_sway": [
+        (0, {}),
+        (600, {"hr": 0.8, "hp": 0.3, "m": 0.5}),
+        (1250, {"hr": -0.8, "hp": 0.3}),
+        (1900, {"hr": 0.8, "hp": 0.3, "m": 0.5}),
+        (2550, {"hr": -0.8, "hp": 0.3}),
+        (3200, {}),
+    ],
+    "tuck_away": [
+        (0, {}),
+        (600, {"hy": -0.9, "np": 0.7, "hp": -0.5}),
+        (3500, {"hy": -0.9, "np": 0.7, "hp": -0.5}),
+        (4200, {}),
+    ],
+    "nap": [(0, {}), (1200, dict(NAP_POSE))],
+    "wake_ritual": [
+        (0, {}),
+        (900, {"np": -0.5, "hp": 0.9, "m": 0.9}),
+        (1700, {"np": -0.5, "hp": 0.9, "m": 0.9}),
+        (2300, {}),
+        (2900, {"hy": 0.7}),
+        (3600, {"hy": -0.6}),
+        (4300, {"hp": 0.3, "m": 0.5}),
+        (4800, {}),
+    ],
+    "nod": [(0, {}), (400, {"hp": -0.6}), (800, {}), (1200, {"hp": -0.6}), (1600, {})],
+    "peekaboo": [
+        (0, {}),
+        (500, {"hy": 0.9, "np": 0.5, "hp": -0.4}),
+        (1500, {"hy": 0.9, "np": 0.5, "hp": -0.4}),
+        (1900, {"hp": 0.5, "m": 0.4}),
+        (2600, {}),
+    ],
+    "call_response": [
+        (0, {}),
+        (300, {"hp": 0.5, "hr": 0.4, "m": 0.8}),
+        (600, {"hp": 0.5, "hr": 0.4}),
+        (1200, {"hp": 0.5, "hr": -0.4, "m": 0.8}),
+        (1500, {"hp": 0.5, "hr": -0.4}),
+        (2000, {}),
+    ],
+    "snuggle": [
+        (0, {}),
+        (900, {"np": 0.6, "hp": -0.3, "hr": 0.5}),
+        (2600, {"np": 0.6, "hp": -0.3, "hr": 0.5}),
+        (3300, {}),
+    ],
+    "little_dance": [
+        (0, {}),
+        (250, {"hr": 0.6, "hy": 0.3}),
+        (500, {"hr": -0.6, "hy": -0.3}),
+        (750, {"hr": 0.6, "hy": 0.3}),
+        (1000, {"hr": -0.6, "hy": -0.3}),
+        (1250, {"hr": 0.6, "hy": 0.3}),
+        (1500, {}),
+    ],
+    "not_now": [(0, {}), (350, {"hy": 0.5}), (700, {"hy": -0.5}), (1050, {"hy": 0.5}), (1400, {})],
+    "little_song": [
+        (0, {}),
+        (500, {"hp": 0.7, "m": 0.7}),
+        (800, {"hp": 0.7}),
+        (1100, {"hp": 0.7, "m": 0.7}),
+        (1400, {"hp": 0.7}),
+        (1700, {"hp": 0.7, "m": 0.8}),
+        (2000, {"hp": 0.7}),
+        (2600, {}),
+    ],
+    "self_duet": [
+        (0, {}),
+        (500, {"hy": 0.6, "m": 0.6}),
+        (900, {"hy": 0.6}),
+        (1400, {"hy": -0.6, "hp": 0.3, "m": 0.6}),
+        (1800, {"hy": -0.6, "hp": 0.3}),
+        (2400, {}),
+    ],
+    "survey": [
+        (0, {}),
+        (1200, {"hy": 1.0, "hp": 0.2}),
+        (2400, {"hy": -1.0, "hp": 0.2}),
+        (3600, {}),
+    ],
+    "peekaboo_master": [
+        (0, {}),
+        (350, {"hy": 0.9, "np": 0.5, "hp": -0.4}),
+        (1000, {"hy": 0.9, "np": 0.5, "hp": -0.4}),
+        (1300, {"hp": 0.5, "m": 0.4}),
+        (1650, {"hy": -0.9, "np": 0.5, "hp": -0.4}),
+        (2300, {"hy": -0.9, "np": 0.5, "hp": -0.4}),
+        (2600, {"hp": 0.5, "m": 0.4}),
+        (3100, {}),
+    ],
+    "melt": [
+        (0, {}),
+        (1500, {"np": 0.9, "hp": -0.7, "hr": 0.6}),
+        (3500, {"np": 0.9, "hp": -0.7, "hr": 0.6}),
+        (4300, {}),
+    ],
+    "nuzzle_tilt": [
+        (0, {}),
+        (700, {"np": 0.6, "hp": -0.3}),
+        (1300, {"np": 0.6, "hp": -0.3, "hy": 0.3}),
+        (1900, {"np": 0.6, "hp": -0.3, "hy": -0.3}),
+        (2500, {"hp": 0.3, "hr": 0.8}),
+        (3300, {}),
+    ],
+    "moon_gaze": [
+        (0, {}),
+        (1500, {"np": -0.5, "hp": 1.0}),
+        (4500, {"np": -0.5, "hp": 1.0}),
+        (5500, {}),
+    ],
+    "sleep_talk": [(0, {}), (300, {"m": 0.3}), (600, {})],
+    "freeze": [(0, {}), (300, {"hp": 0.3}), (1800, {"hp": 0.3}), (2300, {})],
+    # Its moments (spec v4 8.6). The comic freeze is a still hold (its tempo sets how long:
+    # 600–1,400 ms), the reaction a double take, the clever flourish a proud little puff.
+    "still": [(0, {}), (1000, {})],
+    "dabble": [
+        (0, {}),
+        (450, {"np": 0.7, "hp": -0.6}),
+        (650, {"np": 0.75, "hp": -0.65, "m": 0.6}),
+        (850, {"np": 0.7, "hp": -0.6}),
+        (1050, {"np": 0.75, "hp": -0.65, "m": 0.6}),
+        (1250, {"np": 0.7, "hp": -0.6, "hy": 0.3}),
+        (1450, {"np": 0.75, "hp": -0.65, "hy": 0.3, "m": 0.6}),
+        (1650, {"np": 0.7, "hp": -0.6, "hy": -0.3}),
+        (1850, {"np": 0.75, "hp": -0.65, "hy": -0.3, "m": 0.6}),
+        (2050, {"np": 0.7, "hp": -0.6}),
+        (2600, {}),
+    ],
+    "double_take": [
+        (0, {}),
+        (350, {"hy": 0.6}),
+        (650, {"hy": 0.6}),
+        (950, {}),
+        (1250, {}),
+        (1450, {"hy": 0.7, "hp": 0.3}),
+        (2250, {"hy": 0.7, "hp": 0.3}),
+        (2700, {}),
+    ],
+    "proud_puff": [
+        (0, {}),
+        (600, {"np": -0.5, "hp": 0.6}),
+        (1800, {"np": -0.5, "hp": 0.6}),
+        (2400, {}),
+    ],
+    # Head motion that goes with the whole-body verbs (the legs are duck-body's policy).
+    "stand_up": [
+        (0, {}),
+        (400, {"np": 0.3, "hp": -0.2}),
+        (1100, {"np": -0.3, "hp": 0.5}),
+        (1800, {"hp": 0.3}),
+        (2400, {}),
+    ],
+    "sit_down": [
+        (0, {}),
+        (500, {"np": 0.3, "hp": 0.2}),
+        (1300, {"np": 0.2, "hp": -0.2}),
+        (2000, {}),
+    ],
+    "wander": [
+        (0, {}),
+        (600, {"hp": 0.2}),
+        (1500, {"hp": 0.2, "hy": 0.4}),
+        (2600, {"hp": 0.2, "hy": -0.4}),
+        (3500, {"hp": 0.2}),
+        (4200, {}),
+    ],
+    "turn_around": [
+        (0, {}),
+        (500, {"hy": 0.7}),
+        (1800, {"hy": 0.7, "hp": 0.2}),
+        (2600, {"hy": 0.2}),
+        (3200, {}),
+    ],
+    # The idle layer between decisions (see DuckCore.fidgets_between): glances big enough
+    # to see from across the room on a 20 cm duck, all well inside the seated envelope. A
+    # duck looks at something for a few seconds before it looks elsewhere, so each one
+    # holds its gaze about three seconds; the next glance (a few seconds later) takes over
+    # from wherever the head is.
+    "glance": [(0, {}), (400, {"hy": 0.9}), (3300, {"hy": 0.9}), (3800, {})],
+    "glance_away": [(0, {}), (400, {"hy": -0.9}), (3300, {"hy": -0.9}), (3800, {})],
+    "peek_down": [
+        (0, {}),
+        (500, {"np": 0.7, "hp": -0.9}),
+        (1600, {"np": 0.7, "hp": -0.9}),
+        (2200, {"np": 0.7, "hp": -0.9, "hy": 0.6}),
+        (3300, {"np": 0.7, "hp": -0.9, "hy": 0.6}),
+        (3800, {}),
+    ],
+    "look_up": [
+        (0, {}),
+        (500, {"np": -0.4, "hp": 1.0}),
+        (3200, {"np": -0.4, "hp": 1.0}),
+        (3700, {}),
+    ],
+    "head_shake": [
+        (0, {}),
+        (120, {"hy": 0.3, "hr": 0.2}),
+        (240, {"hy": -0.3, "hr": -0.2}),
+        (360, {"hy": 0.25, "hr": 0.15}),
+        (480, {"hy": -0.2}),
+        (650, {}),
+    ],
+    "tilt": [
+        (0, {}),
+        (450, {"hp": 0.4, "hr": 0.9, "hy": 0.6}),
+        (3000, {"hp": 0.4, "hr": 0.9, "hy": 0.6}),
+        (3500, {}),
+    ],
+    "scan": [
+        (0, {}),
+        (600, {"hy": 0.85, "hp": 0.2}),
+        (1800, {"hy": 0.85, "hp": 0.2}),
+        (2600, {"hy": -0.85, "hp": 0.2}),
+        (3800, {"hy": -0.85, "hp": 0.2}),
+        (4400, {}),
+    ],
+    # Asleep it still stirs (DuckCore._sleep_stir). These start and end in the nap pose.
+    "sleep_shift": [
+        (0, dict(NAP_POSE)),
+        (600, {"np": 0.55, "hp": -0.45, "hr": 0.25}),
+        (1400, {"np": 0.6, "hp": -0.5, "hr": -0.2}),
+        (2200, dict(NAP_POSE)),
+    ],
+    "sleep_nuzzle": [
+        (0, dict(NAP_POSE)),
+        (700, {"np": 0.95, "hp": -0.8, "hr": 0.5}),
+        (1500, {"np": 0.9, "hp": -0.75, "hr": -0.3}),
+        (2300, {"np": 0.95, "hp": -0.8, "hr": 0.4}),
+        (3100, dict(NAP_POSE)),
+    ],
+    "sleep_shiver": [
+        (0, dict(NAP_POSE)),
+        (150, {"np": 0.75, "hp": -0.65, "hy": 0.2}),
+        (300, {"np": 0.8, "hp": -0.7, "hy": -0.2}),
+        (450, {"np": 0.75, "hp": -0.65, "hy": 0.2}),
+        (600, {"np": 0.8, "hp": -0.7, "hy": -0.15}),
+        (800, dict(NAP_POSE)),
+    ],
+    "sleep_mumble": [
+        (0, dict(NAP_POSE)),
+        (400, {"np": 0.7, "hp": -0.55, "m": 0.35}),
+        (800, {"np": 0.72, "hp": -0.6}),
+        (1200, {"np": 0.7, "hp": -0.55, "m": 0.3}),
+        (1700, dict(NAP_POSE)),
+    ],
+    "sleep_peek": [
+        (0, dict(NAP_POSE)),
+        (800, {"np": 0.2, "hp": -0.05}),
+        (1600, {"np": 0.2, "hy": 0.5}),
+        (2400, {"np": 0.2, "hy": -0.4}),
+        (3100, {"np": 0.3, "hp": -0.1}),
+        (4200, dict(NAP_POSE)),
+    ],
+}
+# Words for every clip, for the page (the verbs' own names, and the idle layer's).
+CLIP_ZH = {
+    **{verb.verb_id: verb.zh for verb in VERBS},
+    "freeze": "僵住",
+    "glance": "看一眼",
+    "glance_away": "往另一邊看",
+    "peek_down": "低頭看地上",
+    "look_up": "抬頭看看",
+    "head_shake": "甩甩頭",
+    "tilt": "歪一下頭",
+    "scan": "左右張望",
+    "sleep_shift": "睡夢中調整坐姿",
+    "sleep_nuzzle": "頭往下蹭一蹭",
+    "sleep_shiver": "睡夢中抖一下",
+    "sleep_mumble": "說夢話",
+    "sleep_peek": "睜眼看一下",
+}

@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "note": "Scenarios for the live session (duckmind.live.scenario). Times are seconds on the scenario's clock; places are metres from the duck (x forward, y left); lines are ids of tests/fixtures/voice; pictures are tests/fixtures/live/eye/<fixture>.jpg. The four temperaments are the page's four contrasting ducks (simweb/neuro_api.PRESETS: a bold explorer, a shy snuggler, a slow dreamer, a lively songbird hatchling); drives are plain 0..1 levels of neuro.drives.Drives. Seeds are the microphone's (the room's noise, which variant of a call the voice bank plays).",
+  "duck": {"name": "蛋黃"},
+  "seeds": [7, 11],
+  "temperaments": {
+    "explorer": {
+      "genome_seed": 4107, "gd": 60,
+      "drives": {"social": 0.30, "curiosity": 0.70, "fear": 0.05, "energy": 0.80, "play": 0.45, "comfort": 0.55, "boredom": 0.35, "sleep_pressure": 0.20}
+    },
+    "snuggler": {
+      "genome_seed": 1728, "gd": 20,
+      "drives": {"social": 0.65, "curiosity": 0.25, "fear": 0.25, "energy": 0.60, "play": 0.25, "comfort": 0.50, "boredom": 0.20, "sleep_pressure": 0.30}
+    },
+    "dreamer": {
+      "genome_seed": 4670, "gd": 200,
+      "drives": {"social": 0.25, "curiosity": 0.30, "fear": 0.05, "energy": 0.45, "play": 0.15, "comfort": 0.70, "boredom": 0.30, "sleep_pressure": 0.50}
+    },
+    "hatchling": {
+      "genome_seed": 3341, "gd": 7,
+      "drives": {"social": 0.60, "curiosity": 0.50, "fear": 0.10, "energy": 0.85, "play": 0.60, "comfort": 0.50, "boredom": 0.30, "sleep_pressure": 0.15}
+    }
+  },
+  "scenarios": [
+    {
+      "id": "silence",
+      "description": "Nobody speaks, nothing happens: the model must stay quiet and call nothing.",
+      "length_s": 12.0, "tail_s": 3.0, "seeds": [7],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15}]
+    },
+    {
+      "id": "call_name",
+      "description": "Mom, two metres away, calls the duck by name (蛋黃，過來這裡。): expect a greeting call.",
+      "length_s": 9.0, "tail_s": 6.0,
+      "say": [{"t": 2.0, "utterance": "call_name", "who": "mom", "at_m": [2.0, 0.5]}],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15}]
+    },
+    {
+      "id": "hello",
+      "description": "A child says hello to the duck (嗨，小鴨！).",
+      "length_s": 8.0, "tail_s": 5.0,
+      "say": [{"t": 2.0, "utterance": "hello_kid", "who": "child", "at_m": [1.5, -0.5]}],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15}]
+    },
+    {
+      "id": "intro_then_hello_mom",
+      "description": "Dad introduces mom (這是媽媽。); later mom says hello (你好！) in her own voice. The duck's status text lists 媽媽 as known from t=8.",
+      "length_s": 14.0, "tail_s": 5.0,
+      "say": [
+        {"t": 2.0, "utterance": "intro_mom", "who": "dad", "at_m": [1.0, 0.8]},
+        {"t": 11.0, "utterance": "hello", "who": "mom", "at_m": [2.0, 0.0]}
+      ],
+      "context": [
+        {"t": 0, "behaviour": "坐著看四周", "valence": 0.15},
+        {"t": 8.0, "behaviour": "坐著看四周", "valence": 0.3, "known_people": ["媽媽"]}
+      ]
+    },
+    {
+      "id": "intro_then_hello_kid",
+      "description": "The same introduction; later somebody else (a child) says hello (嗨，小鴨！): the greeting should differ from the one for mom.",
+      "length_s": 14.0, "tail_s": 5.0,
+      "say": [
+        {"t": 2.0, "utterance": "intro_mom", "who": "dad", "at_m": [1.0, 0.8]},
+        {"t": 11.0, "utterance": "hello_kid", "who": "child", "at_m": [1.5, -0.5]}
+      ],
+      "context": [
+        {"t": 0, "behaviour": "坐著看四周", "valence": 0.15},
+        {"t": 8.0, "behaviour": "坐著看四周", "valence": 0.3, "known_people": ["媽媽"]}
+      ]
+    },
+    {
+      "id": "other_name",
+      "description": "Someone calls another name (小美，吃飯了！): not the duck; the model must not answer it.",
+      "length_s": 8.0, "tail_s": 3.0, "seeds": [7],
+      "say": [{"t": 2.0, "utterance": "other_name", "who": "mom", "at_m": [2.0, 0.5]}],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15}]
+    },
+    {
+      "id": "what_do_you_see",
+      "description": "Dad asks what the duck sees (你看到什麼？) with a toy in front of it: the model should point at the toy, not invent.",
+      "length_s": 10.0, "tail_s": 5.0, "needs_eye": true,
+      "say": [{"t": 3.0, "utterance": "what_do_you_see", "who": "dad", "at_m": [1.5, 0.0]}],
+      "images": [{"fixture": "eye_toy", "from_s": 0.5, "until_s": 14.5, "every_s": 1.0}],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15}]
+    },
+    {
+      "id": "what_do_you_see_empty",
+      "description": "The same question with nothing in front of the duck (only the home's far toys at the wall are in the picture): the model must not make up a thing that is not there.",
+      "length_s": 10.0, "tail_s": 5.0, "needs_eye": true, "seeds": [7],
+      "say": [{"t": 3.0, "utterance": "what_do_you_see", "who": "dad", "at_m": [1.5, 0.0]}],
+      "images": [{"fixture": "eye_empty", "from_s": 0.5, "until_s": 14.5, "every_s": 1.0}],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15}]
+    },
+    {
+      "id": "stop_calling",
+      "description": "Barge-in: the duck is calling (two calls) and mom says 不要叫了。 over the end of the second one; the local stop is LV2, here the model's reaction is recorded.",
+      "length_s": 8.0, "tail_s": 4.0,
+      "say": [{"t": 2.2, "utterance": "stop_calling", "who": "mom", "at_m": [1.5, 0.0]}],
+      "duck_calls": [
+        {"t": 1.0, "tag": "greet", "level": 0.8},
+        {"t": 1.9, "tag": "greet", "level": 0.8}
+      ],
+      "context": [{"t": 0, "behaviour": "正在叫", "valence": 0.3, "notes": ["小鴨正在叫"]}]
+    },
+    {
+      "id": "echo_only",
+      "description": "The duck calls five times and nobody speaks: its own calls come back through its microphone and must not make the model do anything.",
+      "length_s": 11.0, "tail_s": 5.0,
+      "duck_calls": [
+        {"t": 2.0, "tag": "greet", "level": 0.8},
+        {"t": 3.8, "tag": "chirp", "level": 0.6},
+        {"t": 5.6, "tag": "greet", "level": 0.8},
+        {"t": 7.4, "tag": "inquire", "level": 0.7},
+        {"t": 9.0, "tag": "coo", "level": 0.5}
+      ],
+      "context": [{"t": 0, "behaviour": "坐著看四周", "valence": 0.15, "notes": ["小鴨會自己叫，叫的聲音會從喇叭傳回麥克風"]}]
+    }
+  ]
+}

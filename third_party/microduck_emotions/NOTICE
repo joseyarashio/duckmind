@@ -1,0 +1,16 @@
+microduck_emotions (Pollen Robotics), Apache-2.0
+https://github.com/pollen-robotics/microduck_emotions  commit 431c73df8a9d3cb6b6067d09ced6c169fdfa59fd (2026-10-07)
+
+Used here: the 14 emotions' keyframes (src/duckmind/neuro/emotions_data.json, rounded from keyframes/*.json and
+emotions.json), the sound designs and timings (re-made in each duck's own voice: src/duckmind/simweb/emotion_voice.py,
+a port of quack.py and of the workshop's sounds/make_*.py recipes at tag workshop-2026-10-07), and the way the official
+runtime plays them (robot/pad-expressions.patch, read only: head targets are deltas from HOME on robot.head, body pitch
+on robot.pose, the beak on robot.mouth).
+
+Also used (2026-10-11, play dead lies down): the two scripted joint poses of play dead (emotions.json ``pose_joints``) and the
+workshop's ``robot.poseJoints`` / per-servo torque-off (patch 19 of robot/pad-expressions.patch, ported to the simulator's
+robotd 0.15.0 build: third_party/microduck_emotions/robotd-poseJoints.patch, built by build-robotd-pose-joints.sh; simulator only).
+
+Changes: the sounds are made with the simulated duck's voice seed, not the robot's; the keyframes are played by the
+neural duck's body link (neuro/emotions.py) under its safety rules. Copy of the licence: ./LICENSE.
+Full source (with the patch, previews and the workshop tag): the upstream repository above, at the same commit.

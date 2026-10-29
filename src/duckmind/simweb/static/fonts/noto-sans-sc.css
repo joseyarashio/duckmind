@@ -1,0 +1,32 @@
+/* Noto Sans SC for the zh-Hans page, served from this folder (no CDN). A subset of
+   google/fonts ofl/notosanssc/NotoSansSC[wght].ttf (wght 400–900) holding only the glyphs
+   the page's catalogs use; made by `python -m duckmind.i18n.fonts subset`.
+   SIL Open Font License 1.1: OFL-NotoSansCJK.txt (Reserved Font Name 'Source'). */
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./noto-sans-sc.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./noto-sans-sc.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(./noto-sans-sc.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(./noto-sans-sc.woff2) format('woff2');
+}

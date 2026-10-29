@@ -1,0 +1,92 @@
+{
+  "schema": "home-layout-v2",
+  "id": "default_home",
+  "zh": "預設的家：6×6 公尺的客廳",
+  "doc": "The simulator page's room (duck3d.js buildRoom / buildNest, phase 0) made physical, in the page's own coordinates: world (x, y, z) = three.js (x, -z, y). Walls centred on Duck Core's ROOM_HALF_MM (engine.py), so the plan and the physics agree on the walls; all four walls are physical (the page fades the two between the camera and the duck, owner decision B4). The sofa stands on 9 cm legs (a 7 cm ball rolls under, the duck does not fit; curiosity spec 4.2). The rug is drawn and seen, not felt (visual only). The charging place is a robot-vacuum-style dock with its back on the middle of the south wall, facing into the room (owner decision 2026-09-27; duckmind.world.dock; the variants forward / backin pick how the duck docks — backin, turning round on the dock's right, is the default since 2026-09-28 —, open_nest brings back phase 2's open nest at the origin for comparison). Duck Core's frame stays the room (frame: room, the identity), so its imagined walls are these walls; a nest duck still believes its nest is at its origin (0, 0), the middle of the room, until phase 5 teaches it where the dock really is: the page shows both. A duck without a nest (no_nest, e.g. 蛋黃) lives on the mat at the origin. Units: mm, mrad, g; pos_mm = footprint centre and lowest point.",
+  "base": {},
+  "bounds_mm": [-3040, -3040, 3040, 3040],
+  "ceiling_mm": 2400,
+  "north_mrad": 1571,
+  "wall_bands": true,
+  "floor": {"zh": "木地板", "colour": "#c9a47a", "texture": "wood"},
+  "rooms": [
+    {"id": "living", "zh": "客廳", "rect_mm": [-3000, -3000, 3000, 3000], "floor": "wood"}
+  ],
+  "doorways": [],
+  "spawn": "nest",
+  "frame": "room",
+  "nest": {"kind": "dock", "style": "backin", "side": "right", "x_mm": 0, "y_mm": -2940, "heading_mrad": 1571, "backlight": {"when": "dark", "colour": "#e8f6f7", "charging_colour": "#1f9d57"}},
+  "mat": {"x_mm": 0, "y_mm": 0, "heading_mrad": 0, "radius_mm": 340, "colour": "#9fb8b0"},
+  "elements": [
+    {"id": "floor", "official": true, "kind": "floor", "zh": "木地板", "shape": "plane", "pos_mm": [0, 0, 0], "size_mm": [6000, 6000, 0], "colour": "#c9a47a", "texture": "wood"},
+    {"id": "rug", "kind": "rug", "zh": "地毯", "shape": "box", "pos_mm": [1200, 1300, 0], "size_mm": [2400, 1600, 2], "colour": "#8a9fb5", "collide": false, "tof": false},
+
+    {"id": "wall_n", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [0, 3000, 0], "size_mm": [6000, 80, 1200], "colour": "#f3efe7"},
+    {"id": "wall_w", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [-3000, 0, 0], "size_mm": [80, 6000, 1200], "colour": "#f3efe7"},
+    {"id": "wall_s", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [0, -3000, 0], "size_mm": [6000, 80, 1200], "colour": "#f3efe7"},
+    {"id": "wall_e", "kind": "wall", "zh": "牆", "shape": "box", "pos_mm": [3000, 0, 0], "size_mm": [80, 6000, 1200], "colour": "#f3efe7"},
+    {"id": "skirting_n", "kind": "skirting", "zh": "踢腳板", "shape": "box", "pos_mm": [0, 2950, 0], "size_mm": [6000, 20, 80], "colour": "#d9d2c4"},
+    {"id": "skirting_w", "kind": "skirting", "zh": "踢腳板", "shape": "box", "pos_mm": [-2950, 0, 0], "size_mm": [20, 6000, 80], "colour": "#d9d2c4"},
+    {"id": "skirting_s", "kind": "skirting", "zh": "踢腳板", "shape": "box", "pos_mm": [0, -2950, 0], "size_mm": [6000, 20, 80], "colour": "#d9d2c4"},
+    {"id": "skirting_e", "kind": "skirting", "zh": "踢腳板", "shape": "box", "pos_mm": [2950, 0, 0], "size_mm": [20, 6000, 80], "colour": "#d9d2c4"},
+
+    {"id": "sofa_seat", "kind": "furniture", "cls": "furniture", "zh": "沙發", "shape": "box", "pos_mm": [900, 2450, 90], "size_mm": [2000, 850, 330], "colour": "#5d7a8c", "under_mm": 90},
+    {"id": "sofa_leg_1", "kind": "furniture", "cls": "furniture_leg", "zh": "沙發腳", "shape": "box", "pos_mm": [-80, 2045, 0], "size_mm": [40, 40, 90], "colour": "#56707f"},
+    {"id": "sofa_leg_2", "kind": "furniture", "cls": "furniture_leg", "zh": "沙發腳", "shape": "box", "pos_mm": [1880, 2045, 0], "size_mm": [40, 40, 90], "colour": "#56707f"},
+    {"id": "sofa_leg_3", "kind": "furniture", "cls": "furniture_leg", "zh": "沙發腳", "shape": "box", "pos_mm": [-80, 2855, 0], "size_mm": [40, 40, 90], "colour": "#56707f"},
+    {"id": "sofa_leg_4", "kind": "furniture", "cls": "furniture_leg", "zh": "沙發腳", "shape": "box", "pos_mm": [1880, 2855, 0], "size_mm": [40, 40, 90], "colour": "#56707f"},
+    {"id": "sofa_back", "kind": "furniture", "cls": "furniture", "zh": "沙發", "shape": "box", "pos_mm": [900, 2780, 420], "size_mm": [2000, 200, 450], "colour": "#56707f"},
+    {"id": "sofa_arm_w", "kind": "furniture", "cls": "furniture", "zh": "沙發", "shape": "box", "pos_mm": [-200, 2450, 420], "size_mm": [220, 850, 250], "colour": "#56707f"},
+    {"id": "sofa_arm_e", "kind": "furniture", "cls": "furniture", "zh": "沙發", "shape": "box", "pos_mm": [2000, 2450, 420], "size_mm": [220, 850, 250], "colour": "#56707f"},
+
+    {"id": "table_leg_1", "kind": "furniture", "cls": "furniture_leg", "zh": "茶几腳", "shape": "box", "pos_mm": [550, 1600, 0], "size_mm": [50, 50, 400], "colour": "#7a5a3a"},
+    {"id": "table_leg_2", "kind": "furniture", "cls": "furniture_leg", "zh": "茶几腳", "shape": "box", "pos_mm": [1850, 1600, 0], "size_mm": [50, 50, 400], "colour": "#7a5a3a"},
+    {"id": "table_leg_3", "kind": "furniture", "cls": "furniture_leg", "zh": "茶几腳", "shape": "box", "pos_mm": [550, 1000, 0], "size_mm": [50, 50, 400], "colour": "#7a5a3a"},
+    {"id": "table_leg_4", "kind": "furniture", "cls": "furniture_leg", "zh": "茶几腳", "shape": "box", "pos_mm": [1850, 1000, 0], "size_mm": [50, 50, 400], "colour": "#7a5a3a"},
+    {"id": "table_top", "kind": "furniture", "cls": "furniture", "zh": "茶几", "shape": "box", "pos_mm": [1200, 1300, 400], "size_mm": [1450, 750, 40], "colour": "#8b6a47"},
+
+    {"id": "bookshelf", "kind": "furniture", "cls": "furniture", "zh": "書櫃", "shape": "box", "pos_mm": [-2750, 1200, 0], "size_mm": [350, 1000, 1100], "colour": "#9c7b58"},
+    {"id": "plant_pot", "kind": "furniture", "cls": "no_touch", "zh": "盆栽", "shape": "frustum", "pos_mm": [-2600, -1400, 0], "radius_mm": 140, "radius_bottom_mm": 110, "height_mm": 260, "colour": "#b86b4b"},
+    {"id": "plant_leaves", "kind": "furniture", "cls": "no_touch", "zh": "盆栽的葉子", "shape": "sphere", "pos_mm": [-2600, -1400, 220], "radius_mm": 280, "colour": "#4f7f4a", "collide": false}
+  ],
+  "things": [
+    {"id": "ball_felt", "zh": "毛線球", "cls": "ball_slow", "shape": "sphere", "radius_mm": 35, "mass_g": 25, "roll": 0.004, "colour": "#f07a1f", "pos_mm": [800, -600], "verbs": ["look", "bump", "peck", "kick", "dribble"]},
+    {"id": "ball_hollow", "zh": "洞洞球", "cls": "ball_fast", "shape": "sphere", "radius_mm": 35, "mass_g": 15, "hollow": true, "roll": 0.0002, "colour": "#2f6fe0", "pos_mm": [300, 800], "verbs": ["look", "bump", "peck", "kick"]},
+    {"id": "fin_fish", "zh": "魚魚咬咬", "cls": "handle_toy", "mass_g": 30, "friction": 1.0, "colour": "#2fae4f", "pos_mm": [1300, -900], "verbs": ["look", "bump", "peck", "grab", "carry"],
+      "parts": [{"shape": "box", "size_mm": [80, 40, 20], "mass_g": 22}, {"shape": "box", "size_mm": [60, 10, 50], "offset_mm": [0, 0, 20], "mass_g": 8}]},
+    {"id": "fin_duck", "zh": "把手小鴨", "cls": "handle_toy", "mass_g": 50, "friction": 1.0, "colour": "#f2c91e", "pos_mm": [600, 500], "verbs": ["look", "bump", "peck", "grab", "carry"],
+      "parts": [{"shape": "box", "size_mm": [60, 50, 40], "mass_g": 40}, {"shape": "box", "size_mm": [50, 10, 45], "offset_mm": [0, 0, 40], "mass_g": 10}]},
+    {"id": "paper_cup", "zh": "紙杯", "cls": "cup", "shape": "cylinder", "radius_mm": 36, "height_mm": 90, "mass_g": 8, "colour": "#f4f1ea", "pos_mm": [-500, -1100], "verbs": ["look", "bump", "peck"]},
+    {"id": "tissue_box", "zh": "面紙盒", "cls": "box", "shape": "box", "size_mm": [120, 100, 120], "mass_g": 80, "colour": "#e9e4d6", "pos_mm": [1600, -200], "verbs": ["look", "bump", "peck", "tap"]},
+    {"id": "bottle_empty", "zh": "空寶特瓶", "cls": "tall_light", "shape": "cylinder", "radius_mm": 35, "height_mm": 200, "mass_g": 30, "friction": 0.6, "colour": "#9fd0f0", "opacity": 0.8, "pos_mm": [-800, 900], "verbs": ["look", "bump", "tap"]},
+    {"id": "books", "zh": "一疊書", "cls": "heavy", "shape": "box", "size_mm": [160, 240, 120], "mass_g": 1500, "colour": "#7a2f2f", "pos_mm": [-1600, -300], "verbs": ["look", "bump", "peck"]}
+  ],
+  "drops": [],
+  "zones": [
+    {"id": "toy_corner", "kind": "keepsake", "zh": "玩具角（收玩具放這裡）", "rect_mm": [-2900, -2900, -1900, -2100]}
+  ],
+  "barriers": [],
+  "lights": {
+    "lamps": [
+      {"id": "lamp_living", "zh": "客廳的燈", "room": "living", "kind": "pendant", "pos_mm": [900, 1600, 1900], "hours": [17, 23], "colour": "#ffd3a0", "lux": 120}
+    ],
+    "windows": [
+      {"id": "window_east", "zh": "東邊的窗", "room": "living", "pos_mm": [2960, 0, 900], "width_mm": 1600, "height_mm": 1200, "inward_mrad": 3142}
+    ],
+    "night_lights": []
+  },
+  "agents": {
+    "spots": [
+      {"id": "entry", "zh": "房間的入口", "x_mm": 2500, "y_mm": -2500, "heading_mrad": 2356},
+      {"id": "sofa", "zh": "沙發", "x_mm": 900, "y_mm": 1850, "heading_mrad": -1571}
+    ]
+  },
+  "variants": {
+    "no_nest": {"zh": "沒有充電窩的小鴨（例如蛋黃）：墊子在原點", "nest": null},
+    "forward": {"zh": "充電座：小鴨正面走進去、坐下（接點在大腿下）", "nest": {"style": "forward"}},
+    "backin": {"zh": "充電座：小鴨轉身倒退進去、坐下（接點在屁股後面）", "nest": {"style": "backin"}},
+    "open_nest": {"zh": "第 2 期開放式的窩（在原點，用來比較）", "nest": {"kind": "open", "style": "", "side": "", "x_mm": 0, "y_mm": 0, "heading_mrad": 0, "edge": "edge_5mm"}},
+    "edge_3mm": {"zh": "開放式的窩，墊邊 3 mm", "nest": {"kind": "open", "style": "", "side": "", "x_mm": 0, "y_mm": 0, "heading_mrad": 0, "edge": "edge_3mm"}},
+    "ramp": {"zh": "開放式的窩，墊邊是斜坡", "nest": {"kind": "open", "style": "", "side": "", "x_mm": 0, "y_mm": 0, "heading_mrad": 0, "edge": "ramp"}}
+  }
+}
