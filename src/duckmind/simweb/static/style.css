@@ -235,8 +235,10 @@ input[type="checkbox"] { accent-color: var(--orange); width: 16px; height: 16px;
 .card-title small { font-size: 12.5px; }
 
 /* ---------- hero: the duck on stage ---------- */
+/* overflow: clip, not hidden — the static's ::before reaches 240 px past every edge, and a hidden overflow is still a
+   scroll container: any scroll into view (a focus, an automated click, find in page) slid the whole view sideways. */
 .hero {
-  position: relative; overflow: hidden; isolation: isolate;
+  position: relative; overflow: hidden; overflow: clip; isolation: isolate;
   padding: 30px var(--gutter) 72px;
   background: radial-gradient(120% 90% at 30% 20%, #2a2a36 0%, var(--ink) 58%, var(--ink-deep) 100%);
   color: var(--on-dark);

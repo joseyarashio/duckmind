@@ -125,6 +125,7 @@ const note = document.getElementById("duck3dNote");
 const bubbleEl = document.getElementById("duck3dBubble");
 const fxEl = document.getElementById("duck3dFx");
 const captionEl = document.getElementById("duck3dCaption");
+const hudEl = document.getElementById("hud");
 const zzzEl = document.getElementById("duck3dZzz");
 const modeEl = document.getElementById("stageMode");
 
@@ -537,8 +538,11 @@ async function init() {
     const rect = canvas.getBoundingClientRect();
     const boxRect = box.getBoundingClientRect();
     if (captionEl) {
-      // Words go over the floor at the bottom left, never over the duck's head.
-      captionEl.style.top = `${Math.max(8, rect.bottom - boxRect.top - captionEl.offsetHeight - 10)}px`;
+      // Words go over the floor at the bottom left, never over the duck's head; the HUD (現在在做) holds that corner
+      // too, so while it is shown the words stand just above it, never under it.
+      let floorTop = rect.bottom - boxRect.top;
+      if (hudEl && !hudEl.hidden && hudEl.getClientRects().length) floorTop = Math.min(floorTop, hudEl.getBoundingClientRect().top - boxRect.top);
+      captionEl.style.top = `${Math.max(8, floorTop - captionEl.offsetHeight - 10)}px`;
     }
     if (modeEl && !modeEl.hidden) {
       // Which duck is drawn: just under the clock.
