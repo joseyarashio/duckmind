@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: >-
+  If you use, cite or modify duckmind, please credit it as below
+  and link the repository.
+title: duckmind
+type: software
+authors:
+  - alias: joseyarashio
+repository-code: "https://github.com/joseyarashio/duckmind"
+license: Apache-2.0
+abstract: >-
+  duckmind gives a small robot duck a mind of its own: who it is, its moods,
+  its memories, the people it knows, what it wants to do, and what it learns.
+  It is written for robots compatible with Microduck and comes with a
+  browser simulator.
+keywords:
+  - robot pet
+  - Microduck
+  - simulator
+  - MuJoCo

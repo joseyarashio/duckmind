@@ -46,6 +46,47 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 In the simulator, MuJoCo physics replaces the body below `robotd`, so the upper
 layers are the same for the simulator and a real robot.
 
+## What this project is about
+
+In one sentence: **a little robot duck that slowly grows into a pet that truly belongs to your family.**
+
+- It isn't a remote-control toy, and it isn't a robot acting out a script. Every move it makes, it decides for itself, after it "notices something and wants something".
+- It only gets its own senses: eyes (the camera), ears, a distance sensor, and the feel of its own body. The simulator's "answer key" (where things really are, what the map looks like) stays hidden from it, just like for a real duck.
+- **The neural duck is the living interface; growing up is the core.** The moment-to-moment reactions (getting startled, curious, sleepy, playful) come from the "neural duck" brain; who it turns into, day after day, comes from the growth system in "Duck Core". You can't have one without the other.
+
+### Every duck is different: the random seed
+
+- When it hatches, it gets a number called a "seed". The same seed grows the same genes; a different seed gives you a different duck.
+- The seed sets its starting personality leanings (a bit clingy, a bit of an explorer, slow and dreamy…), how quick and how random its movements are, and a set of calls all its own.
+- The seed is only the starting point. What happens to it afterwards, and how the family treats it, makes it "branch out" in different directions: give the same seed to two families, and after a while you'll have two different ducks.
+- Same seed plus same experiences gives the same result, every time. That makes research and debugging possible, and it means you can trace "why did it turn out like this?".
+
+### Raising it: it really grows up
+
+- Its age is counted in "growth days", not power-on hours: a day only counts once it has been awake long enough.
+- From Hatchling to Duckling, Juvenile and Adult, new things unlock as it grows. For example, the flip usually comes around the Juvenile stage (about 45 growth days); the exact day depends on how fast each duck grows.
+- How you look after it shapes which kind of duck it becomes: Explorer, Dreamer, Snuggler or Songbird.
+- It remembers: the people it knows, what it likes, where it once fell and should steer clear, what home looks like.
+- Its calls evolve generation by generation (a call lineage): it starts out babbling, the calls the family praises with a "good duck!" are kept, and bit by bit they become its own song.
+- You can teach it tricks: ask for one, praise it or give it a treat the moment it gets it right, and it gets better with practice. Leave a trick too long and it gets rusty, but it never completely forgets one it has learned.
+
+### From simulator to real body: one day it can be "burned into" a real duck
+
+- Right now everything runs in a physics simulator on your computer (MuJoCo plus Pollen's robotd simulation). Body physics, motor delay and battery are all modelled as closely to a real Microduck as we can.
+- **A duck is a file**: its seed, genes, growth record, what it has learned, its calls. The design goal: a duck you raised in the simulator, once connected to a real Microduck, is the same duck in a real body — name, personality, memories and tricks all still there.
+- The brain can stay on your home computer while the body becomes a real little duck; it's the same brain code, and the only differences are the body and the calibration of its senses.
+- **To be honest:** the real duck hasn't been validated on real hardware yet, and "export/import a duck file" and "remote body" are planned features. See the Status section above and [SAFETY.md](SAFETY.md).
+
+### What you can play with and do right now
+
+- **Interact with it:** clap, call its name, pat its head, throw a ball, pick it up, turn off the lights, and watch how its reflexes and moods respond.
+- **Give commands (in six languages):** Sit, Stand up, Come, Look at me, Stop, Follow me, Go home; tap the floor to send it there (experimental); or switch to Remote mode.
+- **Teach it tricks:** Lie down, Bow, Shake, Spin, Flip; the "Training" tab shows how well it knows each one.
+- **See inside its head:** what it wants to do right now, why, whether it's scared, how far it has grown.
+- **Furnish the home:** place furniture, door thresholds and rugs yourself, and watch how it crosses thresholds, goes around walls and finds its way home.
+- **Train new moves:** train new motion networks with the same tools (mjlab, on an A100 or your own machine) and add them to its move list.
+- The full list of moves is in [docs/motions.md](docs/motions.md) (繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
+
 ## The simulator page speaks six languages
 
 The simulator page is in 繁體中文 (the default), English, 日本語, Español, 简体中文
@@ -123,6 +164,16 @@ Extras: `sim` (MuJoCo physics), `train` (policy training with mjlab), `kws` (the
 name keyword detector). Read [CONTRIBUTING.md](CONTRIBUTING.md) before you send a
 change; coding agents also read [AGENTS.md](AGENTS.md). Security problems:
 [SECURITY.md](SECURITY.md).
+
+## Using, citing or modifying it: please credit the author
+
+The author of this project is **joseyarashio**. If you use it, cite it, adapt it or build something on top of it, please credit the author and link the source, for example:
+
+> duckmind by joseyarashio — https://github.com/joseyarashio/duckmind
+
+- The code is Apache-2.0. Under section 4 of the licence, when you share the original or a modified version, you must include [LICENSE](LICENSE), keep the credits in [NOTICE](NOTICE), and say in each file you changed that you changed it.
+- To cite it in an article or a paper, use [CITATION.cff](CITATION.cff) in this repository.
+- The screenshots and clips ([docs/media](docs/media/README.md)) are licensed separately under CC BY-NC-SA 4.0: give credit, no commercial use, and share adaptations under the same licence, because they show Pollen's 3D model.
 
 ## Licence
 

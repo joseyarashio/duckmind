@@ -46,6 +46,47 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 En el simulador, la física de MuJoCo sustituye al cuerpo por debajo de `robotd`, así
 que las capas de arriba son las mismas en el simulador y en un robot real.
 
+## Qué quiere hacer este proyecto
+
+En una frase: **que un patito robot vaya creciendo poco a poco hasta ser una mascota que de verdad es de tu familia.**
+
+- No es un juguete teledirigido ni un robot que sigue un guion. Cada cosa que hace la decide él mismo, después de «notar algo y querer algo».
+- Solo puede usar sus propios sentidos: los ojos (la cámara), los oídos, un sensor de distancia y lo que siente su cuerpo. Las «respuestas correctas» del simulador (dónde están de verdad las cosas, cómo es el mapa) no las ve nunca, igual que un pato de verdad.
+- **El patito neuronal es la interfaz viva; crecer es lo esencial.** Las reacciones de cada momento (asustarse, sentir curiosidad, tener sueño, querer jugar) son cosa del cerebro del «patito neuronal»; en qué se va convirtiendo día a día es cosa del sistema de crecimiento de «Duck Core». Hacen falta los dos.
+
+### No hay dos iguales: la semilla aleatoria
+
+- Al nacer recibe un número, la «semilla». La misma semilla da los mismos genes; con otra semilla sale otro pato.
+- La semilla decide sus tendencias de carácter al empezar (más pegajoso, más explorador, más lento y soñador…), lo rápidos y lo aleatorios que son sus movimientos, y un repertorio de graznidos propio.
+- La semilla es solo el punto de partida. Lo que le pase después y cómo lo trate la familia lo hacen «divergir» en direcciones distintas: da la misma semilla a dos familias y, al cabo de un tiempo, tendrás dos patos diferentes.
+- Misma semilla y mismas vivencias dan el mismo resultado. Eso hace posible investigar y depurar, y permite averiguar «por qué ha salido así».
+
+### Criarlo: crece de verdad
+
+- Su edad se cuenta en «días de crecimiento», no en horas encendido: un día solo cuenta cuando ha estado despierto el tiempo suficiente.
+- De Polluelo a Patito, Patito joven y Pato adulto, va desbloqueando cosas nuevas. Por ejemplo, la voltereta suele llegar hacia la etapa de Patito joven (unos 45 días de crecimiento); el día exacto depende de lo rápido que crezca cada pato.
+- Cómo lo cuides influye en el tipo de pato que será: explorador, soñador, mimoso o cantarín.
+- Recuerda: a la gente que conoce, lo que le gusta, dónde se cayó para evitarlo, cómo es la casa.
+- Sus graznidos evolucionan generación tras generación (un linaje de graznidos): empieza balbuceando, los sonidos que la familia premia con un «¡muy bien!» se quedan y poco a poco se convierten en su propia canción.
+- Puedes enseñarle trucos: pídeselo, y en cuanto lo haga felicítalo o dale un premio; cuanto más practica, mejor le sale. Si pasa mucho sin practicar se oxida, pero lo que aprendió no lo olvida del todo.
+
+### Del simulador al cuerpo real: algún día podrá «grabarse» en un patito de verdad
+
+- Ahora todo corre en un simulador físico en tu ordenador (MuJoCo más la simulación de robotd de Pollen). La física del cuerpo, el retardo de los motores y la batería se simulan lo más parecido posible a un Microduck real.
+- **Un pato es un archivo**: semilla, genes, historial de crecimiento, lo que ha aprendido, sus graznidos. El objetivo del diseño: un pato criado en el simulador, al conectarlo a un Microduck real, es el mismo pato con un cuerpo de verdad; nombre, carácter, recuerdos y trucos siguen ahí.
+- El cerebro puede quedarse en el ordenador de casa y el cuerpo pasar a ser un patito real; el mismo programa de cerebro, solo cambian el cuerpo y la calibración de los sentidos.
+- **Para ser sinceros:** el patito todavía no se ha validado en hardware real; «exportar/importar el archivo del pato» y el «cuerpo remoto» son funciones previstas. Mira la sección Estado de arriba y [SAFETY.md](SAFETY.md).
+
+### Lo que ya puedes hacer y probar
+
+- **Jugar con él:** dar palmadas, llamarlo por su nombre, acariciarle la cabeza, lanzarle una pelota, cogerlo en brazos, apagar la luz, y ver cómo reaccionan sus reflejos y sus emociones.
+- **Darle órdenes (en seis idiomas):** Siéntate, Levántate, Ven, Mírame, Quieto, Sígueme, A casa; tocar el suelo para que vaya allí (en pruebas); o pasar al modo Remoto.
+- **Enseñarle trucos:** Échate, Reverencia, Sacúdete, Gira, Voltereta; en la pestaña «Entrenar» ves lo bien que domina cada uno.
+- **Ver lo que piensa:** qué quiere hacer ahora, por qué, si tiene miedo, cuánto ha crecido.
+- **Amueblar la casa:** coloca tú los muebles, los umbrales y las alfombras, y mira cómo cruza umbrales, rodea paredes y encuentra el camino a casa.
+- **Entrenar movimientos nuevos:** entrena nuevas redes de movimiento con las mismas herramientas (mjlab, en una A100 o en tu máquina) y añádelas a su lista de movimientos.
+- La lista completa de movimientos está en [docs/motions.md](docs/motions.md) (繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
+
 ## La página del simulador habla seis idiomas
 
 La página del simulador está en 繁體中文 (el idioma por defecto), English, 日本語,
@@ -125,6 +166,16 @@ Extras: `sim` (física MuJoCo), `train` (entrenamiento de políticas con mjlab),
 (el detector del nombre). Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de enviar un
 cambio; los agentes de programación leen también [AGENTS.md](AGENTS.md). Problemas de
 seguridad: [SECURITY.md](SECURITY.md).
+
+## Usarlo, citarlo, modificarlo: indica el autor y la fuente
+
+El autor de este proyecto es **joseyarashio**. Si lo usas, lo citas, lo adaptas o haces una obra derivada, por favor indica el autor y la fuente, por ejemplo:
+
+> duckmind, de joseyarashio — https://github.com/joseyarashio/duckmind
+
+- El código es Apache-2.0. Según la sección 4 de la licencia, si distribuyes la versión original o una modificada, tienes que incluir [LICENSE](LICENSE), conservar los créditos de [NOTICE](NOTICE) e indicar en cada archivo que cambiaste que lo has cambiado.
+- Para citarlo en un artículo o un trabajo académico, usa el [CITATION.cff](CITATION.cff) del repositorio.
+- Las capturas y los clips ([docs/media](docs/media/README.md)) tienen aparte la licencia CC BY-NC-SA 4.0: hay que dar crédito, no se pueden usar con fines comerciales y las adaptaciones llevan la misma licencia, porque muestran el modelo 3D de Pollen.
 
 ## Licencia
 
