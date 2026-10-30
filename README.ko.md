@@ -12,7 +12,9 @@ duckmind는 작은 로봇 오리에게 자기만의 마음을 줍니다. 자기�
 
 ## 살펴보기
 
-<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="duckmind 시뮬레이터 화면" width="880"></p>
+<p align="center"><a href="docs/media/video/simulator.mp4"><img src="docs/media/video/simulator.webp" alt="duckmind 시뮬레이터 화면 녹화: 오리가 혼자 돌아다니고 앉고 주위를 둘러본 뒤, 이름을 부르면 돌아보고, 시키면 앉았다 일어서고, 인사를 하고 칭찬받아요" width="880"></a></p>
+
+<p align="center"><sub>시뮬레이터 화면을 그대로 녹화한 영상이고, 연출한 게 아니에요(화면은 繁體中文). 먼저 오리가 혼자 지내요(돌아다니고, 앉고, 깨물어 보고, 주위를 둘러봐요. '지금 하는 일' 카드와 오리의 뇌가 오리가 정한 대로 바뀌어요). 그다음 이름을 부르면 돌아보고, 앉으라고 하면 앉고 일어서라고 하면 일어서요. 아직 배우는 중인 인사를 해냈을 때 바로 칭찬하니 훈련 탭의 숙련도가 6%로 올라가요. 손뼉을 치면 깜짝 놀라고, 마지막으로 카메라를 가까이 대고 화면을 크게 해요. 같은 날 녹화한 세 개의 영상을 이어 붙였을 뿐, 다른 건 아무것도 바꾸지 않았어요. <a href="docs/media/video/simulator.mp4">고화질로 보기(MP4, 59초)</a>.</sub></p>
 
 | <img src="docs/media/clips/walk.webp" width="220" alt="걷기"> | <img src="docs/media/clips/bow.webp" width="220" alt="인사"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="엎드리기"> |
 |:---:|:---:|:---:|
@@ -83,6 +85,10 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - **집 꾸미기:** 가구, 문턱, 러그를 직접 놓고, 오리가 문턱을 넘고 벽을 돌아가고 집으로 가는 길을 찾는 걸 지켜보세요.
 - **새 동작 훈련하기:** 같은 도구로 새 동작 네트워크를 훈련해서(mjlab, A100이나 내 컴퓨터에서) 동작 목록에 넣어 쓰게 할 수 있어요.
 - 전체 동작 목록은 [docs/motions.md](docs/motions.md)(繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md))에 있어요.
+
+## 작동 원리
+
+오리의 두뇌에는 두 가지 속도가 있습니다. 바로 움직이는 빠른 반사(깜짝 놀라기, 얼어붙기, 일어나기, 비틀거리면 멈추기)와, 욕구와 감정이 겨루어 다음에 할 일을 고르는 느린 '피질'입니다(시드가 있는 약간의 무작위성도 들어갑니다). 자기 센서로만 느끼고, 기억은 층으로 되어 있으며(이 순간부터, 배운 장소와 사람, 평생 남는 사건 기록까지), 날마다 자랍니다. 자세한 내용과 아직 잘 안 되는 것의 솔직한 목록은 [docs/how-it-works.md](docs/how-it-works.md)(영어)에 있습니다.
 
 ## 시뮬레이터 페이지는 6개 언어를 지원합니다
 

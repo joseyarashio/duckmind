@@ -14,7 +14,9 @@ s'ouvre dans le navigateur.
 
 ## Le voir
 
-<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="La page du simulateur duckmind" width="880"></p>
+<p align="center"><a href="docs/media/video/simulator.mp4"><img src="docs/media/video/simulator.webp" alt="Enregistrement de la page du simulateur duckmind : le canard se promène, s'assoit et regarde autour de lui tout seul, puis réagit à son nom, s'assoit et se relève quand on le lui demande, fait une révérence et reçoit un compliment" width="880"></a></p>
+
+<p align="center"><sub>Un vrai enregistrement de la page du simulateur (la page est en 繁體中文), sans mise en scène : d'abord le canard vit tout seul (il se promène, s'assoit, mordille, regarde autour de lui, et la carte « ce qu'il fait » et son cerveau montrent ce qu'il décide) ; puis il se tourne quand on l'appelle par son nom, s'assoit et se relève quand on le lui demande, fait une révérence qu'il apprend encore et reçoit un compliment (l'onglet d'entraînement monte à 6 %), sursaute à un clap, et la caméra s'approche puis la vue s'agrandit. Monté à partir de trois enregistrements de la même séance ; rien d'autre n'a été changé. <a href="docs/media/video/simulator.mp4">Voir en pleine qualité (MP4, 59 s)</a>.</sub></p>
 
 | <img src="docs/media/clips/walk.webp" width="220" alt="Marcher"> | <img src="docs/media/clips/bow.webp" width="220" alt="Révérence"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="Se coucher"> |
 |:---:|:---:|:---:|
@@ -86,6 +88,10 @@ En une phrase : **qu'un petit canard robot grandisse peu à peu jusqu'à devenir
 - **Aménager la maison :** placez vous-même les meubles, les seuils de porte et les tapis, et regardez comment il franchit les seuils, contourne les murs et retrouve le chemin de la maison.
 - **Entraîner de nouveaux mouvements :** entraînez de nouveaux réseaux de mouvement avec les mêmes outils (mjlab, sur une A100 ou sur votre machine) et ajoutez-les à sa liste de mouvements.
 - La liste complète des mouvements est dans [docs/motions.md](docs/motions.md) (繁中 : [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
+
+## Comment ça marche
+
+Le cerveau du canard a deux vitesses : des arcs réflexes rapides (sursaut, se figer, se relever, s'arrêter en trébuchant) qui agissent tout de suite, et un « cortex » plus lent où besoins et émotions s'affrontent pour choisir quoi faire, avec un peu de hasard à graine. Il ne perçoit qu'avec ses propres capteurs, se souvient par couches (de cet instant aux lieux et aux personnes qu'il a appris, jusqu'à un journal d'événements qui dure toute sa vie) et grandit au fil des jours. Les détails, et une liste honnête de ce qui ne marche pas encore, sont dans [docs/how-it-works.md](docs/how-it-works.md) (en anglais).
 
 ## La page du simulateur parle six langues
 

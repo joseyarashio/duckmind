@@ -11,7 +11,9 @@ duckmind 让一只小机器鸭有自己的心：它是谁、它的心情、它�
 
 ## 看看它
 
-<p align="center"><img src="docs/media/screens/main-desktop.zh-Hant.webp" alt="duckmind 模拟器画面" width="880"></p>
+<p align="center"><a href="docs/media/video/simulator.mp4"><img src="docs/media/video/simulator.webp" alt="duckmind 模拟器页面的录屏：小鸭自己走来走去、坐下、东张西望，再被叫名字、听指令坐下站起来、鞠躬被称赞" width="880"></a></p>
+
+<p align="center"><sub>这是模拟器页面真实录下来的画面（页面是繁体中文），不是摆拍：先是小鸭自己过日子（走来走去、坐下、咬咬看、东张西望，“现在在做”和小鸭的脑跟着它的决定变）；然后叫它的名字它转过来看、叫它坐下和站起来、叫它鞠躬（还在学）做到了马上称赞（训练页的熟练度变成 6%）、拍手吓它一跳，最后镜头拉近、画面放大。从同一次的三段录屏剪在一起，其他什么都没改。<a href="docs/media/video/simulator.mp4">看高清版（MP4，59 秒）</a>。</sub></p>
 
 | <img src="docs/media/clips/walk.webp" width="220" alt="走路"> | <img src="docs/media/clips/bow.webp" width="220" alt="鞠躬"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="趴低"> |
 |:---:|:---:|:---:|
@@ -80,6 +82,10 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - **布置家里：** 自己摆家具、放门槛和地毯，看它怎么过门槛、绕墙、找路回家。
 - **训练新动作：** 用同一套工具训练新的动作网络（mjlab，A100 或本机），装进动作表给它用。
 - 完整的动作清单在 [docs/motions.md](docs/motions.md)（繁体中文：[docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)）。
+
+## 技术细节：它是怎么运作的
+
+小鸭的大脑有两种速度：马上就动的快速反射（吓一跳、定住、爬起来、绊到就停），以及比较慢的“皮质”——驱力和情绪互相竞争，选出下一件要做的事，再加一点有种子的随机。它只用自己的感官，记忆分成好几层（从这一刻，到学会的地方和人，再到留一辈子的事件记录），并且一天一天长大。详细说明，以及还做不好的地方的老实清单，在 [docs/how-it-works.zh-Hant.md](docs/how-it-works.zh-Hant.md)（繁体中文；英文版：[docs/how-it-works.md](docs/how-it-works.md)）。
 
 ## 模拟器页面有六种语言
 

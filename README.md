@@ -14,7 +14,9 @@ browser.
 
 ## See it
 
-<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="The duckmind simulator page" width="880"></p>
+<p align="center"><a href="docs/media/video/simulator.mp4"><img src="docs/media/video/simulator.webp" alt="A screen recording of the duckmind simulator page: the duck wanders, sits and looks around on its own, then reacts to its name, sits and stands up when told, bows and is praised" width="880"></a></p>
+
+<p align="center"><sub>A real screen recording of the simulator page (page in 繁體中文), not staged: first the duck lives on its own (wanders, sits down, nibbles, looks around, and the "doing now" card and its brain show what it decides); then it turns when its name is called, sits and stands up when told, does a bow it is still learning and gets praised (the training tab goes up to 6%), startles at a clap, and the camera moves in close and the view is enlarged. Cut together from three recordings of the same session; nothing else was changed. <a href="docs/media/video/simulator.mp4">Watch in full quality (MP4, 59 s)</a>.</sub></p>
 
 | <img src="docs/media/clips/walk.webp" width="220" alt="Walk"> | <img src="docs/media/clips/bow.webp" width="220" alt="Bow"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="Lie low"> |
 |:---:|:---:|:---:|
@@ -86,6 +88,10 @@ In one sentence: **a little robot duck that slowly grows into a pet that truly b
 - **Furnish the home:** place furniture, door thresholds and rugs yourself, and watch how it crosses thresholds, goes around walls and finds its way home.
 - **Train new moves:** train new motion networks with the same tools (mjlab, on an A100 or your own machine) and add them to its move list.
 - The full list of moves is in [docs/motions.md](docs/motions.md) (繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
+
+## How it works
+
+The duck's brain has two speeds: fast reflex arcs (startle, freeze, righting, stumble stop) that act at once, and a slower "cortex" where drives and feelings compete to choose what to do next, with a little seeded randomness. It senses only through its own sensors, remembers in layers (from this moment, to the places and people it learned, to an event log that lasts its whole life), and grows over days. The details — and an honest list of what does not work yet — are in [docs/how-it-works.md](docs/how-it-works.md).
 
 ## The simulator page speaks six languages
 

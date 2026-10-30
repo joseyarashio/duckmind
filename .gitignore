@@ -33,6 +33,7 @@ MUJOCO_LOG.TXT
 *.safetensors
 *.rgb
 *.mp4
+!docs/media/video/*.mp4
 *.wav
 !tests/fixtures/**/*.wav
 *.tar.gz

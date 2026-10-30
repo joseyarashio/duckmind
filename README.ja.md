@@ -13,7 +13,9 @@ duckmind は、小さなロボットのアヒルに自分の心を持たせま�
 
 ## 見てみる
 
-<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="duckmind シミュレーターの画面" width="880"></p>
+<p align="center"><a href="docs/media/video/simulator.mp4"><img src="docs/media/video/simulator.webp" alt="duckmind シミュレーター画面の録画：アヒルが自分で歩き回り、座り、あたりを見回し、名前を呼ばれて振り向き、言われて座って立ち、おじぎをしてほめられる" width="880"></a></p>
+
+<p align="center"><sub>シミュレーター画面をそのまま録画したもので、やらせではありません（画面は繁體中文）。まずアヒルが自分で過ごします（歩き回る、座る、かじってみる、あたりを見回す。「いましていること」とアヒルの脳がアヒルの決めたとおりに変わります）。次に名前を呼ぶと振り向き、「座って」「立って」に従い、まだ練習中のおじぎができたのですぐほめると、トレーニングタブの習熟度が 6% に上がります。手をたたくとびっくりし、最後にカメラを近づけて画面を大きくします。同じ回の 3 本の録画をつないだだけで、ほかは何も変えていません。<a href="docs/media/video/simulator.mp4">高画質で見る（MP4、59 秒）</a>。</sub></p>
 
 | <img src="docs/media/clips/walk.webp" width="220" alt="歩く"> | <img src="docs/media/clips/bow.webp" width="220" alt="おじぎ"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="伏せる"> |
 |:---:|:---:|:---:|
@@ -84,6 +86,10 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - **家を模様替えする：** 家具や敷居、ラグを自分で置いて、アヒルが敷居を越えたり、壁をよけたり、家への帰り道を探したりする様子を見られます。
 - **新しい動きを学習させる：** 同じ道具で新しい動きのネットワークを学習させ（mjlab、A100 か手元のパソコンで）、動きの一覧に入れて使わせられます。
 - 動きの全一覧は [docs/motions.md](docs/motions.md)（繁中：[docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)）にあります。
+
+## しくみ
+
+アヒルの頭脳には 2 つの速さがあります。すぐに動く速い反射（びっくり、固まる、起き上がる、つまずいたら止まる）と、欲求や気持ちが競い合って次にすることを選ぶ、ゆっくりした「皮質」です（シード付きの少しのランダムさも入ります）。感じ取れるのは自分のセンサーだけで、記憶は層になっています（この瞬間から、覚えた場所や人、そして一生残る出来事の記録まで）。そして日ごとに育ちます。詳しいしくみと、まだうまくいかないことの正直な一覧は [docs/how-it-works.md](docs/how-it-works.md)（英語）にあります。
 
 ## シミュレーターのページは 6 か国語
 

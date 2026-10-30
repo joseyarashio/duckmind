@@ -14,7 +14,9 @@ en el navegador.
 
 ## Míralo
 
-<p align="center"><img src="docs/media/screens/main-desktop.en.webp" alt="La página del simulador de duckmind" width="880"></p>
+<p align="center"><a href="docs/media/video/simulator.mp4"><img src="docs/media/video/simulator.webp" alt="Grabación de la página del simulador de duckmind: el pato pasea, se sienta y mira alrededor por su cuenta; luego reacciona a su nombre, se sienta y se levanta cuando se lo piden, hace una reverencia y recibe un elogio" width="880"></a></p>
+
+<p align="center"><sub>Una grabación real de la página del simulador (la página está en 繁體中文), sin nada preparado: primero el pato vive por su cuenta (pasea, se sienta, mordisquea, mira alrededor, y la tarjeta «qué hace ahora» y su cerebro muestran lo que decide); luego se gira cuando lo llaman por su nombre, se sienta y se levanta cuando se lo piden, hace una reverencia que aún está aprendiendo y recibe un elogio (la pestaña de entrenamiento sube al 6 %), se asusta con una palmada, y la cámara se acerca y la vista se amplía. Montado con tres grabaciones de la misma sesión; no se cambió nada más. <a href="docs/media/video/simulator.mp4">Verlo en calidad completa (MP4, 59 s)</a>.</sub></p>
 
 | <img src="docs/media/clips/walk.webp" width="220" alt="Caminar"> | <img src="docs/media/clips/bow.webp" width="220" alt="Reverencia"> | <img src="docs/media/clips/lie-low.webp" width="220" alt="Agacharse"> |
 |:---:|:---:|:---:|
@@ -86,6 +88,10 @@ En una frase: **que un patito robot vaya creciendo poco a poco hasta ser una mas
 - **Amueblar la casa:** coloca tú los muebles, los umbrales y las alfombras, y mira cómo cruza umbrales, rodea paredes y encuentra el camino a casa.
 - **Entrenar movimientos nuevos:** entrena nuevas redes de movimiento con las mismas herramientas (mjlab, en una A100 o en tu máquina) y añádelas a su lista de movimientos.
 - La lista completa de movimientos está en [docs/motions.md](docs/motions.md) (繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
+
+## Cómo funciona
+
+El cerebro del pato tiene dos velocidades: arcos reflejos rápidos (sobresalto, quedarse quieto, levantarse, parar al tropezar) que actúan al instante, y una «corteza» más lenta donde las necesidades y emociones compiten para elegir qué hacer, con un poco de azar con semilla. Solo percibe con sus propios sensores, recuerda por capas (desde este momento, pasando por los lugares y las personas que aprendió, hasta un registro de eventos que dura toda su vida) y crece con los días. Los detalles, y una lista honesta de lo que aún no funciona, están en [docs/how-it-works.md](docs/how-it-works.md) (en inglés).
 
 ## La página del simulador habla seis idiomas
 
