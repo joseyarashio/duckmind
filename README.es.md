@@ -1,3 +1,5 @@
+<p align="center"><a href="https://github.com/joseyarashio/duckmind"><img src="docs/media/hero/hero.es.webp" alt="duckmind: un cerebro de mascota para patos robot compatibles con Microduck, con una captura de la página del simulador y un render del modelo 3D Microduck hecho en el simulador" width="100%"></a></p>
+
 [English](README.md) | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md) | **Español** | [Français](README.fr.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # duckmind
@@ -86,6 +88,7 @@ En una frase: **que un patito robot vaya creciendo poco a poco hasta ser una mas
 - **Enseñarle trucos:** Échate, Reverencia, Sacúdete, Gira, Voltereta; en la pestaña «Entrenar» ves lo bien que domina cada uno.
 - **Ver lo que piensa:** qué quiere hacer ahora, por qué, si tiene miedo, cuánto ha crecido.
 - **Amueblar la casa:** coloca tú los muebles, los umbrales y las alfombras, y mira cómo cruza umbrales, rodea paredes y encuentra el camino a casa.
+- **Se carga solo:** cuando le queda poca batería, vuelve andando a su base de carga, entra marcha atrás y se sienta a cargar (en el simulador). No hay un kit de base oficial; la especificación para construir tu propia base está en [docs/dock-hardware.md](docs/dock-hardware.md) (en inglés).
 - **Entrenar movimientos nuevos:** entrena nuevas redes de movimiento con las mismas herramientas (mjlab, en una A100 o en tu máquina) y añádelas a su lista de movimientos.
 - La lista completa de movimientos está en [docs/motions.md](docs/motions.md) (繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
 

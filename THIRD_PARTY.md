@@ -22,10 +22,10 @@ were checked against their primary sources on 2026-10-29.
   image. `python -m duckmind.setup_cmd` prints the licence and downloads the `microduck_rl`
   checkout only after the user types "yes" (or passes `--accept-mesh-licence`).
   The simulator page shows the attribution in all six languages.
-- **The screenshots and clips in `docs/media/` are CC BY-NC-SA 4.0, not Apache-2.0.**
-  They are renders of the simulator, so they show the Microduck 3D model (Pollen
-  Robotics, CC BY-NC-SA 4.0). They are shared under the same licence, with attribution,
-  for non-commercial use only. See [docs/media/README.md](docs/media/README.md).
+- **The screenshots, clips and README banners in `docs/media/` are CC BY-NC-SA 4.0, not
+  Apache-2.0.** They are renders of the simulator, so they show the Microduck 3D model
+  (Pollen Robotics, CC BY-NC-SA 4.0). They are shared under the same licence, with
+  attribution, for non-commercial use only. See [docs/media/README.md](docs/media/README.md).
 - **The MJCF robot descriptions are Apache-2.0.** Upstream `LICENSE-MODELS.md` says:
   "Everything else in this repository, including the MJCF robot descriptions
   (`.xml`), the export configs (`config_mjcf_*.json`, `config.json`) and the Onshape
@@ -93,7 +93,7 @@ were checked against their primary sources on 2026-10-29.
 |---|---|---|---|
 | Anton (v27), DM Sans (v17), JetBrains Mono (v24) | SIL Open Font License 1.1, no Reserved Font Name | Yes: `src/duckmind/simweb/static/fonts/anton/`, `dmsans/`, `jetbrainsmono/`: the WOFF2 files as Google Fonts serves them, unmodified | Licence texts: `static/fonts/OFL-Anton.txt`, `OFL-DMSans.txt`, `OFL-JetBrainsMono.txt` |
 | Noto Sans TC (v40) | SIL Open Font License 1.1, **Reserved Font Name "Source"** | Yes: `static/fonts/notosanstc/`, unmodified WOFF2 files | Licence text with the Reserved Font Name notice: `static/fonts/OFL-NotoSansCJK.txt` |
-| Noto Sans JP, SC, KR | SIL Open Font License 1.1, **Reserved Font Name "Source"** | Yes, as subsets: `static/fonts/noto-sans-{jp,sc,kr}.woff2` (only the glyphs the page's catalogs use; `subsets.json` records how) | A subset is a Modified Version under the OFL: it keeps the "Noto Sans JP/SC/KR" names and never uses the name "Source". Licence: `static/fonts/OFL-NotoSansCJK.txt` |
+| Noto Sans JP, SC, KR | SIL Open Font License 1.1, **Reserved Font Name "Source"** | Yes, as subsets: `static/fonts/noto-sans-{jp,sc,kr}.woff2` (only the glyphs the page's catalogs use; `subsets.json` records how), and `docs/media/hero/src/fonts/noto-sans-{jp,sc,kr}.woff2` (only the glyphs the README banners use; `docs/media/hero/src/generate.py --subset-fonts` makes them) | A subset is a Modified Version under the OFL: it keeps the "Noto Sans JP/SC/KR" names and never uses the name "Source". Licence: `static/fonts/OFL-NotoSansCJK.txt`, and a copy in `docs/media/hero/src/fonts/` |
 | three.js 0.170.0 (with the OrbitControls and STLLoader add-ons) | MIT | Yes: `static/vendor/three/` with its LICENSE | |
 | d3 7.9.0 | ISC | Yes: `static/vendor/d3/` with its LICENSE | |
 

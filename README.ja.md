@@ -1,3 +1,5 @@
+<p align="center"><a href="https://github.com/joseyarashio/duckmind"><img src="docs/media/hero/hero.ja.webp" alt="duckmind：Microduck 互換のロボットアヒルのためのペット脳。シミュレーター画面のスクリーンショットと、シミュレーターで描いた Microduck 3D モデル" width="100%"></a></p>
+
 [English](README.md) | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md) | [Español](README.es.md) | [Français](README.fr.md) | **日本語** | [한국어](README.ko.md)
 
 # duckmind
@@ -84,6 +86,7 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - **芸を教える：** 伏せ、お辞儀、ぶるぶる、くるくる、宙返り。「しつけ」タブで、それぞれの芸がどれくらい身についたか見られます。
 - **心の中をのぞく：** いま何をしたいのか、なぜなのか、怖がっていないか、どこまで育ったか。
 - **家を模様替えする：** 家具や敷居、ラグを自分で置いて、アヒルが敷居を越えたり、壁をよけたり、家への帰り道を探したりする様子を見られます。
+- **自分で充電しに戻る：** 電池が少なくなると、自分で充電台まで歩いて戻り、後ろ向きに入って座り、充電します（シミュレーターの中で）。公式の充電台キットはありません。自作するための充電台の設計仕様は [docs/dock-hardware.md](docs/dock-hardware.md)（英語）にあります。
 - **新しい動きを学習させる：** 同じ道具で新しい動きのネットワークを学習させ（mjlab、A100 か手元のパソコンで）、動きの一覧に入れて使わせられます。
 - 動きの全一覧は [docs/motions.md](docs/motions.md)（繁中：[docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)）にあります。
 

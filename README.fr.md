@@ -1,3 +1,5 @@
+<p align="center"><a href="https://github.com/joseyarashio/duckmind"><img src="docs/media/hero/hero.fr.webp" alt="duckmind : un cerveau de compagnon pour canards robots compatibles Microduck, avec une capture de la page du simulateur et un rendu du modèle 3D Microduck fait dans le simulateur" width="100%"></a></p>
+
 [English](README.md) | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md) | [Español](README.es.md) | **Français** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # duckmind
@@ -86,6 +88,7 @@ En une phrase : **qu'un petit canard robot grandisse peu à peu jusqu'à devenir
 - **Lui apprendre des tours :** couché, révérence, s'ébrouer, tourner, salto ; l'onglet d'entraînement (« Training » en anglais) montre à quel point il maîtrise chacun.
 - **Voir ce qui se passe dans sa tête :** ce qu'il veut faire maintenant, pourquoi, s'il a peur, où il en est de sa croissance.
 - **Aménager la maison :** placez vous-même les meubles, les seuils de porte et les tapis, et regardez comment il franchit les seuils, contourne les murs et retrouve le chemin de la maison.
+- **Il se recharge tout seul :** quand sa batterie baisse, il retourne à sa station de charge, y entre en marche arrière et s'assoit pour se recharger (dans le simulateur). Il n'existe pas de station officielle ; la spécification pour fabriquer la vôtre est dans [docs/dock-hardware.md](docs/dock-hardware.md) (en anglais).
 - **Entraîner de nouveaux mouvements :** entraînez de nouveaux réseaux de mouvement avec les mêmes outils (mjlab, sur une A100 ou sur votre machine) et ajoutez-les à sa liste de mouvements.
 - La liste complète des mouvements est dans [docs/motions.md](docs/motions.md) (繁中 : [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).
 

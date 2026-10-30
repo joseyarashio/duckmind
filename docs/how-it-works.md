@@ -56,6 +56,9 @@ Like a spinal reflex, these act before any deliberation and can interrupt whatev
 ### The motor contract and the body link
 Every command must be **legal** under the contract (`neuro/contract.py`, legal walk). The body link (`neuro/bodylink.py`) puts it onto robotd under the body's safety: a normal walking cap of 0.55 m/s, per-skill caps, a stumble-tilt abort (10°), and careful hand-back speeds after short "flights" — each limit is commented with the trial counts that set it. Trained skill networks (see §5) run inside robotd; the brain only asks for them.
 
+### Going home to charge
+When the battery runs low, Duck Core (`duckcore/nest.py`) sends the duck home; the body (`duckbody/dockexec.py`) finds AprilTag 17 on the dock, turns round in front of it, backs in and sits, and the only thing it reads back is the dock's power-good signal. The simulated dock (`world/dock.py`) is written up as a build spec in [dock-hardware.md](dock-hardware.md): its sizes, tags and contacts, what is still a design assumption, and what to check on a real robot. There is no official dock kit.
+
 ### Why did it do that?
 Every tick returns `BrainTelemetry` (`neuro/telemetry.py`): the selected behaviour, its salience and top contributing inputs, the reflex that fired, the drives. The page turns this into "what it is doing and why" in plain words.
 

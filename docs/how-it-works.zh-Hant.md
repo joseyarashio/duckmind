@@ -56,6 +56,9 @@ flowchart LR
 ### 動作合約和身體連結
 每個指令都要在合約裡**合法**（`neuro/contract.py` 的 legal walk）。身體連結（`neuro/bodylink.py`）在身體的安全規則下把它送給 robotd：平常走路最快 0.55 m/s、每個技能各自的上限、絆到傾斜 10° 就中止、短衝刺後小心交還速度——每個上限旁邊都註明了是哪些試驗次數決定的。訓練好的技能網路（見第 5 節）在 robotd 裡跑，腦只負責請求。
 
+### 回去充電
+電快用完時，Duck Core（`duckcore/nest.py`）叫小鴨回家；身體（`duckbody/dockexec.py`）找到充電座上的 AprilTag 17 號，在它前面轉身、倒退進去、坐下，從充電座讀回來的只有「電源正常」這一個訊號。模擬器裡的充電座（`world/dock.py`）已經寫成一份可以照著做的規格：[dock-hardware.zh-Hant.md](dock-hardware.zh-Hant.md)，裡面有尺寸、標籤、接點、哪些還只是設計假設、真的機器人到了要確認什麼。官方沒有充電座套件。
+
 ### 牠為什麼這樣做？
 每一拍都回傳 `BrainTelemetry`（`neuro/telemetry.py`）：選了哪個行為、為什麼、競爭中前幾名、剛觸發的反射、各種驅力。頁面把它變成白話的「現在在做什麼、為什麼」。
 
