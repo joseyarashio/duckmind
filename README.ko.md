@@ -1,3 +1,5 @@
+<p align="center"><a href="https://github.com/joseyarashio/duckmind"><img src="docs/media/hero/hero.ko.webp" alt="duckmind: Microduck 호환 로봇 오리를 위한 반려 두뇌. 시뮬레이터 화면 스크린샷과 시뮬레이터로 그린 Microduck 3D 모델" width="100%"></a></p>
+
 [English](README.md) | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md) | [Español](README.es.md) | [Français](README.fr.md) | [日本語](README.ja.md) | **한국어**
 
 # duckmind
@@ -83,6 +85,7 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - **재주 가르치기:** 엎드려, 인사, 털어, 빙글빙글, 구르기. "훈련" 탭에서 재주마다 얼마나 익숙해졌는지 볼 수 있어요.
 - **속마음 보기:** 지금 뭘 하고 싶은지, 왜 그런지, 무서워하는지, 어디까지 자랐는지.
 - **집 꾸미기:** 가구, 문턱, 러그를 직접 놓고, 오리가 문턱을 넘고 벽을 돌아가고 집으로 가는 길을 찾는 걸 지켜보세요.
+- **스스로 충전하러 가요:** 배터리가 떨어져 가면 스스로 충전대까지 걸어가서, 뒤로 들어가 앉아 충전해요(시뮬레이터에서). 공식 충전대 키트는 없어요. 직접 만들 수 있는 충전대 설계 사양은 [docs/dock-hardware.md](docs/dock-hardware.md)(영어)에 있어요.
 - **새 동작 훈련하기:** 같은 도구로 새 동작 네트워크를 훈련해서(mjlab, A100이나 내 컴퓨터에서) 동작 목록에 넣어 쓰게 할 수 있어요.
 - 전체 동작 목록은 [docs/motions.md](docs/motions.md)(繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md))에 있어요.
 

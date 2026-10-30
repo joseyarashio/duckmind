@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<!-- The duck in the hero banners: the official Microduck model drawn the way the simulator page's
+     3D view (duck3d.js) draws it (the same MJCF bodies, STL meshes, colours and lights), with no room,
+     no page and a transparent background. render_duck.py serves this page with /model.json (the
+     simulator's /api/robot), /mesh/<name> and the page's vendored three.js, and screenshots it. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>duckmind hero duck</title>
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.min.js", "three/addons/": "/vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from "three";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+
+const params = new URLSearchParams(location.search);
+const num = (key, fallback) => (params.has(key) ? Number(params.get(key)) : fallback);
+// The camera looks at the duck from in front and to its left (MuJoCo's +y), a little above:
+// a 3/4 view in which the duck faces the picture's left.
+const AZIMUTH = num("az", 130) * Math.PI / 180;
+const ELEVATION = num("el", 12) * Math.PI / 180;
+const MARGIN = num("margin", 0.02);
+
+const model = await fetch("/model.json").then((r) => r.json());
+// The STAND keyframe from the official scene.xml, with a few small offsets (radians): the legs
+// apart front and back as in a step (each hip and ankle turned the same amount the other way,
+// so the feet stay flat), the head turned to the camera and tilted a little.
+const OFFSETS = {
+  left_hip_pitch: num("lhp", -0.25), left_knee: num("lk", 0), left_ankle: num("la", 0.25),
+  right_hip_pitch: num("rhp", -0.15), right_knee: num("rk", 0), right_ankle: num("ra", 0.15),
+  head_yaw: num("hy", 0.3), head_roll: num("hr", 0.08), head_pitch: num("hp", 0), neck_pitch: num("np", 0),
+};
+const pose = { ...(model.keyframes.STAND || {}) };
+for (const [name, value] of Object.entries(OFFSETS)) pose[name] = (pose[name] || 0) + value;
+
+// The picture's size comes from the URL (?w=&h=), not the window: headless Chrome's window is not
+// the screenshot's size until the shot is taken.
+const width = num("w", 800), height = num("h", 800);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(window.devicePixelRatio || 1);
+renderer.setSize(width, height);
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+// duck3d.js's lights: a sky/ground hemisphere, a sun that casts shadows, a soft fill.
+scene.add(new THREE.HemisphereLight(0xf4f7f2, 0x6d7d74, 1.25));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(0.6, 1.2, 0.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -0.3, right: 0.3, top: 0.3, bottom: -0.3, far: 4 });
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xdfeee9, 0.5);
+fill.position.set(-0.5, 0.4, -0.6);
+scene.add(fill);
+// MuJoCo is Z-up; three.js is Y-up.
+const world = new THREE.Group();
+world.rotation.x = -Math.PI / 2;
+scene.add(world);
+const loader = new STLLoader();
+const materials = new Map();
+const materialFor = (rgba) => {
+  const key = rgba.join(",");
+  if (!materials.has(key)) {
+    materials.set(key, new THREE.MeshStandardMaterial({
+      color: new THREE.Color(rgba[0], rgba[1], rgba[2]), roughness: 0.62, metalness: 0.04,
+      transparent: rgba[3] < 1, opacity: rgba[3],
+    }));
+  }
+  return materials.get(key);
+};
+const pending = [];
+const build = (body, parent) => {
+  const group = new THREE.Group();
+  group.position.set(...body.pos);
+  group.quaternion.set(body.quat[1], body.quat[2], body.quat[3], body.quat[0]);
+  parent.add(group);
+  let inner = group;
+  if (body.joint) {
+    inner = new THREE.Group();
+    group.add(inner);
+    const [lo, hi] = body.joint.range;
+    const angle = Math.min(hi, Math.max(lo, pose[body.joint.name] || 0));
+    inner.quaternion.setFromAxisAngle(new THREE.Vector3(...body.joint.axis).normalize(), angle);
+  }
+  for (const geom of body.geoms) {
+    const holder = new THREE.Group();
+    holder.position.set(...geom.pos);
+    holder.quaternion.set(geom.quat[1], geom.quat[2], geom.quat[3], geom.quat[0]);
+    inner.add(holder);
+    pending.push(loader.loadAsync(`/mesh/${encodeURIComponent(geom.mesh)}`).then((geometry) => {
+      const mesh = new THREE.Mesh(geometry, materialFor(geom.rgba));
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      holder.add(mesh);
+    }));
+  }
+  for (const child of body.children) build(child, inner);
+};
+build(model.trunk, world);
+world.children[0].position.set(0, 0, 0);
+await Promise.all(pending);
+
+// Stand the feet on the floor and centre the duck.
+world.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(world);
+world.position.y -= box.min.y;
+world.position.x -= (box.min.x + box.max.x) / 2;
+world.position.z -= (box.min.z + box.max.z) / 2;
+world.updateMatrixWorld(true);
+box.setFromObject(world);
+const centre = box.getCenter(new THREE.Vector3());
+
+// A long lens (almost no perspective) looking at the duck's centre; then the frame is cut to
+// exactly the duck's outline (every vertex projected) plus MARGIN, so the PNG has no empty edges.
+// The first pass (?measure) writes that outline's width/height into the page; render_duck.py then
+// opens the second pass in a window of that shape.
+const camera = new THREE.PerspectiveCamera(14, 1, 0.01, 50);
+const dir = new THREE.Vector3(Math.sin(AZIMUTH) * Math.cos(ELEVATION), Math.sin(ELEVATION), Math.cos(AZIMUTH) * Math.cos(ELEVATION));
+camera.position.copy(centre).addScaledVector(dir, 3);
+camera.lookAt(centre);
+camera.updateMatrixWorld(true);
+camera.updateProjectionMatrix();
+let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+const point = new THREE.Vector3();
+world.traverse((object) => {
+  if (!object.isMesh) return;
+  const positions = object.geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) {
+    point.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld).project(camera);
+    minX = Math.min(minX, point.x); maxX = Math.max(maxX, point.x);
+    minY = Math.min(minY, point.y); maxY = Math.max(maxY, point.y);
+  }
+});
+const pad = MARGIN * Math.max(maxX - minX, maxY - minY);
+minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+const aspect = (maxX - minX) / (maxY - minY);
+if (params.has("measure")) {
+  const out = document.createElement("pre");
+  out.id = "aspect";
+  out.textContent = aspect.toFixed(5);
+  document.body.appendChild(out);
+}
+// The full frame is a square of 2 × 2 NDC units, FULL pixels a side; the view is the outline in it.
+const FULL = 10000;
+camera.setViewOffset(FULL, FULL, ((minX + 1) / 2) * FULL, ((1 - maxY) / 2) * FULL, ((maxX - minX) / 2) * FULL, ((maxY - minY) / 2) * FULL);
+renderer.render(scene, camera);
+document.title = "rendered";
+</script>
+</body>
+</html>

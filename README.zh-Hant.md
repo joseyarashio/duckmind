@@ -1,3 +1,5 @@
+<p align="center"><a href="https://github.com/joseyarashio/duckmind"><img src="docs/media/hero/hero.zh-Hant.webp" alt="duckmind：給相容 Microduck 的機器鴨用的寵物大腦，配上模擬器頁面的截圖和模擬器算出的 Microduck 3D 模型" width="100%"></a></p>
+
 [English](README.md) | **繁體中文** | [简体中文](README.zh-Hans.md) | [Español](README.es.md) | [Français](README.fr.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # duckmind
@@ -80,6 +82,7 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - **教牠把戲：** 趴下、鞠躬、甩一甩、轉圈、翻跟斗，在「訓練」分頁看每個把戲有多熟。
 - **看牠的內心：** 牠現在想做什麼、為什麼、怕不怕、長到哪裡了。
 - **布置家裡：** 自己擺家具、放門檻和地毯，看牠怎麼過門檻、繞牆、找路回家。
+- **自己回去充電：** 電快用完時，牠會自己走回充電座，倒退進去坐下來充電（在模擬器裡）。官方沒有充電座套件；想自己動手做一個，設計規格在 [docs/dock-hardware.zh-Hant.md](docs/dock-hardware.zh-Hant.md)。
 - **訓練新動作：** 用同一套工具訓練新的動作網路（mjlab，A100 或本機），裝進動作表給牠用。
 - 完整的動作清單在 [docs/motions.md](docs/motions.md)（繁中：[docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)）。
 

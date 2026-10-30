@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<!-- The README hero banner (generate.py fills this in per language; do not edit hero.<lang>.html). -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200, height=630">
+<title>duckmind — README hero (English)</title>
+<link rel="stylesheet" href="../../../../src/duckmind/simweb/static/fonts/fonts.css">
+<style>
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    position: relative;
+    background-color: #090a0f;
+    color: #ffffff;
+    font-family: 'DM Sans', 'Noto Sans TC', sans-serif;
+    /* Anton has one weight; the CJK display text next to it uses Noto's real 900 */
+    font-synthesis: none;
+  }
+
+  .display {
+    font-family: 'Anton', 'Noto Sans TC', sans-serif;
+  }
+
+  .mono {
+    font-family: 'JetBrains Mono', 'Noto Sans TC', monospace;
+  }
+
+  /* Stage lighting */
+  .hero-backdrop {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 80% 40%, rgba(255, 122, 47, 0.32) 0%, rgba(255, 47, 168, 0.16) 35%, transparent 65%),
+      radial-gradient(circle at 18% 18%, rgba(47, 240, 230, 0.15) 0%, transparent 48%),
+      linear-gradient(180deg, #101018 0%, #07070a 100%);
+    z-index: 1;
+  }
+
+  /* Halftone dot grid */
+  .halftone-grid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.085) 1.5px, transparent 1.6px);
+    background-size: 16px 16px;
+    mask-image: radial-gradient(ellipse at center, black 45%, transparent 82%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 45%, transparent 82%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Top bar */
+  .top-partner-bar {
+    position: relative;
+    z-index: 10;
+    height: 36px;
+    background: rgba(8, 8, 12, 0.85);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 44px;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.75);
+    white-space: nowrap;
+  }
+
+  .partner-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .partner-badge {
+    background: #FF7A2F;
+    color: #08080c;
+    font-weight: 700;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+  }
+
+  .partner-right {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  /* Header */
+  .main-nav {
+    position: relative;
+    z-index: 10;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 44px;
+  }
+
+  .logo-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 48px;
+    height: 38px;
+    display: block;
+  }
+
+  .brand-name {
+    font-size: 28px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #ffffff;
+  }
+
+  .brand-chip {
+    font-size: 11px;
+    font-weight: 700;
+    color: #FFD23F;
+    background: rgba(255, 210, 63, 0.15);
+    border: 1px solid rgba(255, 210, 63, 0.4);
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+  }
+
+  .nav-cta-btn {
+    background: #FF7A2F;
+    border: 2px solid #08080c;
+    box-shadow: 4px 4px 0 #FF2FA8;
+    color: #08080c;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Hero */
+  .hero-container {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 500px 1fr;
+    gap: 28px;
+    padding: 8px 44px 0 44px;
+    align-items: center;
+    height: 440px;
+  }
+
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .kicker-tag {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #FF7A2F;
+    margin-bottom: 4px;
+  }
+
+  .hero-headline {
+    font-size: 84px;
+    font-weight: 400;
+    line-height: 0.9;
+    letter-spacing: 0.015em;
+    text-transform: uppercase;
+    color: #FFD23F;
+    text-shadow:
+      0.05em 0.05em 0 #08080c,
+      -0.025em 0 0 #2FF0E6,
+      0.025em 0 0 #FF2FA8;
+    margin: 4px 0 8px 0;
+  }
+
+  .hero-subheadline {
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #ffffff;
+    -webkit-text-stroke: 1.2px #FF2FA8;
+    text-shadow: 2px 2px 0 #08080c;
+    margin-bottom: 14px;
+  }
+
+  .hero-desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.82);
+    max-width: 480px;
+    margin-bottom: 22px;
+    text-wrap: pretty;
+  }
+
+  .hero-desc strong {
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .cta-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .btn-primary {
+    background: #FF7A2F;
+    border: 3px solid #08080c;
+    box-shadow: 6px 6px 0 #FF2FA8;
+    color: #08080c;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 12px 22px;
+    white-space: nowrap;
+    transform: rotate(-0.5deg);
+  }
+
+  .btn-secondary {
+    background: #faf8f2;
+    border: 3px solid #08080c;
+    box-shadow: 5px 5px 0 #FFD23F;
+    color: #08080c;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 12px 18px;
+    white-space: nowrap;
+    transform: rotate(0.8deg);
+  }
+
+  /* Right: the simulator in a browser frame, the duck in front of it */
+  .right-col {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .screen-card-frame {
+    position: relative;
+    width: 495px;
+    height: 338px;
+    background: #f2ecdd;
+    border: 4px solid #08080c;
+    box-shadow: 10px 10px 0 #2FF0E6, 10px 10px 0 3px #08080c;
+    transform: rotate(0.6deg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    z-index: 5;
+  }
+
+  .frame-header {
+    height: 32px;
+    background: #FFD23F;
+    border-bottom: 3px solid #08080c;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 12.5px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: #08080c;
+    text-transform: uppercase;
+  }
+
+  .frame-header .dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .frame-header .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid #08080c;
+  }
+  .dot-red { background: #ff5f56; }
+  .dot-yellow { background: #faf8f2; }
+  .dot-green { background: #27c93f; }
+
+  .frame-body {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+  }
+
+  .frame-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 30%;
+    display: block;
+  }
+
+  .comic-bubble {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    max-width: 330px;
+    background: #faf8f2;
+    border: 3px solid #08080c;
+    box-shadow: 4px 4px 0 #FF2FA8;
+    padding: 7px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 10;
+  }
+
+  .comic-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .comic-badge {
+    background: #FF2FA8;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    padding: 1px 6px;
+    border: 1.5px solid #08080c;
+    text-transform: uppercase;
+  }
+
+  .comic-tag-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .comic-text {
+    font-size: 11.5px;
+    color: #08080c;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .comic-text span {
+    color: #C2500A;
+    white-space: nowrap;
+  }
+
+  .duck-render {
+    position: absolute;
+    right: 6px;
+    bottom: 10px;
+    height: 350px;
+    z-index: 15;
+    filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.75)) drop-shadow(4px 4px 0 rgba(8, 8, 12, 0.5));
+    transform: rotate(-2deg);
+  }
+
+  .duck-render img {
+    height: 100%;
+    width: auto;
+    display: block;
+  }
+
+  .robot-badge {
+    position: absolute;
+    right: 28px;
+    top: 14px;
+    background: #2FF0E6;
+    border: 3px solid #08080c;
+    box-shadow: 5px 5px 0 #08080c;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #08080c;
+    text-transform: uppercase;
+    transform: rotate(4deg);
+    z-index: 16;
+  }
+
+  /* The tilted tape */
+  .tilted-marquee-ribbon {
+    position: absolute;
+    bottom: 32px;
+    left: -40px;
+    right: -40px;
+    height: 38px;
+    background: #FFD23F;
+    border-top: 3px solid #08080c;
+    border-bottom: 3px solid #08080c;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+    transform: rotate(-1.3deg);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 18px;
+    padding: 0 60px;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #08080c;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .marquee-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .star-bullet {
+    color: #FF2FA8;
+    font-size: 16px;
+  }
+
+  /* Small print: two right-aligned lines under the tape's high end */
+  .small-print {
+    position: absolute;
+    bottom: 4px;
+    right: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 9.5px;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.4);
+    z-index: 21;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero-backdrop"></div>
+<div class="halftone-grid"></div>
+
+<div class="top-partner-bar">
+  <div class="partner-left">
+    <span class="partner-badge">PET ROBOTICS</span>
+    <span>UNOFFICIAL • FOR MICRODUCK-COMPATIBLE ROBOTS • OPEN-SOURCE PET BRAIN</span>
+  </div>
+  <div class="partner-right mono">PYTHON 3.12 + MUJOCO • CODE: APACHE-2.0</div>
+</div>
+
+<div class="main-nav">
+  <div class="logo-group">
+    <img class="logo-mark" src="duck-eye.svg" alt="">
+    <span class="brand-name display">duckmind</span>
+    <span class="brand-chip">PET BRAIN</span>
+  </div>
+  <div class="nav-cta-btn display">★ STAR ON GITHUB</div>
+</div>
+
+<div class="hero-container">
+  <div class="left-col">
+    <div class="kicker-tag">A PET BRAIN FOR MICRODUCK-COMPATIBLE ROBOT DUCKS</div>
+    <h1 class="hero-headline display">DUCKMIND</h1>
+    <div class="hero-subheadline display">MOODS • MEMORIES • GROWING UP</div>
+    <p class="hero-desc">Gives a small robot duck a mind of its own. <strong>Not a scripted remote-control toy</strong>: it has moods and curiosity, remembers people, learns tricks and slowly grows up. Try it today in a 3D physics simulator in your browser.</p>
+    <div class="cta-group">
+      <div class="btn-primary display">OPEN THE 3D SIMULATOR →</div>
+      <div class="btn-secondary display">GITHUB REPO ★</div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="screen-card-frame">
+      <div class="frame-header display">
+        <div class="dots">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+        </div>
+        <span>DUCKMIND SIMWEB // 3D SIMULATOR</span>
+        <span>127.0.0.1:8765</span>
+      </div>
+      <div class="frame-body">
+        <img src="screenshot.webp" alt="" class="frame-img">
+        <div class="comic-bubble">
+          <div class="comic-badge-row">
+            <span class="comic-badge display">DECIDES ON ITS OWN</span>
+            <span class="comic-tag-sub mono">SYSTEM 1 &amp; 2</span>
+          </div>
+          <span class="comic-text">Told to flip, it didn't: it was sitting there, napping. <span>(Zzz • 蛋黃)</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="duck-render">
+      <img src="duck.png" alt="">
+    </div>
+
+    <div class="robot-badge display">★ SIM-TO-REAL: PLANNED ★</div>
+  </div>
+</div>
+
+<div class="tilted-marquee-ribbon display">
+  <div class="marquee-item"><span class="star-bullet">★</span><span>FAST REFLEXES + SLOW CORTEX (SYSTEM 1 & 2)</span></div>
+  <div class="marquee-item"><span class="star-bullet">★</span><span>SEEDED PERSONALITY</span></div>
+  <div class="marquee-item"><span class="star-bullet">★</span><span>4 GROWTH STAGES</span></div>
+  <div class="marquee-item"><span class="star-bullet">★</span><span>EVOLVING CALL LINEAGE</span></div>
+  <div class="marquee-item"><span class="star-bullet">★</span><span>RUNS LOCALLY • CLOUD OPTIONAL</span></div>
+  <div class="marquee-item"><span class="star-bullet">★</span><span>GITHUB: JOSEYARASHIO/DUCKMIND</span></div>
+</div>
+
+<div class="small-print">
+  <span>Duck: simulator render of Pollen Robotics' Microduck 3D model (CC BY-NC-SA 4.0).</span>
+  <span>* Unofficial project. duckmind is not affiliated with or endorsed by Pollen Robotics. Microduck is a trademark of Pollen Robotics.</span>
+</div>
+
+<script>
+  // The tape is one line: in long languages its words get a little smaller until they fit.
+  document.fonts.ready.then(() => {
+    const tape = document.querySelector(".tilted-marquee-ribbon");
+    let size = 13;
+    while (tape.scrollWidth > tape.clientWidth && size > 9) {
+      size -= 0.25;
+      tape.style.fontSize = `${size}px`;
+    }
+  });
+</script>
+
+</body>
+</html>
