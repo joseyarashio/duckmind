@@ -12,7 +12,14 @@ import threading
 import pytest
 
 from duckmind.neuro import errand as E
-from duckmind.neuro.remote import ARC_VX_MAX, DEADMAN_S, HANDBACK_S, LEASE_S, RemoteHand, clamp_twist
+from duckmind.neuro.remote import (
+    ARC_VX_MAX,
+    DEADMAN_S,
+    HANDBACK_S,
+    LEASE_S,
+    RemoteHand,
+    clamp_twist,
+)
 from duckmind.simweb import remote_ws
 from tests.test_neuro_live import drive, robot_state, stub_driver
 

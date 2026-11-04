@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from duckmind.duckcore import content
 from duckmind.i18n import msg
@@ -95,6 +95,9 @@ from duckmind.neuro.perceive import (
 )
 from duckmind.neuro.telemetry import stimulus_zh
 from duckmind.neuro.unstick import Escape, Unstick
+
+if TYPE_CHECKING:
+    from duckmind.neuro.genome import Genome
 
 # While a reflex holds the whole body, the command names the reflex's own program.
 HOLD_BEHAVIOUR = {

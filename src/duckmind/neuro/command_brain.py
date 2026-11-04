@@ -38,7 +38,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 
 from duckmind.i18n import msg
 from duckmind.neuro import contract as C
