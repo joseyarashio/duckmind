@@ -104,3 +104,7 @@ The full standard, with its tokens and component classes, is
 - Say which checks you ran. For page changes, say which screen sizes and languages
   you looked at.
 - Security problems: please do not open a public issue; see [SECURITY.md](SECURITY.md).
+- How a pull request lands: this repository is published from the maintainer's development
+  line, so a merged change arrives in a sync commit instead of a GitHub "merge". Your commit is
+  applied with your authorship kept, and the sync commit credits you as a co-author; the pull
+  request is then closed with a note pointing to that commit.

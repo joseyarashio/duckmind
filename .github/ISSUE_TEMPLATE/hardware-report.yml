@@ -1,0 +1,49 @@
+name: Real-hardware report (Microduck owners)
+description: Tell us what a real Microduck does. Even "it fell over immediately" helps.
+title: "[hardware] "
+labels: ["hardware-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you! duckmind has only run in simulation so far, so every real measurement helps.
+        **Please read [SAFETY.md](https://github.com/joseyarashio/duckmind/blob/main/SAFETY.md) first.**
+        Nothing here is validated on hardware: test on the floor, supervised, with a hand ready on stop,
+        and never leave the robot charging unattended. Every tester is credited in the repository.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I read SAFETY.md and tested on the floor, supervised.
+          required: true
+  - type: checkboxes
+    id: what
+    attributes:
+      label: What did you check?
+      options:
+        - label: "Charging: the real charge input (port type, location, voltage)"
+        - label: "Battery: the voltage-based battery % while walking"
+        - label: "Walking: how closely the v5 walk follows commanded speed / turning"
+        - label: "Door sills: does a 1–2 cm sill trip it?"
+        - label: "A trained skill policy from huggingface.co/joseyarashio/duckmind-motion-skills"
+        - label: Something else
+  - type: input
+    id: setup
+    attributes:
+      label: Robot and software
+      description: Microduck revision / DIY build, robotd version, policy set, floor type.
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: What happened
+      description: Numbers if you have them (e.g. commanded 0.4 m/s for 5 s → walked 0.9 m), logs, photos or a video link.
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: How should we credit you?
+      description: A name or handle for the testers list (leave empty to stay anonymous).
