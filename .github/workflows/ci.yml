@@ -9,9 +9,25 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - run: uv run ruff check src tests
+
   tests:
+    # The suite takes about an hour on one runner, so the test files are dealt round-robin
+    # (sorted by name) into four shards that run side by side.
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -20,12 +36,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install
-        run: uv sync --extra dev
-      - name: Lint
-        run: uv run ruff check src tests
-      - name: Tests (without the physics simulator; those tests skip)
-        run: uv run pytest -q -p no:cacheprovider
+      - run: uv sync --extra dev
+      - name: Tests, shard ${{ matrix.shard }} of 4 (without the physics simulator; those tests skip)
+        run: |
+          files=$(python3 -c "import glob; f = sorted(glob.glob('tests/test_*.py')); print(' '.join(f[${{ matrix.shard }}::4]))")
+          uv run pytest -q -p no:cacheprovider $files
 
   secrets:
     runs-on: ubuntu-latest
