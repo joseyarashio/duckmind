@@ -9,33 +9,45 @@ robot for unsupervised play.
 
 ## 1. Confirm the actual board first
 
-The reference is the official [Radxa Zero 3 / Armbian 26.2.1 Minimal dev-board
-guide](https://github.com/pollen-robotics/microduck/blob/a9ec4b2079ef8ee7904014089c885bb07d57d63c/docs/robot/install-dev.md).
-Do not assume your board matches this reference. Record:
+Robots that ship run Pollen's **beta board** (Seeed RK3566) with the V1.0 face board and the
+Yocto A/B image the factory flashes (`pollen-robotics/microduck_yocto`). A hand-built dev board
+follows the [Radxa Zero 3 / Armbian dev-board
+guide](https://github.com/pollen-robotics/microduck/blob/daemon-v0.18.5/docs/robot/install-dev.md).
+Do not assume your board matches either. Record:
 
 - board/OS/architecture, Python `>=3.12`, actual motor/head/servo revision,
   head travel stops, battery rail, physical kill method, and the Python-linked
   SQLite version/patch status for WAL safety;
 - official `robotctl health` result, real battery percentage, `robotd` hello
-  API/version/revision, `robot.subscribe` walk policy and policy manifest;
+  API/version/revision, `robot.subscribe` walk policy and policy manifest
+  (`.source` version: daemon 0.16.2+ and the factory image install set v8);
 - whether a gamepad/operator can safely start and stop the official policy;
-- actual robotd binary and v5 policy hashes in the bench report.
+- actual robotd binary and walk/sitstand policy hashes in the bench report;
+- both layers of `robotd.toml`: the image's `/etc/robot/robotd.toml` and the
+  owner's `/var/lib/robot/robotd.toml` (it survives OS updates). Since daemon
+  0.15.2–0.16.2 robotd pauses the policy while it thinks the duck is held
+  (`[pickup]`), runs its own idle head and yawn (`[idle]`) and goes limp in a
+  fall (`[safety] limp_fall`), all on by default; record what this board runs;
+- usage data: since daemon 0.18.3 the robot sends anonymous usage data
+  (`docs/robot/telemetry.md` upstream; `telemetry.set` turns it off). Duck Mind
+  sends nothing itself.
 
-The service checks API 37 and the loaded `robot.policies` report: enabled,
-homed, unoverridden official walk at
-`/opt/robot/policies/current/velstand.onnx`, with no slot/change error. It
-also requires that path's current ONNX file to match the reviewed v5 SHA-256
-`1c659be55da94bc5753b707de5c6a3e7c49931e05ca3b6991615cef1a8ba9a45`.
+The service checks the head profile as a capability: a robotd at API 37 or later
+(robot.head's parameters are unchanged through API 49) with `velstand.onnx` in
+the walk slot. It checks the loaded `robot.policies` report: enabled, homed,
+unoverridden official walk at `/opt/robot/policies/current/velstand.onnx`, with
+no slot/change error. On disk, that file must belong to the official set
+(`.source` names `pollen-robotics/microduck-policies`) whose `manifest.json`
+declares it as the walk slot with the 61-observation/14-action contract at
+50 Hz (sets v5 to v8 do; upstream's manifest carries no per-file hashes). The
+file's SHA-256 is taken when play is enabled and play stops if it changes.
 It rejects absent real battery, unhealthy robotd, fall/limp and commanded
-motion. A same-basename override or disk-byte drift is refused. The digest is
-bound to the local v5 model probe,
-not provided by the upstream manifest. These checks are necessary but **not
+motion, and a same-basename override. These checks are necessary but **not
 sufficient**: the locally built official `robotd` reported `revision: null`,
 and the online report plus disk hash do not attest bytes already loaded in
 robotd memory, its binary, servo firmware or mechanics. Record and review
-their identities separately. The upstream seeder accepts newer official sets;
-if this board has one, do not bypass the guard—review that set and cut a new
-Duck Mind release before play.
+their identities separately; the operator's bench approval of the release is
+what clears a board for play.
 
 ## 2. Build and transfer a wheel
 

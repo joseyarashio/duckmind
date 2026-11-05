@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / core (2115 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / core (2116 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "core", {
 "bodyhost.assess.07fced96": "제어 프로그램(robotd)이 {seconds, number, ::.0}초째 명령을 안 보내서 물리가 멈췄어요",
 "bodyhost.assess.1428e8f9": "컴퓨터가 너무 바빠서 시뮬레이션이 느려졌어요",
@@ -1750,6 +1750,7 @@ DuckI18n.load("ko", "core", {
 "livebody.LiveBody._watch.12de7740": "물리 모니터를 읽을 수 없어요(몸 서버가 응답하지 않아요)",
 "livebody.LiveBody._watch.82fa94a5": "몸 서버가 이미 멈췄어요",
 "livebody.LiveBody.monitor_view.270a224b": "물리 모니터가 {age, number, ::precision-integer}초째 업데이트되지 않았어요",
+"livebody.LiveBody.monitor_view.walk_backlash": "걷기 신경망은 기어에 약간 유격이 있는 몸으로 연습했는데, 이번 모의 몸에는 유격이 없어서 걷기 숫자가 정확하지 않아요",
 "world.apartment.ZH.ball": "공",
 "world.apartment.ZH.bed_base": "침대",
 "world.apartment.ZH.bed_blanket": "이불",

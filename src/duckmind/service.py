@@ -26,7 +26,7 @@ from duckmind.behavior import BehaviorChoice, choose_invitation
 from duckmind.body import BodyPort
 from duckmind.learning import PreferenceLearner
 from duckmind.pet_body_trace import BodyTraceRecorder
-from duckmind.policy_approval import loaded_official_v5_walk, official_v5_walk_file_matches
+from duckmind.policy_approval import loaded_official_walk, official_walk_fingerprint
 from duckmind.provenance import Episode, Event, Outcome, OutcomeVerdict, SourceRef
 from duckmind.robotd import RobotdBodyPort, RobotdSafetyClient
 from duckmind.runtime import DuckRuntime
@@ -64,7 +64,7 @@ class PetController:
         approved_release_id: str | None = None,
         release_id_path: Path = BOARD_RELEASE_ID_FILE,
         sim_body_trace: Path | None = None,
-        policy_file_check: Callable[[], bool] | None = None,
+        policy_file_check: Callable[[], str | None] | None = None,
     ) -> None:
         if backend not in {"real", "simulator"}:
             raise ValueError("backend must be real or simulator")
@@ -77,7 +77,10 @@ class PetController:
         self.approved_release_id = approved_release_id
         self.release_id_path = release_id_path
         self.sim_body_trace = sim_body_trace
-        self._policy_file_check = policy_file_check or official_v5_walk_file_matches
+        # the official walk file's sha256 as the capability check returned it (policy_approval); play
+        # keeps the one it was enabled with: the file changing under a running play stops it
+        self._policy_file_check = policy_file_check or official_walk_fingerprint
+        self._walk_fingerprint: str | None = None
         self._body_factory = body_factory or (
             lambda: RobotdBodyPort(self.robotd_socket, backend=backend, timeout_s=1.0)
         )
@@ -153,8 +156,8 @@ class PetController:
             policies = safety.policies() if self.backend == "real" else None
         if health.get("healthy") is not True:
             raise RuntimeError(f"robotd_unhealthy:{health.get('reason') or 'unknown'}")
-        if self.backend == "real" and not loaded_official_v5_walk(policies):
-            raise RuntimeError("loaded_v5_walk_mismatch")
+        if self.backend == "real" and not loaded_official_walk(policies):
+            raise RuntimeError("loaded_walk_mismatch")
         battery = health.get("battery")
         if battery is None:
             if self.backend == "real":
@@ -171,8 +174,13 @@ class PetController:
             ):
                 raise RuntimeError("battery_malformed")
             battery_fraction = float(percent) / 100.0
-        if self.backend == "real" and self._policy_file_check() is not True:
-            raise RuntimeError("official_v5_walk_bytes_mismatch")
+        if self.backend == "real":
+            fingerprint = self._policy_file_check()
+            if fingerprint is None:
+                raise RuntimeError("official_walk_contract_mismatch")
+            if self.runtime.state.play_enabled and fingerprint != self._walk_fingerprint:
+                raise RuntimeError("official_walk_changed")
+            self._walk_fingerprint = fingerprint
         with self._body_factory() as body:
             if isinstance(body, RobotdBodyPort) and not body.supports_v5_head_profile:
                 raise RuntimeError("unsupported_robotd_head_profile")

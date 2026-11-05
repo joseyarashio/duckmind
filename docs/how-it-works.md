@@ -29,7 +29,7 @@ flowchart LR
 - **The body** is Pollen Robotics' `robotd` controller running against MuJoCo physics. It owns walking, the trained one-shot skills (sit/stand, kicks, flinches …) and the low-level safety stops. duckmind never edits it; it talks to it over its socket like a real duck's brain would.
 - **The neural duck** (`duckmind.neuro`) is the brain that runs every tick: senses → reflexes → feelings → choose a behaviour → move.
 - **Duck Core** (`duckmind.duckcore`) is the slow self: what happened, what the duck remembers, who it is close to, how it grows day by day.
-- **The page** (`duckmind.simweb`) shows the duck, its world and *why* it does what it does, in six languages.
+- **The page** (`duckmind.simweb`) shows the duck, its world and *why* it does what it does, in six languages. The main page is for players: the 3D duck with its command strip, and four tabs — Play, Training, Growth, My duck. Everything for development (the full brain, the physics body, the motion lab, the whole growth record and its fast-forward test, the home editor, the test evidence) is on the Lab page (`/lab`).
 
 ## 2. The brain: reflexes and cortex
 
@@ -112,5 +112,4 @@ New motions are trained in MuJoCo (mjlab-based RL on a GPU box) and must pass `d
 - **Voice recognition**: local, six-language recognition is planned; today praise is a button. The name detector (keyword spotting) failed acceptance. Next: retrain on more local voices, never using outside services.
 - **False "brushed a wall" guesses** sometimes steer walking. Next: require agreement between touch and ToF before it turns.
 - **Standing up takes ~1.9 s** to start (robotd's sit/stand switch). Next: a faster switch in the body layer.
-- **Interface rework** into Play / Training / Growth / My duck.
 - **Personality check**: a χ² test that trick obedience really differs by temperament has not been run yet.

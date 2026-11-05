@@ -86,8 +86,9 @@ In one sentence: **a little robot duck that slowly grows into a pet that truly b
 - **Interact with it:** clap, call its name, pat its head, throw a ball, pick it up, turn off the lights, and watch how its reflexes and moods respond.
 - **Give commands (in six languages):** Sit, Stand up, Come, Look at me, Stop, Follow me, Go home; tap the floor to send it there (experimental); or switch to Remote mode.
 - **Teach it tricks:** Lie down, Bow, Shake, Spin, Flip; the "Training" tab shows how well it knows each one.
-- **See inside its head:** what it wants to do right now, why, whether it's scared, how far it has grown.
-- **Furnish the home:** place furniture, door thresholds and rugs yourself, and watch how it crosses thresholds, goes around walls and finds its way home.
+- **Watch it grow:** the "Growth" tab shows its growth day, stage and direction, who it is close to, and a short diary of what really happened to it.
+- **See inside its head (Lab page):** what it wants to do right now, why, whether it's scared — the full brain, the physics body and the motion lab are on the "Lab" page.
+- **Furnish the home (Lab page):** place furniture, door thresholds and rugs yourself, and watch how it crosses thresholds, goes around walls and finds its way home.
 - **It charges itself:** when its battery runs low it walks back to its dock, backs in and sits down to charge (in the simulator). There is no official dock kit; a design spec for building your own dock is in [docs/dock-hardware.md](docs/dock-hardware.md).
 - **Train new moves:** train new motion networks with the same tools (mjlab, on an A100 or your own machine) and add them to its move list.
 - The full list of moves is in [docs/motions.md](docs/motions.md) (繁中: [docs/motions.zh-Hant.md](docs/motions.zh-Hant.md)).

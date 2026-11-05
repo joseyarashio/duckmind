@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / core (2115 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / core (2116 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "core", {
 "bodyhost.assess.07fced96": "The control program (robotd) hasn't sent a command for {seconds, number, ::.0} s, so the physics stopped",
 "bodyhost.assess.1428e8f9": "The computer is too busy, so the simulation slowed down",
@@ -1750,6 +1750,7 @@ DuckI18n.load("en", "core", {
 "livebody.LiveBody._watch.12de7740": "Can't read the physics monitor (the body server isn't answering)",
 "livebody.LiveBody._watch.82fa94a5": "The body server has stopped",
 "livebody.LiveBody.monitor_view.270a224b": "The physics monitor hasn't updated for {age, number, ::precision-integer} s",
+"livebody.LiveBody.monitor_view.walk_backlash": "The walking network was trained on a body whose gears have a little play; this simulated body has none, so walking numbers are off",
 "world.apartment.ZH.ball": "ball",
 "world.apartment.ZH.bed_base": "bed",
 "world.apartment.ZH.bed_blanket": "blanket",

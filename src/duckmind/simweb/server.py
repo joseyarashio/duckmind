@@ -1408,8 +1408,9 @@ def make_handler(
                 self.end_headers()
                 self.wfile.write(body)
                 return
-            # (「資料」 is a view of the same page: /data serves the page, shell.js shows that view)
-            if path in {"/", "/index.html", "/data", "/data/"}:
+            # (「實驗室」 is a view of the same page: /lab — and its old address /data — serves the page,
+            # shell.js shows that view)
+            if path in {"/", "/index.html", "/lab", "/lab/", "/data", "/data/"}:
                 path = "/index.html"
             name = path.lstrip("/")
             parts = name.split("/")

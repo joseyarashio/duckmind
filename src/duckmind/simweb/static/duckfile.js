@@ -1,4 +1,4 @@
-/* 我的小鴨檔案 (docs/duck-file.md): the 換鴨子 tab's card to export the duck this server lives and to
+/* 我的小鴨檔案 (docs/duck-file.md): the 我的小鴨 tab's card to export the duck this server lives and to
  * import a duck file as a new life on this computer.
  *   GET  /api/life/duckfile          whether this server lives a duck (else the export is put away)
  *   GET  /api/life/duckfile/export   the download (a plain link)

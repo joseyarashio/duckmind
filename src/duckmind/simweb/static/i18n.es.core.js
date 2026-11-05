@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / core (2115 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / core (2116 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "core", {
 "bodyhost.assess.07fced96": "El programa de control (robotd) lleva {seconds, number, ::.0} s sin enviar órdenes: la física se ha detenido",
 "bodyhost.assess.1428e8f9": "El ordenador está muy ocupado y la simulación va más lenta",
@@ -1750,6 +1750,7 @@ DuckI18n.load("es", "core", {
 "livebody.LiveBody._watch.12de7740": "No se puede leer la vigilancia de la física (el servidor del cuerpo no responde)",
 "livebody.LiveBody._watch.82fa94a5": "El servidor del cuerpo se ha detenido",
 "livebody.LiveBody.monitor_view.270a224b": "La vigilancia de la física lleva {age, number, ::precision-integer} s sin actualizarse",
+"livebody.LiveBody.monitor_view.walk_backlash": "La red de caminar se entrenó con un cuerpo cuyos engranajes tienen algo de holgura; este cuerpo simulado no la tiene, así que las cifras de la marcha no son fiables",
 "world.apartment.ZH.ball": "pelota",
 "world.apartment.ZH.bed_base": "cama",
 "world.apartment.ZH.bed_blanket": "edredón",

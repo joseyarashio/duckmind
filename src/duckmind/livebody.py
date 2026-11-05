@@ -18,8 +18,10 @@ The official body server is started through :mod:`duckmind.bodyhost` (owner deci
 lockstep with robotd (one 20 ms control period per robotd write), and a stall monitor that
 every frame carries as ``"monitor"`` — ``trust`` turns ``"suspect"`` with plain reasons
 (``why_zh``) when the physics cannot be trusted. ``DUCKMIND_LIVE_COLLISION``
-(``allcollisions`` | ``groundcontact``) and ``DUCKMIND_LIVE_LOCKSTEP`` (``1`` | ``0``) change
-those defaults for comparisons without new simulator flags.
+(``allcollisions`` | ``allcollisions_backlash`` | ``groundcontact``) and ``DUCKMIND_LIVE_LOCKSTEP``
+(``1`` | ``0``) change those defaults for comparisons without new simulator flags. A walk policy
+whose manifest says it was trained with gear play (velstand from policy set v8 on) gets the
+backlash body by default, and a body without it under such a walk makes the monitor suspect.
 
 Phase 2 (「真的家與真的感測器」, owner decision A1): the body runs in the world server
 ``duckmind.world.simhome`` in the page's 6×6 home made physical (``default_home``; a duck
@@ -44,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import json
 import math
 import os
 import shutil
@@ -53,7 +56,7 @@ import tempfile
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -164,6 +167,65 @@ def robotd_control_section(head_alpha: float | None) -> str:
     return f"\n[control]\nhead_alpha = {float(head_alpha)!r}\n"
 
 
+# robotd behaviours newer daemons run on their own (0.15.2+ pickup pause, 0.16.1+ idle look-around and
+# yawn, 0.16.2+ limp-fall: UPSTREAM-0185-2026-11-05). This simulator's choice, each written only when the
+# --microduck checkout's robotd-params declares the field (robotd refuses unknown fields, so a 0.15.0
+# robotd must never see them). $DUCKMIND_ROBOTD_<NAME> = on | off overrides a choice; "board" leaves
+# robotd's own default.
+#   idle      off: the brain owns the head and the beak — robotd's idle glances and yawns move both
+#             once the head has been still for 2 s, and a yawn opens a beak that holds something
+#   pickup    off: see the design note's measurement; "on" loads the checkout's own classifier
+#             (duck-control/models/pickup_detector.onnx; the release path does not exist here)
+#   limp_fall board (on): a fall goes limp, poses, then velstand v8 gets up
+ROBOTD_UPSTREAM_CHOICES = {"idle": "off", "pickup": "off", "limp_fall": "board"}
+PICKUP_MODEL = Path("duck-control") / "models" / "pickup_detector.onnx"
+
+
+def robotd_params_fields(microduck: Path) -> frozenset[str]:
+    """The ``Params`` sections and ``SafetyParams`` fields the checkout's robotd-params declares
+    (``idle``, ``pickup``, ``safety.limp_fall``); empty when the source is not there."""
+    try:
+        text = (microduck / "robotd-params" / "src" / "lib.rs").read_text(encoding="utf-8")
+    except OSError:
+        return frozenset()
+    found = set()
+    for name, needle in (
+        ("idle", "pub idle: IdleParams"),
+        ("pickup", "pub pickup: PickupParams"),
+        ("limp_fall", "pub limp_fall: bool"),
+    ):
+        if needle in text:
+            found.add(name)
+    return frozenset(found)
+
+
+def robotd_upstream_section(microduck: Path, environ: Mapping[str, str] | None = None) -> str:
+    """robotd.toml's lines for the upstream behaviours (:data:`ROBOTD_UPSTREAM_CHOICES`) this
+    checkout's robotd has; '' for a robotd that has none of them (0.15.0)."""
+    env = os.environ if environ is None else environ
+    fields = robotd_params_fields(microduck)
+    out: list[str] = []
+    for name, default in ROBOTD_UPSTREAM_CHOICES.items():
+        if name not in fields:
+            continue
+        choice = (env.get(f"DUCKMIND_ROBOTD_{name.upper()}") or default).strip().lower()
+        if choice not in ("on", "off", "board"):
+            raise ValueError(
+                f"DUCKMIND_ROBOTD_{name.upper()} must be on, off or board, not {choice}"
+            )
+        if choice == "board":
+            continue
+        on = "true" if choice == "on" else "false"
+        if name == "limp_fall":
+            out += ["", "[safety]", f"limp_fall = {on}"]
+        elif name == "pickup" and choice == "on":
+            model = microduck / PICKUP_MODEL
+            out += ["", "[pickup]", "enabled = true", f"model = {json.dumps(str(model))}"]
+        else:
+            out += ["", f"[{name}]", f"enabled = {on}"]
+    return "\n".join(out) + "\n" if out else ""
+
+
 class LinkWatch:
     """How long one body link (robotd's state stream, its command line, the oracle) has been silent.
 
@@ -220,11 +282,41 @@ MONITOR_FIELDS = (
 )
 
 
-def live_choice(collision: str | None = None, lockstep: bool | None = None) -> tuple[str, bool]:
+# mjlab's backlash task variants are named Mjlab-<Task>-<Flat|Rough>-Backlash-MicroDuck
+# (microduck_rl tasks/backlash.py); policy set v8's velstand declares
+# Mjlab-VelStand-Rough-Backlash-MicroDuck in its manifest, v5's declares no task at all.
+BACKLASH_TASK_MARK = "-Backlash-"
+
+
+def walk_trained_with_backlash(policies: Path | None) -> bool:
+    """Whether the policy set's ``manifest.json`` declares its walk slot trained on the robot with
+    gear play (``training.task_id`` of a backlash task). No manifest, no walk slot or no task
+    named (v5): False."""
+    if policies is None:
+        return False
+    try:
+        manifest = json.loads((Path(policies) / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    entries = manifest.get("policies") if isinstance(manifest, Mapping) else None
+    for entry in entries if isinstance(entries, list) else ():
+        if isinstance(entry, Mapping) and entry.get("slot") == "walk":
+            training = entry.get("training")
+            task = training.get("task_id") if isinstance(training, Mapping) else None
+            return isinstance(task, str) and BACKLASH_TASK_MARK in task
+    return False
+
+
+def live_choice(
+    collision: str | None = None, lockstep: bool | None = None, policies: Path | None = None
+) -> tuple[str, bool]:
     """The collision model and stepping to run: given, else ``DUCKMIND_LIVE_COLLISION`` /
-    ``DUCKMIND_LIVE_LOCKSTEP``, else the owner's defaults."""
+    ``DUCKMIND_LIVE_LOCKSTEP``, else the owner's defaults — the whole body, with gear play
+    (``allcollisions_backlash``) when the walk policy in ``policies`` was trained with it."""
     if collision is None:
-        collision = os.environ.get("DUCKMIND_LIVE_COLLISION") or DEFAULT_COLLISION
+        collision = os.environ.get("DUCKMIND_LIVE_COLLISION") or (
+            "allcollisions_backlash" if walk_trained_with_backlash(policies) else DEFAULT_COLLISION
+        )
     if collision not in bodyhost.COLLISIONS:
         raise ValueError(
             f"unknown collision model {collision!r}; known: {sorted(bodyhost.COLLISIONS)}"
@@ -483,8 +575,12 @@ class LiveBody:
         self.home = live_home(home, nest=nest)
         self.tof = tof
         # Which robot model the physics collides with, and whether it steps in lockstep with
-        # robotd (None: the environment's choice, else the owner's defaults; live_choice).
-        self.collision, self.lockstep = live_choice(collision, lockstep)
+        # robotd (None: the environment's choice, else the owner's defaults; live_choice). A walk
+        # policy trained with gear play gets the body with it; a body chosen without it for such
+        # a walk is said in every monitor reading (monitor_view), never silent.
+        policies = getattr(paths, "policies", None)
+        self.walk_backlash = walk_trained_with_backlash(policies)
+        self.collision, self.lockstep = live_choice(collision, lockstep, policies)
         self.send_head = send_head
         # robotd zeroes a stale twist after 500 ms by itself, so a zero twist is only sent
         # while a walk is ending; streaming zeros is optional (diagnostics).
@@ -587,6 +683,7 @@ class LiveBody:
         params.write_text(
             _policy_config(self.paths.policies, none_slots=skill_table_none_slots())
             + robotd_control_section(head_alpha)
+            + robotd_upstream_section(self.paths.microduck)
             + verified_skill_section()
         )
         sock = state / "robotd.sock"
@@ -1456,6 +1553,9 @@ class LiveBody:
                 *monitor.get("why_zh", []),
                 msg("livebody.LiveBody.monitor_view.270a224b", age=age),
             ]
+            monitor = {**monitor, "trust": "suspect", "why_zh": why}
+        if self.walk_backlash and self.collision not in bodyhost.BACKLASH_COLLISIONS:
+            why = [*monitor.get("why_zh", []), msg("livebody.LiveBody.monitor_view.walk_backlash")]
             monitor = {**monitor, "trust": "suspect", "why_zh": why}
         return monitor
 

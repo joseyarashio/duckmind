@@ -132,7 +132,9 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
 
 The simulator page itself drives **simulated** remote bodies only for now: its senses (camera,
 hearing, touch, battery) and its 3D view still come from the simulated world. A real duck needs
-those senses from the robot first (see the checklist).
+those senses from the robot first (see the checklist). The page's 我的小鴨 (my duck) tab has a
+*The real duck* card: it says which body the brain drives now (the simulated one on this computer,
+or the remote one with its round trip, drops and longest silence) and lists these steps.
 
 ## Checklist for the first real duck (not verified yet)
 

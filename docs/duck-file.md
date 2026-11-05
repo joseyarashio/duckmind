@@ -13,7 +13,7 @@ a real pet does too.
 
 ## Using it
 
-**On the page.** Open the 換鴨子 (switch duck) tab. The *My duck file* card has two buttons:
+**On the page.** Open the 我的小鴨 (my duck) tab. The *My duck file* card has two buttons:
 
 * **Export duck file** downloads `<name>-<date>.duck` of the duck this simulator raises. Its mind is
   saved first, so the file is the duck as it is right now. (The button shows only when the
@@ -21,7 +21,8 @@ a real pet does too.
 * **Import duck file** lets you pick a `.duck` file. The page checks it first and tells you who is in
   it (name, growth day, how many people it knows, how many tricks it has practised). Press **Bring it
   to this computer** to make a new life folder for it. Then start the simulator with that folder
-  (`--life FOLDER`) and it is the same duck.
+  (`--life FOLDER`) and it is the same duck. The page never switches ducks by itself: the card's
+  fold-out *After importing: how do I switch to it?* says so, with the command.
 
 **On the command line.**
 

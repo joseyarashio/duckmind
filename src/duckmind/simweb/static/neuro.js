@@ -546,7 +546,7 @@
   function clearReflexes() {
     nu.lastReflex = null;
     nu.rowOf.clear();
-    $("#neuroReflexes").replaceChildren(words(make("li", { className: "empty" }), "page.neuro.clearReflexes"));
+    $("#neuroReflexes").replaceChildren(words(make("li", { className: "empty" }), "page.lab.reflex_none"));
   }
 
   function addReflex(item, at = null, minute = null) {
@@ -875,7 +875,9 @@
   /* ---------------- 逗逗牠: the stimuli ---------------- */
 
   function buildStimuli(status) {
-    const more = status.more || [];
+    // (the 玩 card has its own big buttons for some of the contract's stimuli, 抱起來 and 放下來: not twice)
+    const onCard = new Set($$("#neuroStimButtons [data-stim]").map((button) => button.dataset.stim));
+    const more = (status.more || []).filter((item) => !onCard.has(item.key));
     const box = $("#neuroMoreButtons");
     box.replaceChildren(
       ...more.map((item) => make("button", { type: "button", className: "btn small", textContent: F(item, "zh"), title: tr("page.neuro.buildStimuli.2181dd", { channels: FS(item, "channels").join(tr("fmt.sep.enum")) }) }, [])),
@@ -1021,10 +1023,7 @@
     const label = tr(nu.lights ? "page.neuro.renderButtons.24ac92" : "page.neuro.renderButtons.f5c48e");
     for (const lights of $$("[data-lights]")) if (lights.textContent !== label) lights.textContent = label;
     const can = t.stimuli || null;
-    const quick = $("#neuroQuick");
-    if (quick && quick.hidden) quick.hidden = false;
-    // (fid:fix) the stage's strip too: the same stimuli right under the 3D view
-    for (const button of $$("#neuroStim [data-stim], #neuroQuick [data-stim]")) {
+    for (const button of $$("#neuroStim [data-stim]")) {
       const ok = !can || can[button.dataset.stim] !== false;
       const off = !ok || nu.sending;
       if (button.disabled !== off) button.disabled = off;
@@ -1032,7 +1031,7 @@
     const none = !!can && Object.values(can).every((v) => v === false);
     if (none !== nu.noButtons) {
       nu.noButtons = none;
-      $("#neuroStimNote").textContent = tr(none ? "page.neuro.renderButtons.13153b" : "page.neuro.renderButtons.589a4c");
+      $("#neuroStimNote").textContent = tr(none ? "page.neuro.renderButtons.13153b" : "page.play.note");
     }
   }
 
@@ -1062,8 +1061,6 @@
     }
   }
   $("#neuroStim").addEventListener("click", sendStim);
-  const quickStrip = $("#neuroQuick");
-  if (quickStrip) quickStrip.addEventListener("click", sendStim);
 
   /* ---------------- 動作試玩: every trained motion (POST /api/neuro/motion) ---------------- */
 

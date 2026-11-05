@@ -332,7 +332,15 @@ def posture_of(view: BodyView, skills: Iterable[str] = ()) -> str:
 
 
 class SkillGuard:
-    """Start rule + wear budget for the trained skills robotd actually loaded."""
+    """Start rule + wear budget for the trained skills robotd actually loaded.
+
+    ``interrupt``: this robotd lets a chaining skill cut into a running one (daemons before 0.16.0).
+    A newer robotd runs one move at a time — a request while a skill runs is refused (in its log
+    only) — so the hand-backs that relied on cutting in (``skill_abort``, the releases, a freeze
+    taking over a startle) cannot happen there: a held run ends by not being refreshed (robotd hands
+    back to the walk at the end of its window, at most one window later), the end entries are not
+    sent (sent, they would start as a fresh skill AFTER the run ended: a zero-command tick that
+    resets the walk network mid-stride), and a run whose trunk tipped is no longer refreshed."""
 
     def __init__(
         self,
@@ -343,7 +351,9 @@ class SkillGuard:
         max_tilt_deg: float = MAX_TILT_DEG,
         abort_tilt_deg: float = ABORT_TILT_DEG,
         window_s: float = WINDOW_S,
+        interrupt: bool = True,
     ) -> None:
+        self.interrupt = bool(interrupt)
         base = dict(rules if rules is not None else DEFAULT_RULES)
         self.names = frozenset(n for n in available if n in base)
         self.rules = {n: base[n] for n in self.names}
@@ -467,14 +477,13 @@ class SkillGuard:
         if rule is None:
             return self._no(skill, "unknown")
         running = self.running(view)
-        if skill == ABORT:
-            if posture != "skill":
-                return self._no(skill, "nothing")
-            return Decision(True, skill, "ok", REASONS_ZH["ok"])
-        if skill in RELEASES:
+        if skill == ABORT or skill in RELEASES:
             fam = self.rules[running].family if running else None
-            if posture != "skill" or fam not in RELEASES[skill]:
+            if posture != "skill" or (skill in RELEASES and fam not in RELEASES[skill]):
                 return self._no(skill, "nothing")
+            if not self.interrupt:
+                # the run ends by itself (its window, unrefreshed): nothing is sent
+                return Decision(False, None, "ends_itself", REASONS_ZH["nothing"])
             return Decision(True, skill, "ok", REASONS_ZH["ok"])
         if view.held:
             return self._no(skill, "held")
@@ -483,12 +492,17 @@ class SkillGuard:
         if view.fallen or view.righting:
             return self._no(skill, "fallen")
         if posture == "skill":
+            tipped = not self.interrupt and running == self.aborted_label
             if rule.hold and running == skill:
+                if tipped:
+                    return self._no(skill, "tilt")  # not refreshed: it ends with its window
                 return Decision(True, skill, "hold", REASONS_ZH["hold"])  # a refresh: not a run
             fam = self.rules[running].family if running else None
-            if rule.free_continue and fam == rule.family:
+            if rule.free_continue and fam == rule.family and (self.interrupt or running == skill):
+                if tipped:
+                    return self._no(skill, "tilt")
                 return Decision(True, skill, "hold", REASONS_ZH["hold"])  # inside one flight
-            if not (rule.hold and fam in rule.continues):
+            if not (rule.hold and fam in rule.continues) or not self.interrupt:
                 return self._no(skill, "busy")
             if not (math.isfinite(view.tilt_deg) and view.tilt_deg < self.max_tilt_deg):
                 return self._no(skill, "tilt")
@@ -518,10 +532,12 @@ class SkillGuard:
         return Decision(True, skill, "ok", REASONS_ZH["ok"])
 
     def watch(self, view: BodyView, now_s: float) -> str | None:
-        """``skill_abort`` when a running skill tilts past ``abort_tilt_deg`` (once per run).
-        Also keeps the posture history (:meth:`observe`): call it every tick."""
+        """``skill_abort`` when a running skill tilts past ``abort_tilt_deg`` (once per run); on a
+        robotd that lets nothing cut in (``interrupt`` False) the run is only marked, so it is not
+        refreshed (:meth:`request`), and None is returned. Also keeps the posture history
+        (:meth:`observe`): call it every tick."""
         posture = self.observe(view, now_s)
-        if ABORT not in self.names:
+        if self.interrupt and ABORT not in self.names:
             return None
         if posture != "skill":
             self.aborted_label = None
@@ -533,7 +549,7 @@ class SkillGuard:
         )
         if view.tilt_deg > limit and self.aborted_label != run:
             self.aborted_label = run
-            return ABORT
+            return ABORT if self.interrupt else None
         return None
 
     def counts(self, now_s: float) -> dict[str, Any]:

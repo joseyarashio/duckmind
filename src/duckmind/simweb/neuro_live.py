@@ -61,6 +61,7 @@ from duckmind.duckbody.robotd_client import RobotdClient, RobotdError, RobotStat
 from duckmind.i18n import carried_words, lst, msg
 from duckmind.life.clock import TPE, DuckClock
 from duckmind.neuro import contract as C
+from duckmind.neuro import walkcal
 from duckmind.neuro.bodylink import (
     GATE_ZH,
     BodyLink,
@@ -1232,8 +1233,9 @@ class NeuroDriver:
             names = set(client.skills) & set(SG.DEFAULT_RULES)
             if names:
                 # the installed table's rules (the postures that passed its gates, the hourly caps
-                # from its strain numbers); the provisional defaults otherwise
-                link.skills = SW.skill_guard(names)
+                # from its strain numbers); the provisional defaults otherwise; and whether this
+                # robotd lets a skill cut into another (before daemon 0.16.0 only)
+                link.skills = SW.skill_guard(names, interrupt=client.skills_interrupt)
                 seed = int(getattr(self.spec, "seed", 7) or 7)
                 self._skill_picker = SG.SkillPicker(
                     seed=seed * 7919 + 17, available=link.skills.names
@@ -1668,7 +1670,9 @@ class NeuroDriver:
 
     def _new_link(self) -> BodyLink:
         cfg = self.lanes.link
-        return BodyLink(cfg) if cfg is not None else BodyLink()
+        link = BodyLink(cfg) if cfg is not None else BodyLink()
+        link.walk = _walk_map(self._body, link.delay_ms)
+        return link
 
     # ── lifecycle ──
 
@@ -2025,9 +2029,11 @@ class NeuroDriver:
         battery, charging = _battery(world)
         events = _events_of(last)
         depth = self._depth_step(state, bool(last is not None and last.twist != (0.0, 0.0)))
+        # the brain reads the body's twist in the units it plans in (another walk policy's commands are mapped: walkcal)
+        sensed = link.planned_state(state)
         doors = Doors(
             t_ms=t_ms,
-            state=state,
+            state=sensed,
             link=last,
             events=events,
             tof=self._tof_frame,
@@ -2046,7 +2052,7 @@ class NeuroDriver:
         else:
             frame = body_frame(
                 t_ms,
-                state,
+                sensed,
                 None if last is None else last.prox.view,
                 events=events,
                 battery=battery,
@@ -2101,7 +2107,7 @@ class NeuroDriver:
                 self.stats.errors += 1
                 self.stats.last_error = f"experience: {type(error).__name__}: {error}"
         if lanes.motor is not None:
-            request, vocals = lanes.motor(t_ms, cmd, frame, state)
+            request, vocals = lanes.motor(t_ms, cmd, frame, sensed)
         else:
             request, vocals = self._stub_motor.step(t_ms, cmd, frame)
         # an emotion plays (Pollen's microduck_emotions): it has the body and the brain holds still. Under a
@@ -2511,6 +2517,10 @@ class NeuroDriver:
             "witness": self.witness_view(),  # fid:page: what the body measurably did
             "motion": self.motion_view(),  # 「動作試玩」: what runs now, what ran last
             "remote": self.remote.view(time.monotonic()),  # remote mode: on/off, the twist, the edge latencies
+            # the loaded walk policy's map (walkcal): the measured walk the brain's twists are sent to, or None (as they are)
+            "walk_map": None
+            if self._link is None or self._link.walk is None
+            else self._link.walk.loaded.name,
             "errand": self.errand_view(),  # go there: idle | waiting | walking | arrived | gave_up (+ reason)
             **self.telemetry_store.since(int(since)),
         }
@@ -2551,6 +2561,26 @@ class NeuroDriver:
             "world": world,
             "home": home,
         }
+
+
+_WALK_TABLE: walkcal.WalkTable | None = None
+
+
+def _walk_map(body: Any, delay_ms: float) -> walkcal.WalkMap | None:
+    """The map from the brain's twists to ``body``'s walk policy (walkcal): its walk file's sha256 in its policy folder
+    (``LiveBody.paths.policies``), its collision model and the link's servo command delay. None without a body, for the
+    walk the brain was tuned on, or for a walk not measured on that body with that delay."""
+    global _WALK_TABLE
+    paths = getattr(body, "paths", None) if body is not None else None
+    policies = getattr(paths, "policies", None)
+    if policies is None:
+        return None
+    if _WALK_TABLE is None:
+        _WALK_TABLE = walkcal.load()
+    collision = getattr(body, "collision", None)
+    return _WALK_TABLE.map_for(
+        walkcal.walk_sha256(Path(policies)), None if collision is None else str(collision), delay_ms
+    )
 
 
 def _sync_head_alpha(lanes: Lanes, body: Any) -> None:

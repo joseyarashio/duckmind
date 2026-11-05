@@ -280,8 +280,25 @@ def test_the_page_has_the_prototypes_parts_and_keeps_duck_cores_hooks():
     stim = page[
         page.index('id="neuroStim"') : page.index("</section>", page.index('id="neuroStim"'))
     ]
-    assert re.findall(r'data-stim="(\w+)"', stim) == [item.key for item in N.STIMULI]
-    for label in ("拍手", "叫名字", "揮手", "摸頭", "滾球過去", "放一個新東西", "家人走過"):
+    # the 玩 card (item 6): every stimulus card button the server has, plus the contract's 抱起來／放下來
+    # (the server takes those by their contract names; neuro.js keeps them out of the 「更多」 row)
+    shown = re.findall(r'data-stim="(\w+)"', stim)
+    assert len(shown) == len(set(shown))
+    assert {item.key for item in N.STIMULI} <= set(shown)
+    assert set(shown) - {item.key for item in N.STIMULI} == {"pick_up", "set_down"}
+    assert {"pick_up", "set_down"} <= set(N.MORE_STIMULI)
+    labels = (
+        "拍手",
+        "叫名字",
+        "揮手",
+        "摸頭",
+        "滾球過去",
+        "放一個新東西",
+        "家人走過",
+        "抱起來",
+        "放下來",
+    )
+    for label in labels:
         assert f">{label}<" in stim
     at = page.index('id="neuroStim"')
     tag = page[page.rindex("<section", 0, at) : page.index(">", at)]

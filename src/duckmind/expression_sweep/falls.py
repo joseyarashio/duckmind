@@ -9,7 +9,8 @@ for 200 ms is *fallen*; one upright sample clears it. The v2 sweep's count (any 
 past 45°) stays as a secondary column: it also counts near-falls.
 
 **Self-righting** follows spec §5.4. robotd's verdict is a report, not a rule (limp-fall is
-off by default), so velstand keeps driving. duck-body zeroes ``robot.move``; if the sitstand
+off in daemon 0.15, which this sweep models; on by default from 0.16.2), so velstand keeps
+driving. duck-body zeroes ``robot.move``; if the sitstand
 network is in charge (seated) it sends ``stand``, so robotd rises for 1 s with the posture
 flag at 0 and then hands over to velstand at zero twist. The duck is up again once the
 trunk stays under 25° (which also clears robotd's verdict) for 1 s while velstand drives.

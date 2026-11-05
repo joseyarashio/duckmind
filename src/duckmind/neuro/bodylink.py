@@ -78,6 +78,7 @@ from duckmind.duckbody.righting import Righting, RightingConfig, RightingOut
 from duckmind.duckbody.robotd_client import JOINT_NAMES, MoveStreamer, RobotState
 from duckmind.duckcore import content
 from duckmind.i18n import msg
+from duckmind.neuro import walkcal
 from duckmind.neuro.liftcheck import FloorProbe
 from duckmind.skilltrain import guard as SG
 
@@ -569,6 +570,23 @@ class BodyLink:
         # the guard's last answer to a request: (skill, decision, the guard's clock) — the page's
         # 「動作試玩」 reads why a press was refused
         self.last_skill_decision: tuple[str, SG.Decision, float] | None = None
+        # The loaded walk policy's map (walkcal): set by the driver when the body runs a walk other than the one the
+        # brain was tuned on (None: the brain's twist goes out as it is). ``walk_sent`` = (the command sent, the brain's
+        # twist it was made from), so proprio's own-turn model reads the twist it was tuned with.
+        self.walk: walkcal.WalkMap | None = None
+        self.walk_sent: tuple[tuple[float, float], tuple[float, float]] | None = None
+
+    def planned_state(self, state: RobotState) -> RobotState:
+        """``state`` as the brain reads it: robotd's requested and applied twists in the units the brain plans in (the
+        walk it was tuned on; :meth:`walkcal.WalkMap.planned`). Without a walk map, ``state`` itself."""
+        walk = self.walk
+        if walk is None:
+            return state
+        rx, ry, rw = state.requested
+        ax, ay, aw = state.applied
+        rx, rw = walk.planned(rx, rw)
+        ax, aw = walk.planned(ax, aw)
+        return replace(state, requested=(rx, ry, rw), applied=(ax, ay, aw))
 
     # ── helpers ──
 
@@ -936,6 +954,8 @@ class BodyLink:
         t_ns = state.t_ns
         t_ms = t_ns // MS
         sent = self.streamer.last
+        if self.walk_sent is not None and sent == self.walk_sent[0]:
+            sent = self.walk_sent[1]
         touch = bool(depth is not None and depth.touch)
         prox = self.proprio.step(state, cmd=(sent[0], sent[1]), touch=touch)
         prox = self._confirm_lift(prox, t_ns, touch)  # a push into a wall is not a pickup
@@ -1209,6 +1229,12 @@ class BodyLink:
                 delay_compensated_vx(twist[0], self.delay_ms),
                 delay_compensated_vyaw(twist[1], self.delay_ms),
             )
+        # (the loaded walk: the command that answers as the walk the brain was tuned on answers the brain's twist)
+        self.walk_sent = None
+        if self.walk is not None and twist[0] > 0.0 and not held_flight and not coasting:
+            planned = twist
+            twist = self.walk.command(*twist)
+            self.walk_sent = (twist, planned)
 
         # ── posture (sit_toggle until robotd's policy says it) ──
         # A stand-up or sit-down is a balance manoeuvre (spec §10.3: 4.7–6.3 % of sit–stand

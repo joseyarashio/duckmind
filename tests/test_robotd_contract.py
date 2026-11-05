@@ -235,8 +235,10 @@ def test_safety_client_reads_loaded_policy_slots_without_writing_to_robotd(
     assert [command["method"] for command in commands] == ["hello", "robot.policies"]
 
 
+# 37: the daemon the profile was verified on (0.15.0); 49: daemon 0.18.5, whose robot.head is unchanged
+@pytest.mark.parametrize("api", [37, 49])
 def test_v5_head_delta_profile_is_checked_against_measured_joints(
-    short_socket_dir,
+    short_socket_dir, api: int
 ) -> None:
     import json
 
@@ -258,7 +260,7 @@ def test_v5_head_delta_profile_is_checked_against_measured_joints(
                             {
                                 "jsonrpc": "2.0",
                                 "id": hello["id"],
-                                "result": {"api_version": 37},
+                                "result": {"api_version": api},
                             }
                         )
                         + "\n"
@@ -397,3 +399,20 @@ def test_mismatched_head_profile_is_refused_before_notification(
             port.dispatch_intent(BodyIntent("robot.head", {"head_pitch": 0.15}))
     thread.join(2)
     assert not any(commands)
+
+
+@pytest.mark.parametrize(
+    ("hello", "walk", "speaks"),
+    [
+        ({"api_version": 49}, "velstand.onnx", True),  # daemon 0.18.5 + v8
+        ({"api_version": 50}, "velstand.onnx", True),  # a later, additive API
+        ({"api_version": 36}, "velstand.onnx", False),  # older than the verified daemon
+        ({"api_version": True}, "velstand.onnx", False),  # not a version
+        ({}, "velstand.onnx", False),
+        ({"api_version": 49}, "alpha_walking.onnx", False),  # another gait: not velstand's deltas
+    ],
+)
+def test_head_profile_is_a_capability_not_one_release(hello, walk, speaks) -> None:
+    port = RobotdBodyPort.__new__(RobotdBodyPort)
+    port.hello, port.capabilities = hello, {"accepted": True, "walk": walk}
+    assert port.supports_v5_head_profile is speaks

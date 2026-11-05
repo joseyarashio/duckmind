@@ -365,3 +365,48 @@ def test_every_ignored_kind_the_experiences_count_has_a_line() -> None:
         assert f"page.growth.exp.ignored.{kind}" in (STATIC / "growth.js").read_text(
             encoding="utf-8"
         )
+
+
+# ── the players' 成長 tab (item 6): the short view of the same reading ──────────────────────────
+
+
+def test_the_growth_tab_sits_in_the_panel_and_reads_while_it_is_open() -> None:
+    tab = PAGE[PAGE.index('id="ctl-grow"') : PAGE.index('id="ctl-duck"')]
+    for element in ("growthTab", "growthTabStatus", "growthTabBody"):
+        assert f'id="{element}"' in tab, element
+    assert 'href="/lab#growthView"' in tab  # (the whole record is one click away, in the lab)
+    assert '"ctl-grow"' in JS and "MutationObserver" in JS  # (opening the tab reads at once)
+
+
+@needs_node
+def test_the_growth_tab_says_day_stage_direction_closeness_and_real_recent_events(
+    drawn: dict[str, Any],
+) -> None:
+    short, live = drawn["short"]["text"], drawn["live"]["text"]
+    assert "page.growth.id.growth_day" in short and "gv-gd-num" in drawn["short"]["classes"]
+    assert "page.growtab.direction" in short and "page.growth.id.next_stage" in short
+    assert "小明" in short and "page.growth.bond.family" in short  # (names as data)
+    # the events and the diary lines are the duck's own record, the same the lab shows
+    for line in re.findall(r"page\.growth\.exp\.recent_line\|[^\n]*", short):
+        assert line in live
+    assert "page.growth.diary.day" in short
+    assert drawn["short"]["buttons"] == 0  # (nothing to press but the link under it)
+    for gone in ("innerHTML", "undefined", "NaN", "[object"):
+        assert gone not in short
+
+
+@needs_node
+def test_the_growth_tab_keeps_to_the_newest_few_and_says_what_is_missing(
+    drawn: dict[str, Any],
+) -> None:
+    busy = drawn["short_busy"]
+    assert busy.count("page.growth.exp.recent_line") == 5
+    assert "02:00:00" not in busy and "T00:00" not in busy  # (no raw times on the page)
+    assert "day0-line0" in busy and "day1-line3" in busy and "day0-line4" not in busy
+    assert "day2-line0" not in busy  # (two days only)
+    assert (
+        busy.count('page.growth.diary.more|{"n":5}') == 2
+    )  # (3 lines left out + 2 the server held back)
+    bare = drawn["short_bare"]
+    assert "page.growth.bond.none" in bare and "page.growth.exp.recent_none" in bare
+    assert "page.growth.diary.none" in bare

@@ -1321,13 +1321,11 @@ body.duck-expanded { overflow: hidden; }
   .hdr-duck h1 { font-size: 22px; }
   .hdr-duck .pill { font-size: 11px; padding: 4px 6px; }
   .jumpnav { gap: 12px; font-size: 13px; }
-  .jumpnav a[href="/#mind"] { display: none; }
   .hero.app { padding: 8px 8px 26px; }
   .app .duck-view { height: calc(100dvh - var(--topbar-h) - 34px); min-height: 420px; gap: 8px; }
   .stage-col .stage-frame { box-shadow: 5px 5px 0 var(--yellow); }
   .hud { max-width: calc(100% - 20px); padding: 5px 8px 6px; gap: 2px; }
   .hud-main strong { font-size: 17px; }
-  .hud-body, .hud-reflex { display: none; }
   .ctl-tab { flex-basis: 24%; min-height: 44px; padding-inline: 3px; font-size: 13px; }
   .ctl .card { margin-right: 3px; }
 }
@@ -1622,3 +1620,65 @@ line.mm-fixed { fill: none; stroke-linecap: round; }
 .cmd-voice-out[data-state="up"] { border-left-color: var(--green); color: var(--on-dark); }
 .cmd-voice-out[data-state="down"], .cmd-voice-out[data-state="refused"], .cmd-voice-out[data-state="error"] { border-left-color: var(--magenta); color: var(--on-dark); }
 
+
+/* ---------- players' tabs and the lab (item 6, docs/design/neural-duck/UI-REDESIGN-2026-11-05.md) ----------
+   The simulator page is for players (kids too): four big tabs — 玩, 訓練, 成長, 我的小鴨 — with an icon each, large
+   play buttons, and the short growth view; everything for development is on the 實驗室 page (/lab). Tokens and the
+   standard's components only: square corners, ink borders, hard shadows. */
+.ctl-tab:has(.ctl-tab-icon) {
+  flex: 1 1 calc(20% - 2px); min-width: 4.6em; min-height: 56px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 15px;
+}
+.ctl-tab-icon { font-size: 21px; line-height: 1; }
+/* 玩: big targets, wrapping, never a sideways strip */
+.neuro-stim .row.play-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.2em, 1fr)); gap: 12px; }
+.neuro-stim .row.play-buttons .btn { min-height: 56px; padding: 10px 12px; font-size: 17px; justify-content: center; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+/* 成長: the growth record's own parts, a little smaller in the panel */
+.grow-card .gv-id { margin-top: 6px; }
+.grow-card .gv-gd-num { font-size: 44px; }
+.grow-card .gv-meter { grid-template-columns: minmax(5em, 9em) minmax(0, 1fr) 3.2em; }
+.grow-card .grow-more { margin-top: 14px; }
+.grow-status { margin: 4px 0 0; }
+/* 我的小鴨: the duck file's restart note and the real duck's card */
+.duckfile-switch, .body-link-how { margin-top: 12px; border: 2px solid var(--ink); background: var(--paper); padding: 8px 12px; }
+.duckfile-switch summary, .body-link-how summary { cursor: pointer; font-weight: 800; min-height: 32px; display: flex; align-items: center; }
+/* 玩: the emotions' fold-out (owner 2026-11-05) — a big summary row, yellow when open; the card inside loses its own frame */
+.emotion-fold { border: 2.5px solid var(--ink); background: var(--white); box-shadow: 4px 4px 0 var(--magenta); margin-right: 4px; }
+.emotion-fold > summary { min-height: 56px; padding: 0 14px; display: flex; align-items: center; gap: 8px; cursor: pointer; font: 800 17px/1.25 var(--font-body); }
+.emotion-fold[open] > summary { background: var(--yellow); border-bottom: 2px solid var(--ink); }
+.ctl .emotion-fold > .card { border: 0; box-shadow: none; margin: 0; }
+.duckfile-cmd, .body-link-steps pre {
+  margin: 6px 0 0; padding: 6px 8px; background: var(--ink); color: var(--yellow);
+  border: 2px solid var(--ink); font: 600 12.5px/1.45 var(--font-mono);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.body-link-steps { margin: 8px 0 0; padding-left: 1.3em; display: grid; gap: 10px; font-size: 14px; line-height: 1.45; }
+.body-link-state { margin: 6px 0 0; padding: 6px 10px; border: 2px solid var(--ink); border-left-width: 8px; border-left-color: var(--blue); background: var(--white); font-weight: 700; overflow-wrap: anywhere; }
+.body-link-state[data-state="remote_up"] { border-left-color: var(--green); }
+.body-link-state[data-state="remote_down"], .body-link-state[data-state="error"], .body-link-state[data-state="offline"] { border-left-color: var(--magenta); }
+.body-link-state[data-state="off"], .body-link-state[data-state="loading"], .body-link-state[data-state="starting"] { border-left-color: var(--muted); }
+/* the lab: its jump list, then the brain beside the body, the motions and the emotions */
+.lab-jump { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
+.lab-jump .btn { margin-top: 0; min-height: 40px; }
+.lab-dev .section-head { margin-bottom: 22px; }
+.lab-dev .display { font-size: clamp(34px, 4.4vw, 60px); }
+.lab-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; max-width: 1240px; margin: 0 auto; }
+.lab-col { display: grid; gap: 26px; align-content: start; min-width: 0; }
+.lab-col > .card { margin: 0; }
+.lab-dev .neuro-line { color: var(--ink); }
+.lab-dev .neuro-motions { margin-top: 0; }
+.lab-dev .duck3d-battery, .lab-dev .duck3d-battery .mono { color: var(--on-dark-2); }
+.lab-dev .duck3d-battery .mono { color: var(--on-dark); }
+#neuroSide, #physCard, #neuroMotions, #neuroEmotions, #growthView, #mind, #homeEditor, #capabilities, #bodyLink { scroll-margin-top: calc(var(--topbar-h) + 12px); }
+@media (min-width: 1100px) {
+  .lab-cards { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .ctl-tab:has(.ctl-tab-icon) { min-height: 54px; font-size: 13px; min-width: 0; padding-inline: 2px; }
+  .ctl-tab-icon { font-size: 19px; }
+  .neuro-stim .row.play-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .neuro-stim .row.play-buttons .btn { font-size: 16px; }
+  .grow-card .gv-gd-num { font-size: 36px; }
+  .lab-cards, .lab-col { gap: 20px; }
+}

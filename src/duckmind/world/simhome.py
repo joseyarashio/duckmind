@@ -167,6 +167,7 @@ from duckmind.bodyhost import (
     COLLISIONS,
     DEFAULT_COLLISION,
     DEFAULT_LOCKSTEP,
+    DERIVED_SCENES,
     Host,
     HostClient,
     check_reviewed,
@@ -504,10 +505,18 @@ def resolve_spawn(layout: Any, asked: str, layouts: Any = None) -> tuple[Spawn, 
 
 def official_files(mjcf_dir: Path, scene: str) -> list[str]:
     """The official files a scene loads: itself and every file it includes, recursively
-    (names relative to the MJCF folder, in load order; meshes are bodyhost's mesh digest)."""
+    (names relative to the MJCF folder, in load order; meshes are bodyhost's mesh digest). A
+    derived scene (``bodyhost.DERIVED_SCENES``) is its official source and the robot it swaps in."""
     found: list[str] = []
+    derived_robot = {scene: robot for scene, robot in COLLISIONS.values()}
 
     def visit(name: str) -> None:
+        if name in DERIVED_SCENES:
+            source = DERIVED_SCENES[name][0]
+            if source not in found:
+                found.append(source)
+            visit(derived_robot[name])
+            return
         if name in found:
             return
         found.append(name)
@@ -567,7 +576,9 @@ def _base_sources(
     getter = getattr(layouts, "base_scene", None)
     if callable(getter):
         try:
-            candidates.append(getter(layout))
+            candidates.append(
+                getter(layout, collision) if _takes(getter, "collision") else getter(layout)
+            )
         except (KeyError, ValueError, LookupError, TypeError):
             pass
     for key in ("base_scene", "base"):
@@ -578,7 +589,7 @@ def _base_sources(
     for value in candidates:
         if isinstance(value, (str, Path)) and str(value):
             name = Path(value).name
-            if (mjcf_dir / name).is_file():
+            if name in DERIVED_SCENES or (mjcf_dir / name).is_file():
                 return name, official_files(mjcf_dir, name)
     return default, official_files(mjcf_dir, default)
 
@@ -661,7 +672,7 @@ def plan_home(
         asked=asked,
         name=str(name),
         source="layout",
-        base_scene=mjcf_dir / base,
+        base_scene=flat_scene if base == flat_scene.name else mjcf_dir / base,
         official_files=files,
         spawn=where,
         layout=layout,

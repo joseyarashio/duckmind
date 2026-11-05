@@ -590,12 +590,14 @@ class NeuroSource(Protocol):
 # ---------------------------------------------------------------------------- the owner's word on a trick
 
 FEEDBACK_KINDS = ("praise", "treat", "scold")
+# The duck's refusals of a word (answered 200 with ok false); the other reasons are malformed requests (400).
+FEEDBACK_REFUSALS = frozenset({"no_trick", "not_running"})
 
 
 class FeedbackError(ValueError):
-    """A feedback the duck cannot take (``POST /api/neuro/feedback`` answers 400): ``reason`` is the
-    catalog key suffix ``neuro.feedback.error.<reason>`` (``bad_kind``, ``bad_trick``, ``no_trick``,
-    ``not_running``)."""
+    """A feedback the duck cannot take (``POST /api/neuro/feedback``): ``reason`` is the catalog key
+    suffix ``neuro.feedback.error.<reason>``. A refusal (``no_trick``, ``not_running``) is answered 200
+    with ``ok: false``; a malformed request (``bad_kind``, ``bad_trick``) 400."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
@@ -2318,7 +2320,9 @@ class NeuroHub:
         trick's proficiency (``Brain.trick_feedback``); Duck Core, when the server's life duck is the
         one on screen, hears the phone's word (``owner_good`` / ``pad_good`` / ``owner_not_that``)
         and bridge-v2's ``praise`` / ``scold`` for that trick (:attr:`core_feedback`). A feedback it
-        cannot take is a 400 with ``neuro.feedback.error.<reason>`` (:class:`FeedbackError`)."""
+        cannot take raises :class:`FeedbackError` (``neuro.feedback.error.<reason>``): a refusal is
+        answered 200 with ``ok: false``, a malformed request 400.
+        """
         kind = params.get("kind")
         if kind not in FEEDBACK_KINDS:
             raise FeedbackError("bad_kind")
@@ -2466,7 +2470,10 @@ class NeuroHub:
                 "reason": error.reason,
                 "error": msg(f"neuro.feedback.error.{error.reason}"),
             }
-            _send_json(handler, HTTPStatus.BAD_REQUEST, payload)
+            # (owner 2026-11-05: the duck refusing a word — no trick to credit, the brain not running — is an
+            # answer, not a failed request: 200, ok false and the reason; a malformed request stays a 400)
+            refused = error.reason in FEEDBACK_REFUSALS
+            _send_json(handler, HTTPStatus.OK if refused else HTTPStatus.BAD_REQUEST, payload)
         except (ValueError, KeyError, TypeError) as error:
             _send_json(handler, HTTPStatus.BAD_REQUEST, {"ok": False, "error": _said(error)})
         except Exception as error:  # the world or the body refused or failed: say so, in words

@@ -13,6 +13,7 @@ import sys
 import threading
 import time
 import types
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -181,7 +182,8 @@ def test_an_unreviewed_physics_file_is_named_and_the_physics_not_trusted(tmp_pat
     assert set(REVIEWED_SHA256) == {
         "body_server.py",
         "meshes",
-        *(name for pair in COLLISIONS.values() for name in pair),
+        *(bodyhost.official_scene(scene) for scene, _ in COLLISIONS.values()),
+        *(robot for _, robot in COLLISIONS.values()),
     }
 
 
@@ -242,21 +244,39 @@ def test_what_lockstep_cannot_do_is_refused_before_anything_starts(argv, capsys)
 # ── the collision model ─────────────────────────────────────────────────────────
 
 
-def _write_scenes(folder: Path, friction_allcollisions: str = "1 0.005 0.0001") -> None:
+def _write_scenes(
+    folder: Path,
+    friction_allcollisions: str = "1 0.005 0.0001",
+    friction_backlash: str = "1 0.005 0.0001",
+) -> None:
     template = """<mujoco model="scene">
     <include file="{robot}" />
     <!-- {comment} -->
     <worldbody>
         <geom name="floor" size="0 0 0.05" type="plane" friction="{friction}" />
     </worldbody>
-    <keyframe><key name="SIT" qpos="0 0 0.07 1 0 0 0" /></keyframe>
+    <keyframe><key name="SIT" qpos="{qpos}" /></keyframe>
 </mujoco>"""
-    for collision, (scene, robot) in COLLISIONS.items():
+    for collision in bodyhost.PLAIN_PAIR:
+        scene, robot = COLLISIONS[collision]
         friction = friction_allcollisions if collision == "allcollisions" else "1 0.005 0.0001"
         (folder / scene).write_text(
-            template.format(robot=robot, comment=collision, friction=friction)
+            template.format(
+                robot=robot, comment=collision, friction=friction, qpos="0 0 0.07 1 0 0 0"
+            )
         )
         (folder / robot).write_text("<mujoco/>")
+    # upstream's backlash scene: the ground-contact backlash robot, longer keyframes
+    (folder / "scene_backlash.xml").write_text(
+        template.format(
+            robot="robot_groundcontact_backlash.xml",
+            comment="backlash",
+            friction=friction_backlash,
+            qpos="0 0 0.07 1 0 0 0 0",
+        )
+    )
+    (folder / "robot_groundcontact_backlash.xml").write_text("<mujoco/>")
+    (folder / "robot_allcollisions_backlash.xml").write_text("<mujoco/>")
 
 
 def test_each_collision_model_is_an_official_scene():
@@ -277,6 +297,26 @@ def test_the_scene_pair_check_sees_only_real_differences(tmp_path):
     assert len(problems) == 1 and "friction" in problems[0]
     (tmp_path / "robot_allcollisions.xml").unlink()
     assert check_scene_pair(tmp_path) == ["robot_allcollisions.xml：找不到"]
+    _write_scenes(tmp_path, friction_backlash="0.5 0.005 0.0001")
+    problems = check_scene_pair(tmp_path)
+    assert len(problems) == 1 and "scene_backlash.xml" in problems[0] and "friction" in problems[0]
+
+
+def test_the_backlash_scene_is_upstreams_backlash_scene_with_the_whole_body_robot(tmp_path):
+    official = tmp_path / "official"
+    official.mkdir()
+    _write_scenes(official)
+    before = {p.name: p.read_bytes() for p in official.iterdir()}
+    scene = scene_for(official, "allcollisions_backlash")
+    assert scene.parent != official  # nothing written into the official folder
+    assert {p.name: p.read_bytes() for p in official.iterdir()} == before
+    root = ET.parse(scene).getroot()
+    assert [n.get("file") for n in root.iter("include")] == ["robot_allcollisions_backlash.xml"]
+    assert [k.get("qpos") for k in root.iter("key")] == ["0 0 0.07 1 0 0 0 0"]
+    assert (scene.parent / "robot_allcollisions_backlash.xml").resolve() == (
+        official / "robot_allcollisions_backlash.xml"
+    ).resolve()
+    assert scene_for(official, "allcollisions_backlash") == scene  # stable, rewritten in place
 
 
 def test_the_official_scenes_differ_only_in_the_robot_they_include():
@@ -332,6 +372,48 @@ def test_both_collision_models_are_the_same_duck_except_what_collides():
     assert (colliding(ground), colliding(whole)) == (11, 70)
 
 
+def test_the_backlash_body_is_the_whole_body_duck_with_one_degree_of_play_per_servo():
+    """What collides (homes, ToF, bumps) and every mass, actuator and pose is the allcollisions
+    duck's; only the 14 passive ±1° hinges are new."""
+    mujoco = pytest.importorskip("mujoco")
+    np = pytest.importorskip("numpy")
+    folder = _mjcf()
+    whole = mujoco.MjModel.from_xml_path(str(scene_for(folder, "allcollisions")))
+    play = mujoco.MjModel.from_xml_path(str(scene_for(folder, "allcollisions_backlash")))
+    assert play.ngeom == whole.ngeom
+    for g in range(whole.ngeom):
+        assert whole.geom(g).name == play.geom(g).name
+        for field in (
+            "geom_contype",
+            "geom_conaffinity",
+            "geom_size",
+            "geom_friction",
+            "geom_type",
+        ):
+            assert np.array_equal(getattr(whole, field)[g], getattr(play, field)[g]), field
+    assert bodyhost.robot_colliding_geoms(play) == bodyhost.robot_colliding_geoms(whole) == 70
+    assert np.allclose(whole.body_mass, play.body_mass)
+    assert [play.actuator(a).name for a in range(play.nu)] == [
+        whole.actuator(a).name for a in range(whole.nu)
+    ]
+    servo = [whole.joint(whole.actuator_trnid[a, 0]).name for a in range(whole.nu)]
+    passive = [
+        play.joint(j).name for j in range(play.njnt) if play.joint(j).name.startswith("passive_")
+    ]
+    assert sorted(passive) == sorted(f"passive_{name}_backlash" for name in servo)
+    for name in passive:
+        assert np.allclose(play.joint(name).range, [-np.radians(1.0), np.radians(1.0)])
+    assert play.nq == whole.nq + 14
+    for k in range(whole.nkey):
+        assert whole.key(k).name == play.key(k).name
+        for name in servo:
+            got = play.key_qpos[k][play.jnt_qposadr[play.joint(name).id]]
+            want = whole.key_qpos[k][whole.jnt_qposadr[whole.joint(name).id]]
+            assert got == pytest.approx(want, abs=1e-4), (whole.key(k).name, name)
+        for name in passive:
+            assert play.key_qpos[k][play.jnt_qposadr[play.joint(name).id]] == 0.0
+
+
 def test_the_live_body_runs_allcollisions_in_lockstep_by_default(tmp_path, monkeypatch):
     monkeypatch.delenv("DUCKMIND_LIVE_COLLISION", raising=False)
     monkeypatch.delenv("DUCKMIND_LIVE_LOCKSTEP", raising=False)
@@ -361,6 +443,108 @@ def test_the_live_body_runs_allcollisions_in_lockstep_by_default(tmp_path, monke
         live_choice()
     with pytest.raises(ValueError):
         live_choice("walk", True)
+
+
+# The two policy sets' manifests as far as the choice reads them: v8's velstand declares its mjlab task
+# (Mjlab-VelStand-Rough-Backlash-MicroDuck), v5's names no task.
+V8_MANIFEST = {
+    "schema_version": 2,
+    "policies": [
+        {
+            "file": "velstand.onnx",
+            "kind": "perpetual",
+            "slot": "walk",
+            "training": {"task_id": "Mjlab-VelStand-Rough-Backlash-MicroDuck", "checkpoint": 2749},
+        },
+        {"file": "alpha_sitstand.onnx", "name": "sitstand", "kind": "scripted"},
+    ],
+}
+V5_MANIFEST = {
+    "schema_version": 2,
+    "policies": [
+        {
+            "file": "velstand.onnx",
+            "kind": "perpetual",
+            "slot": "walk",
+            "training": {"repo": "pollen-robotics/microduck_rl", "branch": "protective_fall"},
+        },
+    ],
+}
+
+
+def _paths_with(tmp_path: Path, name: str, manifest: dict[str, Any]) -> LivePaths:
+    policies = tmp_path / name
+    policies.mkdir()
+    (policies / "manifest.json").write_text(json.dumps(manifest))
+    return LivePaths(tmp_path, tmp_path, policies, tmp_path / "robotd", tmp_path / "ort")
+
+
+def _plain_body_reason() -> str:
+    from duckmind.i18n import msg
+
+    return msg("livebody.LiveBody.monitor_view.walk_backlash")
+
+
+def test_a_walk_trained_with_backlash_gets_the_backlash_body_and_never_silently_a_plain_one(
+    tmp_path, monkeypatch
+):
+    for name in ("DUCKMIND_LIVE_COLLISION", "DUCKMIND_LIVE_LOCKSTEP", "DUCKMIND_LIVE_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    v8 = _paths_with(tmp_path, "v8", V8_MANIFEST)
+    v5 = _paths_with(tmp_path, "v5", V5_MANIFEST)
+    body = LiveBody(v8)
+    command = body._body_command(7801)
+    assert command[command.index("--collision") + 1] == "allcollisions_backlash"
+    assert _plain_body_reason() not in body.monitor_view()["why_zh"]
+    today = LiveBody(v5)
+    assert today._body_command(7801)[today._body_command(7801).index("--collision") + 1] == (
+        "allcollisions"
+    )
+    assert _plain_body_reason() not in today.monitor_view()["why_zh"]
+    # asked for the plain body under the backlash-trained walk (a comparison): it runs, and says so
+    monkeypatch.setenv("DUCKMIND_LIVE_COLLISION", "allcollisions")
+    plain = LiveBody(v8)
+    assert plain.collision == "allcollisions"
+    view = plain.monitor_view()
+    assert view["trust"] == "suspect" and _plain_body_reason() in view["why_zh"]
+    # v5 on the backlash body (real servos have play) is a body choice, not a mismatch
+    monkeypatch.setenv("DUCKMIND_LIVE_COLLISION", "allcollisions_backlash")
+    assert _plain_body_reason() not in LiveBody(v5).monitor_view()["why_zh"]
+
+
+def test_the_world_the_launcher_builds_for_the_v8_set_has_gear_play(tmp_path, monkeypatch):
+    """The behaviour: the home the simulator composes for the launcher's choice (real_home, as the
+    fair go-there runs) has the 14 backlash hinges under v8's walk and none under v5's, every
+    official file it reads is a reviewed one, and its colliding duck is the same."""
+    pytest.importorskip("mujoco")
+    from duckmind.world import simhome
+
+    folder = _mjcf()
+    for name in ("DUCKMIND_LIVE_COLLISION", "DUCKMIND_LIVE_LOCKSTEP", "DUCKMIND_LIVE_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    built = {}
+    for name, manifest in (("v8", V8_MANIFEST), ("v5", V5_MANIFEST)):
+        command = LiveBody(_paths_with(tmp_path, name, manifest), home="real_home")._body_command(1)
+        plan = simhome.plan_home(
+            command[command.index("--home") + 1],
+            mjcf_dir=folder,
+            collision=command[command.index("--collision") + 1],
+        )
+        assert simhome.check_home_files(folder, plan.info.official_files) == []
+        model = plan.make_spec().compile()
+        built[name] = (
+            [
+                model.joint(j).name
+                for j in range(model.njnt)
+                if model.joint(j).name.endswith("_backlash")
+            ],
+            bodyhost.robot_colliding_geoms(model),
+            plan.info.official_files[:2],
+        )
+    assert len(built["v8"][0]) == 14 and built["v5"][0] == []
+    assert built["v8"][1] == built["v5"][1] == 70
+    assert built["v8"][2] == ["scene_backlash.xml", "robot_allcollisions_backlash.xml"]
+    assert built["v5"][2] == ["scene_allcollisions.xml", "robot_allcollisions.xml"]
 
 
 def test_status_and_frames_carry_a_monitor_that_is_suspect_until_read(tmp_path, monkeypatch):

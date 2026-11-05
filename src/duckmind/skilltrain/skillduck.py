@@ -128,13 +128,17 @@ class SkillDuck(HeadlessDuck):
         y: float = 0.0,
         yaw: float = 0.0,
         pose_zeroes_twist: bool = True,
+        collision: str = "allcollisions",
     ) -> None:
         import mujoco
+
+        from duckmind.bodyhost import scene_for
 
         if servo not in ("mjcf", "bam"):
             raise ValueError(f"servo model {servo!r}: mjcf or bam")
         folder = official_dir(mjcf_dir)
-        spec = mujoco.MjSpec.from_file(str(folder / SCENE))
+        # SCENE, or the same floor with another robot (bodyhost.COLLISIONS: the backlash twin)
+        spec = mujoco.MjSpec.from_file(str(scene_for(folder, collision)))
         super().__init__(
             Composed(spec=spec, layout=None, kit=None),
             mjcf_dir=folder,

@@ -1,12 +1,16 @@
-/* The 「成長」 section of the 資料 page (growth G4, docs/design/GROWTH-G4-2026-10-11.md).
+/* The 「成長」 section of the lab page (growth G4, docs/design/GROWTH-G4-2026-10-11.md) and the players'
+ * 「成長」 tab (item 6, docs/design/neural-duck/UI-REDESIGN-2026-11-05.md).
  *
  * One component shows how a duck has grown: who it is, its temperament, what it learnt, who it is
- * close to, what it lived, its nightly regrows, its voice and a diary. It is fed by
- *   GET /api/life/growth          the duck this server lives (polled every 15 s while the page is on 資料)
+ * close to, what it lived, its nightly regrows, its voice and a diary. The tab shows the short of it
+ * (shortView): its growth day, stage and direction, who it is close to, a few of the latest things it
+ * really lived and its newest diary lines. It is fed by
+ *   GET /api/life/growth          the duck this server lives (polled every 15 s while the lab or the
+ *                                 成長 tab is shown)
  *   /api/life/fastforward         throwaway test ducks, fast-forwarded in a background worker (the
  *                                 same component shows them, side by side for two care styles)
- * Words: this file holds none. Page words come from the catalogs (I18N.t, page.growth.*); a
- * server field that is Duck Core's own words (a stage, a habit, a call) is a message the server
+ * Words: this file holds none. Page words come from the catalogs (I18N.t, page.growth.*, page.growtab.*);
+ * a server field that is Duck Core's own words (a stage, a habit, a call) is a message the server
  * sent along (I18N.field). Names the family gave are data and are shown as they are.
  * Style: docs/simulator-style.md (cards, bars, chips, buttons; tokens only).
  */
@@ -412,6 +416,52 @@
     );
   }
 
+  /* The 成長 tab's short view: what a player wants to know at a glance, all of it the duck's own record. */
+  const SHORT = { recent: 5, days: 2, lines: 4 };
+  function shortView(view) {
+    const id = view.identity;
+    const branch = id.branch || {};
+    const sourceKey = { family: "page.growth.id.branch_family", growth: "page.growth.id.branch_growth", none: "page.growth.id.branch_none" }[branch.source] || "page.growth.id.branch_none";
+    const next = id.next_stage;
+    const bonds = view.bonds || { family_pct: 0, people: [] };
+    const recent = ((view.experiences || {}).recent || []).slice(0, SHORT.recent);
+    const days = (view.diary || []).slice(0, SHORT.days);
+    return h("div", { class: "grow-short" },
+      h("div", { class: "gv-id" },
+        h("div", { class: "gv-gd" }, h("span", { class: "gv-gd-num", text: num(id.growth_day) }), h("span", { class: "gv-gd-label", text: T("page.growth.id.growth_day") })),
+        h("div", { class: "gv-id-main" },
+          h("div", { class: "gv-chips" },
+            h("span", { class: "chip stage", text: F(id.stage, "label") }),
+            branch.label ? h("span", { class: "chip gd", text: F(branch, "label") }) : null,
+          ),
+          h("p", { class: "gv-line", text: T("page.growtab.direction", { what: branch.label ? F(branch, "label") : T(sourceKey) }) }),
+          h("p", { class: "gv-line", text: next ? T("page.growth.id.next_stage", { days: next.in_days, gd: next.gd, stage: F(next, "label") }) : T("page.growth.id.grown_up") }),
+        ),
+      ),
+      sub("page.growth.bond.title"),
+      h("div", { class: "gv-meters" },
+        meter(T("page.growth.bond.family"), bonds.family_pct),
+        (bonds.people || []).map((p) => h("div", { class: "gv-meter" }, h("span", { class: "gv-meter-name gv-data", text: p.name }), bar(p.pct), h("span", { class: "val", text: `${num(p.pct)}%` }))),
+      ),
+      (bonds.people || []).length ? null : hint(T("page.growth.bond.none")),
+      sub("page.growth.exp.recent"),
+      recent.length
+        ? h("ul", { class: "gv-list" }, recent.map((r) => h("li", { text: T("page.growth.exp.recent_line", { when: fmtWhen(r.at), what: recentText(r) }) })))
+        : hint(T("page.growth.exp.recent_none")),
+      sub("page.growtab.diary"),
+      days.length
+        ? h("div", { class: "gv-diary" }, days.map((day) => {
+            const lines = day.lines.slice(0, SHORT.lines);
+            const more = day.lines.length - lines.length + (day.more || 0);
+            return h("div", { class: "gv-day" },
+              h("h4", { class: "gv-sub", text: day.gd === null ? fmtDate(day.date) : T("page.growth.diary.day", { date: fmtDate(day.date), gd: day.gd }) }),
+              lines.length ? h("ul", { class: "gv-list" }, lines.map((line) => h("li", { class: `tone-${line.tone}`, text: F(line, "text") }))) : null,
+              more ? hint(T("page.growth.diary.more", { n: more })) : null);
+          }))
+        : hint(T("page.growth.diary.none")),
+    );
+  }
+
   /* One growth view, as a grid of cards. */
   function renderView(view, style) {
     const live = view.live !== false;
@@ -457,6 +507,7 @@
   const state = { live: null, liveKey: "", ff: null, results: null, polling: null, ffPolling: null, error: false };
 
   function paintLive() {
+    paintShort();
     const root = els.live;
     if (!root) return;
     root.textContent = "";
@@ -472,12 +523,28 @@
     root.append(renderView(state.live, ""));
   }
 
+  // the 成長 tab: the same reading, the short view
+  function paintShort() {
+    const root = els.short;
+    if (!root) return;
+    root.textContent = "";
+    const status = els.shortStatus;
+    if (state.error && !state.live) status.textContent = T("page.growth.offline");
+    else if (!state.live) status.textContent = state.loaded ? T("page.growtab.off") : T("page.growth.loading");
+    else {
+      status.textContent = T("page.growth.updated", { time: fmtWhen(state.live.calendar) });
+      root.append(shortView(state.live));
+    }
+  }
+
   function fetchJson(url, options) {
     return fetch(url, Object.assign({ cache: "no-store" }, options || {})).then((response) => response.json().then((data) => ({ status: response.status, data })));
   }
 
+  // the lab is open, or the 成長 tab is (its panel is shown only while it is the chosen tab)
   function visible() {
-    return document.body.classList.contains("view-data") && !document.hidden;
+    if (document.hidden) return false;
+    return document.body.classList.contains("view-data") || (!!els.shortPanel && !els.shortPanel.hidden);
   }
 
   function refreshLive() {
@@ -635,6 +702,15 @@
     els.note = document.getElementById("gvFfNote");
     els.problem = document.getElementById("gvFfProblem");
     els.results = document.getElementById("gvResults");
+    els.short = document.getElementById("growthTabBody");
+    els.shortStatus = document.getElementById("growthTabStatus");
+    els.shortPanel = document.getElementById("ctl-grow");
+    // (the tab opens: read now, not at the next poll)
+    if (els.shortPanel && typeof MutationObserver !== "undefined") {
+      new MutationObserver(() => {
+        if (!els.shortPanel.hidden) refreshLive();
+      }).observe(els.shortPanel, { attributes: true, attributeFilter: ["hidden"] });
+    }
     els.start.addEventListener("click", startFf);
     els.cancel.addEventListener("click", cancelFf);
     if (I18N && typeof I18N.onChange === "function") I18N.onChange(repaint);
@@ -648,7 +724,7 @@
     pollFf();
   }
 
-  const api = { renderView, compareRows, regrowLine, etaSeconds, KIND_KEYS, WAIT_KEYS, STYLE_KEYS, HOW_KEYS, FALL_KEYS, IGNORED_KEYS, PREF_KEYS };
+  const api = { renderView, shortView, compareRows, regrowLine, etaSeconds, KIND_KEYS, WAIT_KEYS, STYLE_KEYS, HOW_KEYS, FALL_KEYS, IGNORED_KEYS, PREF_KEYS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else window.duckGrowth = api;
   if (typeof document !== "undefined" && document.getElementById) {

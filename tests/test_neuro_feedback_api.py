@@ -1,7 +1,8 @@
 """``POST /api/neuro/feedback`` (phase 2 「學會聽話」): the owner's 「乖」, a treat or 「不對」 for a trick
 reaches the duck's brain (``Brain.trick_feedback``, here a stand-in with the contract's signature over a real
 :class:`~duckmind.neuro.tricks.TrickBook`) through the driver, and Duck Core (the life duck on screen) hears the
-phone's word and bridge-v2's praise / scold; what it cannot take is a 400 with a reason in six languages."""
+phone's word and bridge-v2's praise / scold; what it cannot take says why in six languages (a refusal 200 with
+ok false, a malformed request 400)."""
 
 from __future__ import annotations
 
@@ -117,21 +118,25 @@ def _kinds_since(state: SimState, before: int) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    ("body", "reason"),
+    ("body", "reason", "code"),
     [
-        ({"kind": "pat"}, "bad_kind"),
-        ({}, "bad_kind"),
-        ({"kind": "praise", "trick": "fly"}, "bad_trick"),
-        ({"kind": "praise"}, "no_trick"),  # (it did no trick just now, and none was named)
+        ({"kind": "pat"}, "bad_kind", 400),
+        ({}, "bad_kind", 400),
+        ({"kind": "praise", "trick": "fly"}, "bad_trick", 400),
+        # (it did no trick just now, and none was named: the duck's refusal is an answer, not a failed
+        # request — owner 2026-11-05, no 400 in the browser's console for a press of 稱讚)
+        ({"kind": "praise"}, "no_trick", 200),
+        ({"kind": "treat"}, "no_trick", 200),
+        ({"kind": "scold"}, "no_trick", 200),
     ],
 )
-def test_what_it_cannot_take_is_a_400_with_its_reason_and_duck_core_hears_nothing(
-    life: Any, body: dict[str, Any], reason: str
+def test_what_it_cannot_take_says_its_reason_and_duck_core_hears_nothing(
+    life: Any, body: dict[str, Any], reason: str, code: int
 ) -> None:
     url, state, brain = life
     before = len(state.session.core.log.events)
     status, answer = _post(url, body)
-    assert status == 400
+    assert status == code
     assert answer["ok"] is False and answer["reason"] == reason
     assert answer["error"] == msg(f"neuro.feedback.error.{reason}")
     assert answer["_i18n"]["error"]["k"] == f"neuro.feedback.error.{reason}"

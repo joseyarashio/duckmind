@@ -1,14 +1,17 @@
-/* The page shell (UI rebuild 2026-10-10, docs/design/UI-REBUILD-2026-10-10.md).
+/* The page shell (UI rebuild 2026-10-10, docs/design/UI-REBUILD-2026-10-10.md; the players' tabs and the lab,
+ * item 6, docs/design/neural-duck/UI-REDESIGN-2026-11-05.md).
  *
  * Only layout lives here; no element is made or moved, so every id the other scripts use stays
  * where the markup puts it. It does four things:
- *   - the control panel's tabs (逗逗牠, 動作, 情緒, 說話, 換鴨子, 腦; 狀態, 互動, 工具 for Duck Core's own
+ *   - the control panel's tabs (玩, 訓練, 成長, 我的小鴨; 狀態, 互動, 工具 for Duck Core's own
  *     mode): one tab selected, the rest hidden, arrow keys move between them; a tab whose parts
- *     the mode puts away (or that the server does not offer: 說話) is skipped;
+ *     the mode puts away is skipped;
  *   - the panel's open/closed state where it is a sheet (a phone, a tablet) or a floating panel
- *     (the enlarged view): the handle button, a swipe on the handle, the 「腦」 button;
- *   - the two views of the one page: the simulator (/) and 「資料」 (/data), same document, so the
- *     scripts keep working; the 3D view is not drawn while 「資料」 is open;
+ *     (the enlarged view): the handle button, a swipe on the handle;
+ *   - the two views of the one page: the players' simulator (/) and the 「實驗室」 (/lab: the brain, the
+ *     physics, the motion lab, the growth record and its fast-forward, the home editor, the evidence),
+ *     same document, so the scripts keep working; a link into a part of the other view (「腦」 on the
+ *     HUD, 「換一隻小鴨」 in the lab) switches the view, then shows that part;
  *   - --topbar-h, so the app fills exactly what is under the header.
  * Words come from the catalogs (I18N); nothing here decides anything for the duck. */
 "use strict";
@@ -181,7 +184,7 @@
     select(list[next].dataset.ctlTab, { focus: true, user: true });
   });
 
-  // 「腦」 on the view, and any link into a part of the panel (「換一隻小鴨」 → the picker).
+  // A link into a part of the panel (「換一隻小鴨」 → the picker in 我的小鴨), from either view.
   document.addEventListener("click", (event) => {
     const opener = event.target.closest("[data-ctl-open]");
     if (opener) {
@@ -195,9 +198,21 @@
     const panel = target && target.closest("[data-ctl-panel]");
     if (!panel) return;
     event.preventDefault();
-    select(panel.dataset.ctlPanel, { open: true, user: true });
-    target.scrollIntoView({ block: "nearest" });
+    if (isLab()) {
+      history.pushState({}, "", `/${location.search}`);
+      applyView(true);
+    }
+    reveal(target);
   });
+
+  // Show one element: its tab first when it sits in the panel, then scroll it into sight.
+  function reveal(target) {
+    const panel = target.closest("[data-ctl-panel]");
+    if (panel) select(panel.dataset.ctlPanel, { open: true, user: true });
+    // (a part inside a fold-out — 情緒 in 玩 — opens it first)
+    for (let fold = target.closest("details"); fold; fold = fold.parentElement && fold.parentElement.closest("details")) fold.open = true;
+    target.scrollIntoView({ block: panel ? "nearest" : "start" });
+  }
 
   // What is offered changes after the first paint (the mode, the server's live voice): look again.
   new MutationObserver(settleSoon).observe(tablist, { subtree: true, attributes: true, attributeFilter: ["hidden"] });
@@ -205,36 +220,29 @@
   window.addEventListener("duck:neuro", settleSoon);
   window.addEventListener("duck:view", settleSoon);
 
-  // 說話 is offered only when the server runs live voice (live_voice.js shows its card then).
-  const voiceCard = $("#liveVoice");
-  const voiceTab = $("#ctlTab-voice");
-  if (voiceCard && voiceTab) {
-    const syncVoice = () => {
-      if (voiceTab.hidden !== voiceCard.hidden) voiceTab.hidden = voiceCard.hidden;
-    };
-    new MutationObserver(syncVoice).observe(voiceCard, { attributes: true, attributeFilter: ["hidden"] });
-    syncVoice();
-  }
+  /* ---------------- the two views: the simulator and 「實驗室」 ---------------- */
 
-  /* ---------------- the two views: the simulator and 「資料」 ---------------- */
-
+  // (the element ids keep their first names — #viewData, body.view-data, data-view-link="data" — so the
+  // scripts that load the lab's parts only when it opens keep working)
   const simView = $("#viewSim");
   const dataView = $("#viewData");
-  const isData = () => location.pathname.replace(/\/+$/, "") === "/data";
+  const LAB_PATHS = ["/lab", "/data"]; // (/data: the lab's old address, still opens it)
+  const isLab = () => LAB_PATHS.includes(location.pathname.replace(/\/+$/, ""));
 
   function applyView(scroll) {
-    const data = isData();
-    document.body.classList.toggle("view-data", data);
-    if (simView) simView.hidden = data;
-    if (dataView) dataView.hidden = !data;
+    const lab = isLab();
+    if (lab && location.pathname.replace(/\/+$/, "") !== "/lab") history.replaceState({}, "", `/lab${location.search}${location.hash}`);
+    document.body.classList.toggle("view-data", lab);
+    if (simView) simView.hidden = lab;
+    if (dataView) dataView.hidden = !lab;
     for (const link of $$("[data-view-link]")) {
-      const on = link.dataset.viewLink === (data ? "data" : "sim");
-      if (link.classList.contains("btn")) continue;
+      const on = link.dataset.viewLink === (lab ? "data" : "sim");
+      if (!link.closest(".jumpnav")) continue;
       if (on) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
     if (scroll) window.scrollTo(0, 0);
-    window.dispatchEvent(new CustomEvent("duck:view", { detail: { view: data ? "data" : "sim" } }));
+    window.dispatchEvent(new CustomEvent("duck:view", { detail: { view: lab ? "data" : "sim" } }));
   }
 
   document.addEventListener("click", (event) => {
@@ -243,8 +251,10 @@
     const to = new URL(link.href, location.href);
     if (to.origin !== location.origin) return;
     event.preventDefault();
-    if (to.pathname !== location.pathname) history.pushState({}, "", to.pathname);
+    if (to.pathname !== location.pathname || to.hash !== location.hash) history.pushState({}, "", `${to.pathname}${location.search}${to.hash}`);
     applyView(true);
+    const target = to.hash ? document.getElementById(to.hash.slice(1)) : null;
+    if (target) reveal(target);
   });
   window.addEventListener("popstate", () => applyView(false));
 
@@ -279,6 +289,12 @@
   setOpen(false);
   applyView(false);
   settle();
+  // An address with a part (/lab#neuroSide, /#bodyLink): show it, again once the mode shows its parts.
+  const wanted = location.hash.length > 1 ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+  if (wanted) {
+    reveal(wanted);
+    window.addEventListener("duck:neuro", () => requestAnimationFrame(() => reveal(wanted)), { once: true });
+  }
   if (window.I18N && typeof window.I18N.onChange === "function") {
     window.I18N.onChange(() => words($("#ctlHandleText"), isOpen() ? "page.shell.panel.close" : "page.shell.panel.open"));
   }

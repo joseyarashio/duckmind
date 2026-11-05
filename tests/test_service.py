@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import json
 import signal
 import sqlite3
@@ -20,7 +19,7 @@ from duckmind.behavior import BehaviorChoice, choose_invitation
 from duckmind.body import BodyAck, RobotObservation, SafetyObservation
 from duckmind.cli import request as cli_request
 from duckmind.pet_body_trace import replay_front_gaze_trace
-from duckmind.policy_approval import official_v5_walk_file_matches
+from duckmind.policy_approval import official_walk_fingerprint
 from duckmind.provenance import Event, OutcomeVerdict, SourceRef
 from duckmind.runtime import DuckRuntime
 from duckmind.service import PetController, serve
@@ -377,7 +376,7 @@ def test_real_preflight_rejects_loaded_same_basename_from_other_path(tmp_path, m
             approved_release_id="0.1.0-rc6",
             release_id_path=release_record(tmp_path),
         )
-        with pytest.raises(RuntimeError, match="loaded_v5_walk_mismatch"):
+        with pytest.raises(RuntimeError, match="loaded_walk_mismatch"):
             asyncio.run(controller.handle(command("enable")))
         assert runtime.state.play_enabled is False
 
@@ -394,18 +393,23 @@ def test_real_preflight_rejects_mismatched_official_walk_file(tmp_path, monkeypa
             approve_real_v5_head_profile=True,
             approved_release_id="0.1.0-rc6",
             release_id_path=release_record(tmp_path),
-            policy_file_check=lambda: False,
+            policy_file_check=lambda: None,
         )
-        with pytest.raises(RuntimeError, match="official_v5_walk_bytes_mismatch"):
+        with pytest.raises(RuntimeError, match="official_walk_contract_mismatch"):
             asyncio.run(controller.handle(command("enable")))
         assert runtime.state.play_enabled is False
 
 
 def test_real_watchdog_revokes_play_after_official_walk_file_changes(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("duckmind.service._now", lambda: NOW)
+    # an official set as seed-policies.sh lays it out: the walk file, its manifest and .source
     model = tmp_path / "velstand.onnx"
-    model.write_bytes(b"reviewed-v5-model")
-    digest = hashlib.sha256(model.read_bytes()).hexdigest()
+    model.write_bytes(b"reviewed-model")
+    walk = {"file": "velstand.onnx", "kind": "perpetual", "slot": "walk", "entry_pose": "standing"}
+    manifest = {"model_api": 1, "obs_len": 61, "action_len": 14, "policies": [walk],
+                "robot": {"model": "microduck", "control_hz": 50}}  # fmt: skip
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    (tmp_path / ".source").write_text("repo=pollen-robotics/microduck-policies\nversion=v8\n")
     stopped = []
     with DuckRuntime(tmp_path / "pet.sqlite3", identity="duck", born_at=NOW) as runtime:
         controller = PetController(
@@ -417,7 +421,7 @@ def test_real_watchdog_revokes_play_after_official_walk_file_changes(tmp_path, m
             approve_real_v5_head_profile=True,
             approved_release_id="0.1.0-rc6",
             release_id_path=release_record(tmp_path),
-            policy_file_check=lambda: official_v5_walk_file_matches(model, expected_sha256=digest),
+            policy_file_check=lambda: official_walk_fingerprint(model),
         )
 
         async def run() -> None:
@@ -451,7 +455,7 @@ def test_real_watchdog_revokes_play_after_policy_override(tmp_path, monkeypatch)
             approve_real_v5_head_profile=True,
             approved_release_id="0.1.0-rc6",
             release_id_path=release_record(tmp_path),
-            policy_file_check=lambda: True,
+            policy_file_check=lambda: "f" * 64,
         )
 
         async def run() -> None:
@@ -487,7 +491,7 @@ def test_watchdog_latches_play_off_after_release_switch(tmp_path, monkeypatch) -
             approve_real_v5_head_profile=True,
             approved_release_id="0.1.0-rc6",
             release_id_path=record,
-            policy_file_check=lambda: True,
+            policy_file_check=lambda: "f" * 64,
         )
 
         async def run() -> None:

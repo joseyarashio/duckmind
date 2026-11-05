@@ -4,7 +4,7 @@
 (same cwd = microduck_rl, PYTHONPATH = microduck_rl/src, same arguments) plus two flags::
 
     python -m duckmind.bodyhost --headless --keyframe SIT --port 7801 \
-        [--collision allcollisions|groundcontact] [--lockstep | --no-lockstep]
+        [--collision allcollisions|allcollisions_backlash|groundcontact] [--lockstep | --no-lockstep]
 
 It imports the official ``mjlab_microduck.sim.body_server`` and changes three things, none of
 them a physics parameter (owner decisions 2026-09-26, phase 0「看見真相」):
@@ -18,6 +18,16 @@ them a physics parameter (owner decisions 2026-09-26, phase 0「看見真相」)
    33%). Masses, joints, actuators, timestep and floor contact are the same; the two official
    scenes are checked at start to differ only in the robot they include
    (:func:`check_scene_pair`).
+
+   ``--collision allcollisions_backlash`` is the same body with gear play: upstream's
+   ``robot_allcollisions_backlash.xml`` (``robot_allcollisions.xml`` with an unactuated
+   ``passive_<joint>_backlash`` hinge, ±1°, after each of the 14 servo joints; the same geoms,
+   bodies and actuators). Upstream ships no scene for it — its one backlash scene,
+   ``scene_backlash.xml``, includes the ground-contact backlash robot — so the scene is that
+   file's text with the robot include swapped (:func:`derived_scene`), written into a folder of
+   links to the official files (nothing official is edited). velstand from policy set v8 on was
+   trained with backlash (``Mjlab-VelStand-Rough-Backlash``) and upstream's own simulator runs
+   that scene since microduck #513.
 2. **Lockstep stepping** (``--lockstep``, the default). The official server steps the world in
    its own real-time thread, 20 ms per pass, whatever robotd does. When the Mac is busy a pass
    is late and the next ones run back to back to catch up, with no robotd command in between —
@@ -68,12 +78,30 @@ from duckmind.i18n import msg
 
 HOST_VERSION = "duckmind-bodyhost-1"
 
-# collision model → (official scene file, the robot file it includes). Both in
-# microduck_rl/src/mjlab_microduck/robot/microduck, referenced there, never copied.
+# collision model → (scene file, the robot file it includes). Both in
+# microduck_rl/src/mjlab_microduck/robot/microduck, referenced there, never copied — except a
+# DERIVED_SCENES name, made from an official scene by swapping its robot include.
 COLLISIONS: dict[str, tuple[str, str]] = {
     "allcollisions": ("scene_allcollisions.xml", "robot_allcollisions.xml"),
     "groundcontact": ("scene.xml", "robot_groundcontact.xml"),
+    "allcollisions_backlash": (
+        "scene_allcollisions_backlash.xml",
+        "robot_allcollisions_backlash.xml",
+    ),
 }
+# The two official scenes that must differ only in the robot they include (check_scene_pair).
+PLAIN_PAIR: tuple[str, str] = ("allcollisions", "groundcontact")
+# derived scene → (the official scene it is made from, the robot that one includes, the plain
+# scene it must equal apart from that robot and the keyframes — backlash adds 14 qpos values).
+DERIVED_SCENES: dict[str, tuple[str, str, str]] = {
+    "scene_allcollisions_backlash.xml": (
+        "scene_backlash.xml",
+        "robot_groundcontact_backlash.xml",
+        "scene.xml",
+    ),
+}
+# Collision models whose servos have gear play.
+BACKLASH_COLLISIONS: frozenset[str] = frozenset({"allcollisions_backlash"})
 DEFAULT_COLLISION = "allcollisions"  # owner decision 2026-09-26
 DEFAULT_LOCKSTEP = True  # owner decision 2026-09-26
 CONTROL_PERIOD_S = 0.020  # robotd's 50 Hz tick; the official run() also steps 20 ms per pass
@@ -119,6 +147,13 @@ REVIEWED_SHA256: dict[str, str] = {
     "robot_allcollisions.xml": "ec9d2f731596cfc847a7fc3898ef8b5e67a548928abc23216537f1da8af2729c",
     "scene.xml": "9a85461121ba8273083c482c166f27e143ca386993b3ec8f8d97eb09aa257d31",
     "robot_groundcontact.xml": "99d23867e46e9d4748ff1398016b850f09fb6cf02a558c0272743b39ce3acf15",
+    # reviewed 2026-11-05 (microduck_rl cb70b79 = bae39f5 for robot/): scene.xml with the
+    # ground-contact backlash robot and its keyframes widened to 35 qpos values; the robot is
+    # robot_allcollisions.xml plus the backlash default class and 14 passive hinges
+    "scene_backlash.xml": "2e8abed8258c0299859ca5403e44013da241f494065ed5bf184302923bd03c7d",
+    "robot_allcollisions_backlash.xml": (
+        "ccee92e435e39eefc64ee99745823751492ae7f948d835c89701710717e71de8"
+    ),
     "meshes": "b9c510c119cd1ab9a4e9008b033c69d0e8cf1031a1a90e3f58ed5669ba16aa21",
 }
 
@@ -221,9 +256,10 @@ def check_reviewed(
     (:data:`REVIEWED_SHA256`); empty when everything is as reviewed."""
     pinned = REVIEWED_SHA256 if pinned is None else pinned
     scene_name, robot_name = COLLISIONS[collision]
+    source = official_scene(scene_name)
     found = {
         "body_server.py": _file_sha256(body_server),
-        scene_name: _file_sha256(mjcf_dir / scene_name),
+        source: _file_sha256(mjcf_dir / source),
         robot_name: _file_sha256(mjcf_dir / robot_name),
         "meshes": mesh_digest(mjcf_dir / robot_name),
     }
@@ -235,55 +271,137 @@ def check_reviewed(
     ]
 
 
-def _scene_signature(text: str, robot_file: str) -> str:
-    """The scene with its robot include blanked out, comments and layout dropped."""
+def _scene_signature(text: str, robot_file: str, keyframes: bool = True) -> str:
+    """The scene with its robot include blanked out, comments and layout dropped (and its
+    keyframes too when ``keyframes`` is False)."""
     root = ET.fromstring(text)
     for node in root.iter("include"):
         if node.get("file") == robot_file:
             node.set("file", "ROBOT")
+    if not keyframes:
+        for parent in list(root.iter()):
+            for child in list(parent):
+                if child.tag == "keyframe":
+                    parent.remove(child)
     return ET.canonicalize(ET.tostring(root, encoding="unicode"), strip_text=True)
 
 
+def _differ_at(first: str, second: str) -> str:
+    at = next(
+        (i for i, (a, b) in enumerate(zip(first, second)) if a != b),
+        min(len(first), len(second)),
+    )
+    return first[max(0, at - 40) : at + 40]
+
+
+def _read_scene(
+    mjcf_dir: Path, scene_name: str, robot_name: str, problems: list[str]
+) -> str | None:
+    """The scene's text when it and its robot are there and it includes only that robot."""
+    scene = mjcf_dir / scene_name
+    if not scene.is_file():
+        problems.append(f"{scene_name}：找不到")
+        return None
+    if not (mjcf_dir / robot_name).is_file():
+        problems.append(f"{robot_name}：找不到")
+        return None
+    text = scene.read_text(encoding="utf-8")
+    try:
+        includes = [node.get("file") for node in ET.fromstring(text).iter("include")]
+    except ET.ParseError as error:
+        problems.append(f"{scene_name}：讀不懂（{error}）")
+        return None
+    if includes != [robot_name]:
+        problems.append(f"{scene_name}：引入的是 {includes}，應該只有 {robot_name}")
+        return None
+    return text
+
+
 def check_scene_pair(mjcf_dir: Path) -> list[str]:
-    """Differences between the official scenes of the two collision models other than the
-    robot file each includes (empty: choosing one changes the collision model and nothing
-    else in the scene: floor, light, keyframes, options)."""
+    """Differences between the official scenes of the two plain collision models other than
+    the robot file each includes (empty: choosing one changes the collision model and nothing
+    else in the scene: floor, light, keyframes, options) — and between each derived scene's
+    official source and its plain twin other than the robot and the keyframes (the backlash
+    robot has 14 more joints, so its keyframes are longer)."""
     problems: list[str] = []
     signatures: dict[str, str] = {}
-    for collision, (scene_name, robot_name) in COLLISIONS.items():
-        scene = mjcf_dir / scene_name
-        if not scene.is_file():
-            problems.append(f"{scene_name}：找不到")
+    for collision in PLAIN_PAIR:
+        scene_name, robot_name = COLLISIONS[collision]
+        text = _read_scene(mjcf_dir, scene_name, robot_name, problems)
+        if text is not None:
+            signatures[collision] = _scene_signature(text, robot_name)
+    if len(signatures) == len(PLAIN_PAIR) and len(set(signatures.values())) > 1:
+        first, second = (signatures[name] for name in PLAIN_PAIR)
+        names = " 和 ".join(COLLISIONS[name][0] for name in PLAIN_PAIR)
+        problems.append(f"{names} 除了機器人檔以外還有不同：…{_differ_at(first, second)}…")
+    plain_robots = {COLLISIONS[name][0]: COLLISIONS[name][1] for name in PLAIN_PAIR}
+    for source, robot, twin in DERIVED_SCENES.values():
+        text = _read_scene(mjcf_dir, source, robot, problems)
+        twin_text = _read_scene(mjcf_dir, twin, plain_robots[twin], problems)
+        if text is None or twin_text is None:
             continue
-        if not (mjcf_dir / robot_name).is_file():
-            problems.append(f"{robot_name}：找不到")
-            continue
-        text = scene.read_text(encoding="utf-8")
-        try:
-            includes = [node.get("file") for node in ET.fromstring(text).iter("include")]
-        except ET.ParseError as error:
-            problems.append(f"{scene_name}：讀不懂（{error}）")
-            continue
-        if includes != [robot_name]:
-            problems.append(f"{scene_name}：引入的是 {includes}，應該只有 {robot_name}")
-            continue
-        signatures[collision] = _scene_signature(text, robot_name)
-    if len(signatures) == len(COLLISIONS) and len(set(signatures.values())) > 1:
-        first, second = (signatures[name] for name in COLLISIONS)
-        at = next(
-            (i for i, (a, b) in enumerate(zip(first, second)) if a != b),
-            min(len(first), len(second)),
-        )
-        names = " 和 ".join(scene for scene, _ in COLLISIONS.values())
-        problems.append(f"{names} 除了機器人檔以外還有不同：…{first[max(0, at - 40) : at + 40]}…")
+        ours = _scene_signature(text, robot, keyframes=False)
+        theirs = _scene_signature(twin_text, plain_robots[twin], keyframes=False)
+        if ours != theirs:
+            problems.append(
+                f"{source} 和 {twin} 除了機器人檔和關鍵姿勢以外還有不同：…{_differ_at(ours, theirs)}…"
+            )
     return problems
 
 
+def official_scene(scene_name: str) -> str:
+    """The official file a scene is read from: itself, or a derived scene's source."""
+    derived = DERIVED_SCENES.get(scene_name)
+    return derived[0] if derived is not None else scene_name
+
+
+def derived_scene(mjcf_dir: Path, scene_name: str, robot_name: str) -> Path:
+    """A derived scene (:data:`DERIVED_SCENES`) as a file: its official source's text with the
+    robot include swapped for ``robot_name``, in a folder of links to every official file (so
+    the robot, its meshes and the other includes resolve as they do in the MJCF folder). The
+    folder is per MJCF folder under the temporary directory; the file is rewritten atomically
+    when it differs, so concurrent servers never read half a file."""
+    import tempfile
+
+    source, old_robot, _twin = DERIVED_SCENES[scene_name]
+    text = (mjcf_dir / source).read_text(encoding="utf-8")
+    root = ET.fromstring(text)
+    includes = [node.get("file") for node in root.iter("include")]
+    if includes != [old_robot]:
+        raise ValueError(f"{source} includes {includes}, not only {old_robot}")
+    for node in root.iter("include"):
+        node.set("file", robot_name)
+    derived = ET.tostring(root, encoding="unicode")
+    owner = os.getuid() if hasattr(os, "getuid") else 0
+    key = hashlib.sha256(str(mjcf_dir.resolve()).encode()).hexdigest()[:16]
+    folder = Path(tempfile.gettempdir()) / f"duckmind-scenes-{owner}" / key
+    folder.mkdir(parents=True, exist_ok=True)
+    for entry in mjcf_dir.iterdir():
+        if entry.name in DERIVED_SCENES:
+            continue
+        link = folder / entry.name
+        if not link.exists() and not link.is_symlink():
+            try:
+                link.symlink_to(entry.resolve())
+            except FileExistsError:  # another server made it first
+                pass
+    target = folder / scene_name
+    if not target.is_file() or target.read_text(encoding="utf-8") != derived:
+        tmp = folder / f".{scene_name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        tmp.write_text(derived, encoding="utf-8")
+        tmp.replace(target)
+    return target
+
+
 def scene_for(mjcf_dir: Path, collision: str) -> Path:
-    """The official scene file that serves this collision model."""
+    """The scene file that serves this collision model: the official one, or the derived one
+    made from its official source (:func:`derived_scene`)."""
     if collision not in COLLISIONS:
         raise ValueError(f"unknown collision model {collision!r}; known: {sorted(COLLISIONS)}")
-    return mjcf_dir / COLLISIONS[collision][0]
+    scene_name, robot_name = COLLISIONS[collision]
+    if scene_name in DERIVED_SCENES:
+        return derived_scene(mjcf_dir, scene_name, robot_name)
+    return mjcf_dir / scene_name
 
 
 def command_delay_steps(timestep: float, environ: dict[str, str] | None = None) -> int:

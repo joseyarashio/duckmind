@@ -80,11 +80,14 @@ def test_the_page_and_its_scripts_are_served(server):
         "/truth.js",
         "/style.css",
         "/shell.js",
+        "/bodylink.js",
+        "/growth.js",
     ):
         status, body = _get(server + path)
         assert status == 200 and body, path
-    # 「資料」 is a view of the same page (shell.js shows it): /data serves the page itself
-    assert _get(server + "/data") == _get(server + "/")
+    # 「實驗室」 is a view of the same page (shell.js shows it): /lab serves the page itself, and so
+    # does its old address /data
+    assert _get(server + "/lab") == _get(server + "/") == _get(server + "/data")
 
 
 def test_the_api_runs_the_real_core_and_streams_a_feed(server):

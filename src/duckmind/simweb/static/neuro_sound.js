@@ -385,8 +385,8 @@ function say(text) {
 
 function build() {
   if ($("neuroSound")) return;
-  const anchor = $("neuroQuick");
-  if (!anchor) return;
+  const mount = $("neuroSoundMount");
+  if (!mount) return;
   const hand = make("input", { type: "range", id: "soundHand", min: "10", max: "70", step: "1", value: String(st.hand) });
   hand.setAttribute("aria-label", tr("page.neuro.sound.hand.aria"));
   const handOut = make("output", { id: "soundHandOut", textContent: tr("page.neuro.sound.cm", { cm: st.hand }) });
@@ -418,10 +418,8 @@ function build() {
   strip.dataset.neuro = "";
   strip.dataset.scenarios = "";
   strip.setAttribute("aria-label", tr("page.neuro.sound.header"));
-  // (the 逗逗牠 tab has its own place for it; without one, right under the quick strip as before)
-  const mount = $("neuroSoundMount");
-  if (mount) mount.append(strip);
-  else anchor.after(strip);
+  // (its place is the 玩 tab, under the play card)
+  mount.append(strip);
   strip.addEventListener("click", (event) => {
     const b = event.target.closest("button[data-sound]");
     if (!b) return;
@@ -544,7 +542,8 @@ async function boot() {
     }
   });
   const ready = () => {
-    if (!$("neuroQuick") || $("neuroQuick").hidden) {
+    // (the prototype's mode is on once neuro.js shows the 玩 card)
+    if (!$("neuroStim") || $("neuroStim").hidden) {
       setTimeout(ready, 500);
       return;
     }

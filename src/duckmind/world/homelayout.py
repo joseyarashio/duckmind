@@ -72,6 +72,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from duckmind.bodyhost import COLLISIONS, official_scene, scene_for
 from duckmind.i18n import msg
 
 SCHEMA = "home-layout-v2"
@@ -79,16 +80,10 @@ PAGE_SCHEMA = "home-page-v1"
 HOMES_DIR = Path(__file__).with_name("homes")
 MJCF_ENV = "DUCKMIND_MICRODUCK_MJCF"  # the official microduck MJCF folder (as the tests use it)
 
-# collision model → the official scene a home on the official floor starts from, and the robot
-# file that scene includes (the same pairs as duckmind.bodyhost.COLLISIONS).
-SCENES: dict[str, str] = {
-    "allcollisions": "scene_allcollisions.xml",
-    "groundcontact": "scene.xml",
-}
-ROBOT_FILES: dict[str, str] = {
-    "allcollisions": "robot_allcollisions.xml",
-    "groundcontact": "robot_groundcontact.xml",
-}
+# collision model → the scene a home on the official floor starts from, and the robot file that
+# scene includes (duckmind.bodyhost.COLLISIONS; the backlash scene is derived, see scene_for).
+SCENES: dict[str, str] = {name: pair[0] for name, pair in COLLISIONS.items()}
+ROBOT_FILES: dict[str, str] = {name: pair[1] for name, pair in COLLISIONS.items()}
 ROBOT_ROOT = "trunk_base"
 ROBOT_FREEJOINT = "trunk_base_freejoint"
 OFFICIAL_FLOOR = "floor"
@@ -1189,7 +1184,7 @@ def base_scene(layout: Layout, collision: str = "allcollisions") -> str:
 def official_files(layout: Layout, collision: str = "allcollisions") -> list[str]:
     """Every official MJCF file the composed home reads (scene, the robot it includes, and the
     official world when it is attached rather than included), for pinning."""
-    scene = base_scene(layout, collision)
+    scene = official_scene(base_scene(layout, collision))
     files = [scene, ROBOT_FILES[collision]]
     world = layout.base.get("world")
     if world and str(world) not in files:
@@ -2689,7 +2684,7 @@ def _base_spec(mujoco: Any, layout: Layout, collision: str, folder: Path) -> Any
     scenes = dict(layout.base.get("scenes") or {})
     if world and collision in scenes:
         return mujoco.MjSpec.from_file(str(folder / scenes[collision]))
-    spec = mujoco.MjSpec.from_file(str(folder / SCENES[collision]))
+    spec = mujoco.MjSpec.from_file(str(scene_for(folder, collision)))
     if world:
         # The official world on the other robot: the scene without its plane, the world
         # attached under its own names (as scene_apartment.xml includes it).

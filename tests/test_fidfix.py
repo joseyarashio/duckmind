@@ -506,21 +506,23 @@ def test_the_speed_words_are_the_brains_wish_and_the_bodys_measure() -> None:
     assert "身體實際" not in N.locomotion_zh(0.37, 0.0)
 
 
-def test_the_page_has_the_stimuli_under_the_view() -> None:
+def test_the_stimuli_are_in_the_play_tab_only() -> None:
+    """The quick strip under the view went (owner 2026-11-05): the 玩 tab is the one place for the
+    stimulus buttons; the strip's 戳一下 and 推一下 are in its 「更多刺激」 row (the contract's stimuli)."""
+    from duckmind.simweb import neuro_api as N
+
     page = (STATIC / "index.html").read_text(encoding="utf-8")
-    strip = page[
-        page.index('id="neuroQuick"') : page.index("</div>", page.index('id="neuroQuick"'))
+    assert 'id="neuroQuick"' not in page
+    card = page[
+        page.index('id="neuroStim"') : page.index("</section>", page.index('id="neuroStim"'))
     ]
-    assert (
-        "data-scenarios"
-        in page[page.index('id="neuroQuick"') - 200 : page.index('id="neuroQuick"') + 200]
-    )
-    for key in ("clap", "call_name", "pat_head", "poke", "push", "pick_up", "set_down", "lights"):
-        assert f'data-stim="{key}"' in strip
+    for key in ("clap", "call_name", "pat_head", "pick_up", "set_down", "lights"):
+        assert f'data-stim="{key}"' in card
+    assert {"poke", "push"} <= set(N.MORE_STIMULI) and 'id="neuroMoreButtons"' in card
+    stims = [part.split('"', 1)[0] for part in page.split('data-stim="')[1:]]
+    assert len(stims) == len(set(stims))  # (one button per stimulus on the page)
     js = (STATIC / "neuro.js").read_text(encoding="utf-8")
-    assert "#neuroQuick" in js and "[data-lights]" in js
-    # the stage strip sits between the 3D view and the readout, above the fold
-    assert page.index('id="neuroQuick"') < page.index('id="duck3dReadout"')
+    assert "#neuroQuick" not in js and "[data-lights]" in js
 
 
 def test_the_act_names_claim_only_what_this_body_does() -> None:

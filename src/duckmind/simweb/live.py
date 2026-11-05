@@ -1763,6 +1763,9 @@ class LiveBridge:
             "world": self.world_view(),
             "eye": self.eye_status(),
             "demo": time.time() < self.demo_until,
+            # 我的小鴨 (the page's real-duck card): the link's own numbers for a body on another machine
+            # (``--body remote://…``: up, round trips, drops, the deadman), None for a body run here
+            "remote": status.get("remote"),
         }
         if frames:
             out["frames"] = self.frames_since(since_t)

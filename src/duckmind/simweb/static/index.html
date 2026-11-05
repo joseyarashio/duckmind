@@ -48,9 +48,8 @@
     </div>
   </div>
   <nav class="jumpnav" aria-label="頁面區塊" data-i18n-attr="aria-label:page.html.jumpnav.aria">
-    <a href="/" data-view-link="sim" data-i18n="page.nav.sim">模擬</a>
-    <a href="/#mind" data-i18n="page.html.jumpnav.a.text.a819be">內心</a>
-    <a href="/data" data-view-link="data" data-i18n="page.nav.data">資料</a>
+    <a href="/" data-view-link="sim" data-i18n="page.nav.duck">小鴨</a>
+    <a href="/lab" data-view-link="data" data-i18n="page.nav.lab">實驗室</a>
   </nav>
   <div class="lang-slot" data-i18n-picker></div>
 </header>
@@ -70,9 +69,7 @@
                  brain (rhythm, reflex log, drives…) is the 「腦」 tab of the control panel. -->
             <div class="hud" id="hud" data-neuro hidden aria-label="小鴨現在的狀態" data-i18n-attr="aria-label:page.shell.hud.aria">
               <p class="hud-main"><span class="hud-k" data-i18n="page.html.eyebrow.text.312040">現在在做</span><strong id="hudNow">—</strong></p>
-              <p class="hud-line hud-body" id="hudBody" hidden></p>
-              <p class="hud-line hud-reflex" id="hudReflex" hidden></p>
-              <button type="button" class="btn small hud-brain" id="btnBrain" data-ctl-open="brain" title="打開小鴨的腦（走路節奏、反射、驅力、習慣）" data-i18n-attr="title:page.shell.brain.title" data-i18n="page.shell.tab.brain">腦</button>
+              <a class="btn small hud-brain" id="btnBrain" href="/lab#neuroSide" data-view-link="data" title="打開小鴨的腦（走路節奏、反射、驅力、習慣）" data-i18n-attr="title:page.shell.brain.title" data-i18n="page.shell.tab.brain">腦</a>
             </div>
             <!-- The view's own tools: 「近看小鴨」 (duck3d.js: a close camera on the head, 3D only) and ⛶. -->
             <div class="stage-tools">
@@ -146,20 +143,6 @@
             </div>
           </div>
           <div class="stage-bar">
-            <!-- 神經鴨原型 (fid:fix 2026-09-28): the main stimuli right under the view, so the whole
-                 3D duck stays in sight while you press one (neuro.js; the same world events as the
-                 「逗逗牠」 card below). -->
-            <div class="stage-stim" id="neuroQuick" data-neuro data-scenarios hidden aria-label="逗逗牠（快捷）" data-i18n-attr="aria-label:page.html.neuroQuick.aria">
-              <span class="stage-stim-label" data-i18n="page.html.neuroQuick.stage-stim-label.text">逗逗牠</span>
-              <button type="button" class="btn small" data-stim="clap" data-i18n="page.html.stim_clap.text">拍手</button>
-              <button type="button" class="btn small" data-stim="call_name" data-i18n="page.html.stim_call_name.text">叫名字</button>
-              <button type="button" class="btn small" data-stim="pat_head" data-i18n="page.html.stim_pat_head.text">摸頭</button>
-              <button type="button" class="btn small" data-stim="poke" data-i18n="page.html.stim_poke.text">戳一下</button>
-              <button type="button" class="btn small" data-stim="push" data-i18n="page.html.stim_push.text">推一下</button>
-              <button type="button" class="btn small" data-stim="pick_up" data-i18n="page.html.act_pickup.text">抱起來</button>
-              <button type="button" class="btn small" data-stim="set_down" data-i18n="page.html.stim_set_down.text">放下來</button>
-              <button type="button" class="btn small" data-stim="lights" data-lights data-i18n="page.html.stim_lights.text">關燈</button>
-            </div>
             <!-- 小鴨的叫聲 (voice.js): every call Duck Core makes, in this duck's own official
                  Microduck voice (the server renders its bank from the duck's seed); the mute and
                  the volume are this viewer's own (remembered on this device). -->
@@ -240,24 +223,20 @@
     </button>
     <div class="ctl-main" id="ctlMain">
     <div class="ctl-tabs" role="tablist" id="ctlTabs" aria-label="控制面板的分頁" data-i18n-attr="aria-label:page.shell.tabs.aria">
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-stim" data-ctl-tab="stim" aria-controls="ctl-stim" aria-selected="false" tabindex="-1" data-neuro hidden data-i18n="page.html.neuroQuick.stage-stim-label.text">逗逗牠</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-motion" data-ctl-tab="motion" aria-controls="ctl-motion" aria-selected="false" tabindex="-1" data-neuro hidden data-i18n="page.shell.tab.motion">動作</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-emotion" data-ctl-tab="emotion" aria-controls="ctl-emotion" aria-selected="false" tabindex="-1" data-neuro hidden data-i18n="page.motion.group.emotion">情緒</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-trick" data-ctl-tab="trick" aria-controls="ctl-trick" aria-selected="false" tabindex="-1" data-neuro hidden data-i18n="page.trick.tab">訓練</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-voice" data-ctl-tab="voice" aria-controls="ctl-voice" aria-selected="false" tabindex="-1" hidden data-i18n="page.live.title">說話</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-duck" data-ctl-tab="duck" aria-controls="ctl-duck" aria-selected="false" tabindex="-1" data-neuro hidden data-i18n="page.shell.tab.duck">換鴨子</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-brain" data-ctl-tab="brain" aria-controls="ctl-brain" aria-selected="false" tabindex="-1" data-neuro hidden data-i18n="page.shell.tab.brain">腦</button>
+      <button type="button" role="tab" class="ctl-tab" id="ctlTab-stim" data-ctl-tab="stim" aria-controls="ctl-stim" aria-selected="false" tabindex="-1" data-neuro hidden><span class="ctl-tab-icon" aria-hidden="true">🎾</span><span data-i18n="page.shell.tab.play">玩</span></button>
+      <button type="button" role="tab" class="ctl-tab" id="ctlTab-trick" data-ctl-tab="trick" aria-controls="ctl-trick" aria-selected="false" tabindex="-1" data-neuro hidden><span class="ctl-tab-icon" aria-hidden="true">⭐</span><span data-i18n="page.trick.tab">訓練</span></button>
+      <button type="button" role="tab" class="ctl-tab" id="ctlTab-grow" data-ctl-tab="grow" aria-controls="ctl-grow" aria-selected="false" tabindex="-1" data-neuro hidden><span class="ctl-tab-icon" aria-hidden="true">🌱</span><span data-i18n="page.shell.tab.grow">成長</span></button>
+      <button type="button" role="tab" class="ctl-tab" id="ctlTab-duck" data-ctl-tab="duck" aria-controls="ctl-duck" aria-selected="false" tabindex="-1" data-neuro hidden><span class="ctl-tab-icon" aria-hidden="true">🐥</span><span data-i18n="page.shell.tab.myduck">我的小鴨</span></button>
       <button type="button" role="tab" class="ctl-tab" id="ctlTab-status" data-ctl-tab="status" aria-controls="ctl-status" aria-selected="false" tabindex="-1" data-core data-i18n="page.shell.tab.status">狀態</button>
       <button type="button" role="tab" class="ctl-tab" id="ctlTab-play" data-ctl-tab="play" aria-controls="ctl-play" aria-selected="false" tabindex="-1" data-core data-i18n="page.html.jumpnav.a.text.4978e4">互動</button>
       <button type="button" role="tab" class="ctl-tab" id="ctlTab-tools" data-ctl-tab="tools" aria-controls="ctl-tools" aria-selected="false" tabindex="-1" data-core data-i18n="page.html.jumpnav.a.text.a72ef1">工具</button>
-      <button type="button" role="tab" class="ctl-tab" id="ctlTab-phys" data-ctl-tab="phys" aria-controls="ctl-phys" aria-selected="false" tabindex="-1" data-i18n="page.shell.tab.phys">物理</button>
     </div>
     <div class="ctl-body" id="ctlBody">
       <div class="ctl-panel" role="tabpanel" id="ctl-stim" data-ctl-panel="stim" aria-labelledby="ctlTab-stim" hidden >
                 <!-- 神經鴨原型（示範, neuro.js, docs/simulator-style.md): the stimuli are things that
              happen in the physical world; the duck notices them only through its senses. -->
         <section class="card accent-orange neuro-stim" id="neuroStim" data-neuro data-scenarios hidden aria-label="逗逗牠" data-i18n-attr="aria-label:page.html.neuroStim.aria">
-          <h2 class="card-title"><span data-i18n="page.html.neuroStim.card-title.text">逗逗牠</span><small data-i18n="page.html.card-title.small.text.7c0bb5">物理世界裡發生的事：小鴨只能靠牠的感覺察覺</small></h2>
+          <h2 class="card-title"><span data-i18n="page.html.neuroStim.card-title.text">逗逗牠</span><small data-i18n="page.play.sub">摸摸牠、抱抱牠、丟球給牠，看牠怎麼反應</small></h2>
           <!-- Shown only while the physics body is down and its own tries failed, or while it
                keeps getting stuck at one spot (neuro.js). -->
           <div class="neuro-help" id="neuroHelpRow" hidden>
@@ -265,13 +244,15 @@
             <button type="button" class="btn primary" id="neuroCarry" hidden data-i18n="page.html.neuroCarry.text">抱到地墊上</button>
             <span class="hint" id="neuroHelpNote" data-i18n="page.html.neuroHelpNote.text">牠跌倒了，自己爬不起來：按一下，一隻手會過去把牠扶起來。</span>
           </div>
-          <div class="row" id="neuroStimButtons">
+          <div class="row play-buttons" id="neuroStimButtons">
+            <button type="button" class="btn" data-stim="pat_head" data-i18n="page.html.stim_pat_head.text">摸頭</button>
+            <button type="button" class="btn" data-stim="pick_up" data-i18n="page.html.act_pickup.text">抱起來</button>
+            <button type="button" class="btn" data-stim="set_down" data-i18n="page.html.stim_set_down.text">放下來</button>
+            <button type="button" class="btn" data-stim="roll_ball" data-i18n="page.html.stim_roll_ball.text">滾球過去</button>
+            <button type="button" class="btn" data-stim="novel_object" data-i18n="page.html.stim_novel_object.text">放一個新東西</button>
             <button type="button" class="btn" data-stim="clap" data-i18n="page.html.stim_clap.text">拍手</button>
             <button type="button" class="btn" data-stim="call_name" data-i18n="page.html.stim_call_name.text">叫名字</button>
             <button type="button" class="btn" data-stim="wave" data-i18n="page.html.stim_wave.text">揮手</button>
-            <button type="button" class="btn" data-stim="pat_head" data-i18n="page.html.stim_pat_head.text">摸頭</button>
-            <button type="button" class="btn" data-stim="roll_ball" data-i18n="page.html.stim_roll_ball.text">滾球過去</button>
-            <button type="button" class="btn" data-stim="novel_object" data-i18n="page.html.stim_novel_object.text">放一個新東西</button>
             <button type="button" class="btn" data-stim="lights" id="neuroLights" data-lights data-i18n="page.html.stim_lights.text">關燈</button>
             <button type="button" class="btn" data-stim="family_walk" data-i18n="page.html.stim_family_walk.text">家人走過</button>
           </div>
@@ -279,7 +260,7 @@
             <summary data-i18n="page.html.neuroMore.summary.text">更多刺激</summary>
             <div class="row" id="neuroMoreButtons"></div>
           </details>
-          <p class="hint" id="neuroStimNote" data-i18n="page.html.neuroStimNote.text">按一下，看牠的反射和腦裡的變化（右邊「小鴨的腦」）。</p>
+          <p class="hint" id="neuroStimNote" data-i18n="page.play.note">按一下，看牠怎麼反應。</p>
           <!-- The neural duck's own clock (its circadian drive, the room's daylight). -->
           <div class="neuro-day" id="neuroDay">
             <p class="eyebrow"><span data-i18n="page.html.neuroDay.eyebrow.text">小鴨的時間</span><small id="neuroDayNow">—</small></p>
@@ -287,48 +268,6 @@
             <p class="hint" id="neuroDayNote" data-i18n="page.html.neuroDayNote.text">白天比較活潑、晚上比較想睡；選一個時段，牠的時鐘從那裡照真的速度走下去。</p>
           </div>
         </section>
-        <div id="neuroSoundMount" data-scenarios></div>
-      </div>
-      <div class="ctl-panel" role="tabpanel" id="ctl-motion" data-ctl-panel="motion" aria-labelledby="ctlTab-motion" hidden >
-                <!-- 動作試玩 (neuro.js, docs/design/neural-duck/SKILLS-2026-10-05.md): every motion trained on Colab, one
-             button each, with its gate verdict; the duck does it now, or says why not. -->
-        <section class="card accent-yellow neuro-motions" id="neuroMotions" data-neuro data-scenarios hidden aria-label="動作試玩" data-i18n-attr="aria-label:page.motion.aria">
-          <h2 class="card-title"><span data-i18n="page.motion.title">動作試玩</span><small data-i18n="page.motion.sub">練過的全身動作，按一下牠現在就做</small></h2>
-          <div class="motion-groups" id="motionGroups"></div>
-          <p class="hint motion-note" id="motionNote" role="status" aria-live="polite" hidden></p>
-          <p class="hint" data-i18n="page.motion.intro">每個動作都標著驗收結果。姿勢不對時，牠會說原因，不會硬做。按鈕不受每小時次數上限限制。</p>
-          <details class="neuro-more motion-details" id="motionDetails" hidden>
-            <summary data-i18n="page.motion.d.summary">各動作的驗收結果與限制</summary>
-            <ul class="motion-list" id="motionList"></ul>
-          </details>
-        </section>
-      </div>
-      <div class="ctl-panel" role="tabpanel" id="ctl-emotion" data-ctl-panel="emotion" aria-labelledby="ctlTab-emotion" hidden >
-        <section class="card accent-magenta neuro-motions neuro-emotions" id="neuroEmotions" data-neuro data-scenarios hidden aria-label="情緒" data-i18n-attr="aria-label:page.motion.group.emotion">
-          <h2 class="card-title"><span data-i18n="page.motion.group.emotion">情緒</span><small data-i18n="page.shell.emotion.sub">十四種情緒，按一下牠就演出來</small></h2>
-          <div class="motion-groups" id="emotionGroups"></div>
-          <p class="hint motion-note" id="emotionNote" role="status" aria-live="polite" hidden></p>
-          <p class="hint" data-i18n="page.emotion.credit">情緒的動作和聲音設計來自 Pollen Robotics 的 microduck_emotions（Apache-2.0）；聲音用這隻小鴨自己的聲音重做，所以和牠平常的叫聲是同一個鴨。</p>
-        </section>
-      </div>
-      <div class="ctl-panel" role="tabpanel" id="ctl-trick" data-ctl-panel="trick" aria-labelledby="ctlTab-trick" hidden >
-        <!-- 訓練 (tricks.js): the duck's own trick book (GET /api/life/growth → growth.learned.tricks) and a button per trick
-             that sends its command through the command strip; praise goes through the strip's 稱讚／點心／不對 -->
-        <section class="card accent-cyan trick-book" id="trickBook" data-neuro data-scenarios hidden aria-label="訓練" data-i18n-attr="aria-label:page.trick.tab">
-          <h2 class="card-title"><span data-i18n="page.trick.tab">訓練</span><small data-i18n="page.trick.sub">教牠把戲：叫牠做，做了就馬上稱讚</small></h2>
-          <p class="hint trick-status" id="trickStatus" role="status" data-i18n="page.trick.loading">正在讀取訓練紀錄…</p>
-          <!-- the same three words as the command strip's: on a phone the strip is put away while this panel is open -->
-          <div class="trick-feedback" id="trickFeedback" role="group" aria-label="給牠回饋（剛做完的把戲）" data-i18n-attr="aria-label:page.trick.fb.aria">
-            <button type="button" class="btn small primary" data-feedback="praise" title="牠剛做完把戲就按：乖！牠會記住一點" data-i18n-attr="title:page.trick.fb.praise.title" data-i18n="page.trick.fb.praise">稱讚</button>
-            <button type="button" class="btn small" data-feedback="treat" title="給一個點心：跟稱讚一樣，牠會記住一點" data-i18n-attr="title:page.trick.fb.treat.title" data-i18n="page.trick.fb.treat">點心</button>
-            <button type="button" class="btn small" data-feedback="scold" title="牠做錯了就按：這個把戲的熟練度會掉一點" data-i18n-attr="title:page.trick.fb.scold.title" data-i18n="page.trick.fb.scold">不對</button>
-          </div>
-          <p class="trick-note" id="trickNote" role="status" aria-live="polite" hidden></p>
-          <ol class="trick-list" id="trickList"></ol>
-          <p class="hint" data-i18n="page.trick.intro">按「叫牠做」送出指令；牠做了以後馬上按「稱讚」或「點心」，熟練度就會往上（牠自己做的把戲要在三秒內稱讚）。一天能進步的有上限，每天練一點最有用；太久沒練會慢慢生疏。</p>
-        </section>
-      </div>
-      <div class="ctl-panel" role="tabpanel" id="ctl-voice" data-ctl-panel="voice" aria-labelledby="ctlTab-voice" hidden >
             <!-- 說話 (live voice, LV5; live_voice.js, docs/simulator-style.md): shown only when the server
          runs --live-voice. The cloud switch is off at start; the chips say what leaves the machine. -->
     <section class="card accent-purple live-voice" id="liveVoice" data-scenarios hidden aria-labelledby="liveTitle">
@@ -409,14 +348,46 @@
       </div>
       <p class="live-usage" id="liveUsage"></p>
     </section>
+        <!-- 情緒 (owner 2026-11-05: back in 玩, folded): the fourteen emotions to act out (neuro.js fills #emotionGroups) -->
+        <details class="emotion-fold" id="emotionFold">
+          <summary data-i18n="page.play.emotions">看牠演心情（14 種）</summary>
+        <section class="card accent-magenta neuro-motions neuro-emotions" id="neuroEmotions" data-neuro data-scenarios hidden aria-label="情緒" data-i18n-attr="aria-label:page.motion.group.emotion">
+          <h2 class="card-title"><span data-i18n="page.motion.group.emotion">情緒</span><small data-i18n="page.shell.emotion.sub">十四種情緒，按一下牠就演出來</small></h2>
+          <div class="motion-groups" id="emotionGroups"></div>
+          <p class="hint motion-note" id="emotionNote" role="status" aria-live="polite" hidden></p>
+          <p class="hint" data-i18n="page.emotion.credit">情緒的動作和聲音設計來自 Pollen Robotics 的 microduck_emotions（Apache-2.0）；聲音用這隻小鴨自己的聲音重做，所以和牠平常的叫聲是同一個鴨。</p>
+        </section>
+        </details>
+        <div id="neuroSoundMount" data-scenarios></div>
+      </div>
+      <div class="ctl-panel" role="tabpanel" id="ctl-trick" data-ctl-panel="trick" aria-labelledby="ctlTab-trick" hidden >
+        <!-- 訓練 (tricks.js): the duck's own trick book (GET /api/life/growth → growth.learned.tricks) and a button per trick
+             that sends its command through the command strip; praise goes through the strip's 稱讚／點心／不對 -->
+        <section class="card accent-cyan trick-book" id="trickBook" data-neuro data-scenarios hidden aria-label="訓練" data-i18n-attr="aria-label:page.trick.tab">
+          <h2 class="card-title"><span data-i18n="page.trick.tab">訓練</span><small data-i18n="page.trick.sub">教牠把戲：叫牠做，做了就馬上稱讚</small></h2>
+          <p class="hint trick-status" id="trickStatus" role="status" data-i18n="page.trick.loading">正在讀取訓練紀錄…</p>
+          <!-- the same three words as the command strip's: on a phone the strip is put away while this panel is open -->
+          <div class="trick-feedback" id="trickFeedback" role="group" aria-label="給牠回饋（剛做完的把戲）" data-i18n-attr="aria-label:page.trick.fb.aria">
+            <button type="button" class="btn small primary" data-feedback="praise" title="牠剛做完把戲就按：乖！牠會記住一點" data-i18n-attr="title:page.trick.fb.praise.title" data-i18n="page.trick.fb.praise">稱讚</button>
+            <button type="button" class="btn small" data-feedback="treat" title="給一個點心：跟稱讚一樣，牠會記住一點" data-i18n-attr="title:page.trick.fb.treat.title" data-i18n="page.trick.fb.treat">點心</button>
+            <button type="button" class="btn small" data-feedback="scold" title="牠做錯了就按：這個把戲的熟練度會掉一點" data-i18n-attr="title:page.trick.fb.scold.title" data-i18n="page.trick.fb.scold">不對</button>
+          </div>
+          <p class="trick-note" id="trickNote" role="status" aria-live="polite" hidden></p>
+          <ol class="trick-list" id="trickList"></ol>
+          <p class="hint" data-i18n="page.trick.intro">按「叫牠做」送出指令；牠做了以後馬上按「稱讚」或「點心」，熟練度就會往上（牠自己做的把戲要在三秒內稱讚）。一天能進步的有上限，每天練一點最有用；太久沒練會慢慢生疏。</p>
+        </section>
+      </div>
+      <div class="ctl-panel" role="tabpanel" id="ctl-grow" data-ctl-panel="grow" aria-labelledby="ctlTab-grow" hidden>
+        <!-- 成長 (growth.js): the duck's own growth record (GET /api/life/growth), short — its growth day, stage and direction,
+             who it is close to, and a few real recent events; the whole record and the fast-forward test are in the lab -->
+        <section class="card accent-yellow grow-card" id="growthTab" data-neuro hidden aria-label="成長" data-i18n-attr="aria-label:page.shell.tab.grow">
+          <h2 class="card-title"><span data-i18n="page.shell.tab.grow">成長</span><small data-i18n="page.growtab.sub">牠長到哪裡了、跟誰親、最近做了什麼</small></h2>
+          <p class="hint grow-status" id="growthTabStatus" role="status" aria-live="polite" data-i18n="page.growth.loading">正在讀成長資料…</p>
+          <div class="grow-body" id="growthTabBody"></div>
+          <a class="btn small grow-more" href="/lab#growthView" data-view-link="data" data-i18n="page.growtab.more">完整的成長紀錄在實驗室</a>
+        </section>
       </div>
       <div class="ctl-panel" role="tabpanel" id="ctl-duck" data-ctl-panel="duck" aria-labelledby="ctlTab-duck" hidden >
-            <!-- 神經鴨原型（示範）: four contrasting ducks from Duck Core's diversity design, or one at random. -->
-    <div class="card accent-cyan neuro-picker" id="neuroPicker" data-neuro data-scenarios hidden>
-      <h3 class="card-title"><span data-i18n="page.html.neuroPicker.card-title.text">換一隻小鴨</span><small data-i18n="page.html.card-title.small.text.752014">天生的樣子全部來自 Duck Core 的多樣化設計：同一個種子，永遠是同一隻鴨</small></h3>
-      <div class="neuro-ducks" id="neuroDucks" role="radiogroup" aria-label="選一隻小鴨" data-i18n-attr="aria-label:page.html.neuroDucks.aria"></div>
-      <p class="hint" id="neuroPickNote" data-i18n="page.html.neuroPickNote.text">換鴨子時物理身體留在原地，換掉的是牠的腦（天生的樣子、年紀和學到的東西都重新開始）。</p>
-    </div>
     <!-- 我的小鴨檔案 (docs/duck-file.md): export the duck this server lives, import another (duckfile.js). -->
     <div class="card accent-magenta duckfile" id="duckFile" data-neuro hidden>
       <h3 class="card-title"><span data-i18n="page.duckfile.title">我的小鴨檔案</span><small data-i18n="page.duckfile.small">一隻小鴨＝一個檔案，可以搬到另一台電腦</small></h3>
@@ -439,54 +410,38 @@
       </div>
       <p class="hint duckfile-note" id="duckFileNote" role="status" aria-live="polite" hidden></p>
       <p class="hint" id="duckFileBackup" hidden></p>
+      <!-- the duck file's open choice (item 6): an imported duck is lived only after a restart with --life; the page never switches by itself -->
+      <details class="duckfile-switch" id="duckFileSwitch">
+        <summary data-i18n="page.duckfile.switch.title">匯入以後，怎麼換成牠？</summary>
+        <p class="hint" data-i18n="page.duckfile.switch.how">頁面不會自己換小鴨。匯入的小鴨住在自己的資料夾裡：先關掉模擬器，再用「--life 那個資料夾」重新開，開起來就是牠。</p>
+        <pre class="duckfile-cmd"><code>python -m duckmind.simweb --live --brain neuro --life FOLDER …</code></pre>
+        <p class="hint" data-i18n="page.duckfile.switch.same">現在這隻不會被改到：牠的資料夾還在，下次用牠的資料夾開，就是牠回來。</p>
+      </details>
     </div>
-      </div>
-      <div class="ctl-panel" role="tabpanel" id="ctl-brain" data-ctl-panel="brain" aria-labelledby="ctlTab-brain" hidden >
-        <div class="neuro-side" id="neuroSide" data-neuro hidden>
-          <div class="neuro-top">
-            <p class="neuro-flag" id="neuroFlag" data-i18n="page.html.neuroFlag.text">神經鴨原型（示範）</p>
-            <a class="btn small neuro-jump" href="#neuroPicker" id="neuroPickJump" data-i18n="page.html.neuroPickJump.text">換一隻小鴨</a>
-          </div>
-          <p class="neuro-line" id="neuroLine">—</p>
-          <p class="neuro-note" id="neuroNote" hidden></p>
-          <section class="card accent-magenta neuro-brain" id="neuroBrain" aria-label="小鴨的腦" data-i18n-attr="aria-label:page.html.neuroBrain.aria">
-            <h2 class="card-title"><span data-i18n="page.html.neuroBrain.card-title.text">小鴨的腦</span><small id="neuroBrainSub" data-i18n="page.html.neuroBrainSub.text">連線中…</small></h2>
-            <div class="neuro-now">
-              <p class="eyebrow" data-i18n="page.html.eyebrow.text.312040">現在在做</p>
-              <strong id="neuroNow">—</strong>
-              <p class="neuro-why" id="neuroWhy">—</p>
-              <!-- fid:page: what the physical body really does now (measured), and when it is not
-                   what the brain says (neuro.js, from the driver's witness). -->
-              <p class="neuro-body" id="neuroBody" hidden></p>
-              <p class="neuro-meta" id="neuroMeta"></p>
-            </div>
-            <div class="neuro-block neuro-rhythm">
-              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.8ab2e2">走路節奏</span><small data-i18n="page.html.eyebrow.small.text.0fd88b">最近 60 秒，一條是一秒：身體真的走的速度（量到的），越高走越快，下面的小記號是轉彎</small></h3>
-              <svg id="neuroRhythm" viewBox="0 0 600 64" preserveAspectRatio="none" role="img" aria-label="最近 60 秒走路的快慢" data-i18n-attr="aria-label:page.html.neuroRhythm.aria"></svg>
-              <p class="neuro-meta" id="neuroRhythmNote">—</p>
-            </div>
-            <div class="neuro-block">
-              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.776127">反射</span><small data-i18n="page.html.eyebrow.small.text.5bf22e">最新的在上面</small></h3>
-              <ol class="neuro-reflexes" id="neuroReflexes"><li class="empty" data-i18n="page.html.neuroReflexes.li.text">還沒有反射：按左邊「逗逗牠」的按鈕試試</li></ol>
-            </div>
-            <div class="neuro-block">
-              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.165c95">牠現在想做的事</span><small data-i18n="page.html.eyebrow.small.text.273775">每一條的拉力；比正在做的強一截才會換</small></h3>
-              <div class="meters neuro-cands" id="neuroCands"></div>
-            </div>
-            <div class="neuro-block">
-              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.5bfe45">驅力與情緒</span><small data-i18n="page.html.eyebrow.small.text.162f6b">一直在慢慢漲跌</small></h3>
-              <div class="meters neuro-drives" id="neuroDrives"></div>
-            </div>
-            <div class="neuro-block">
-              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.edc71e">習慣了嗎</span><small data-i18n="page.html.eyebrow.small.text.996ff1">同一種刺激越多次，反應越小；被嚇過會變敏感</small></h3>
-              <div class="meters neuro-habits" id="neuroHabits"></div>
-            </div>
-            <div class="neuro-block">
-              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.b3c063">記得的地方</span><small data-i18n="page.html.eyebrow.small.text.736e08">牠自己的里程算的，不知道是哪個房間</small></h3>
-              <ul class="neuro-places" id="neuroPlaces"><li class="empty" data-i18n="page.html.neuroPlaces.li.text">還沒有</li></ul>
-            </div>
-          </section>
-        </div>
+    <!-- 真的小鴨 (bodylink.js; docs/real-microduck.md): which body the brain drives now (GET /api/body → remote: the link's own
+         numbers, absent for a body on this computer) and the steps to connect a real Microduck -->
+    <section class="card accent-blue body-link" id="bodyLink" data-neuro hidden aria-labelledby="bodyLinkTitle">
+      <h3 class="card-title" id="bodyLinkTitle"><span data-i18n="page.body.title">真的小鴨</span><small data-i18n="page.body.sub">把這隻小鴨的腦接到 Pollen 的 Microduck 機器鴨</small></h3>
+      <p class="body-link-state" id="bodyLinkState" role="status" aria-live="polite" data-state="loading" data-i18n="page.body.state.loading">正在看身體的連線…</p>
+      <p class="hint" id="bodyLinkStats" hidden></p>
+      <details class="body-link-how" id="bodyLinkHow">
+        <summary data-i18n="page.body.how">怎麼接真的小鴨</summary>
+        <ol class="body-link-steps">
+          <li><span data-i18n="page.body.step.wifi">先用 Pollen 自己的工具讓小鴨連上家裡的 Wi-Fi，記下牠的位址（IP）。</span></li>
+          <li><span data-i18n="page.body.step.token">在這台電腦做一把共用密鑰，複製到小鴨上：</span><pre><code>python -m duckmind.remotebody token ~/.duckmind/remote-body.token</code></pre></li>
+          <li><span data-i18n="page.body.step.bridge">在小鴨上開 bridge：</span><pre><code>python -m duckmind.remotebody bridge --listen 0.0.0.0:8797 --token-file ~/.duckmind/remote-body.token --backend real</code></pre></li>
+          <li><span data-i18n="page.body.step.check">先檢查連線（只讀，小鴨不會動）：</span><pre><code>python -m duckmind.remotebody check remote://IP:8797</code></pre></li>
+          <li><span data-i18n="page.body.step.restart">關掉模擬器，加上這一段重新開：</span><pre><code>--body remote://IP:8797</code></pre></li>
+        </ol>
+        <p class="hint" data-i18n="page.body.note">還沒有接過真的 Microduck：目前只用另一個程式裡的模擬小鴨演練過。接上以後，牠的眼睛、耳朵和電量暫時還是從模擬世界來的。完整步驟在 docs/real-microduck.md。</p>
+      </details>
+    </section>
+            <!-- 神經鴨原型（示範）: four contrasting ducks from Duck Core's diversity design, or one at random. -->
+    <div class="card accent-cyan neuro-picker" id="neuroPicker" data-neuro data-scenarios hidden>
+      <h3 class="card-title"><span data-i18n="page.html.neuroPicker.card-title.text">換一隻小鴨</span><small data-i18n="page.html.card-title.small.text.752014">天生的樣子全部來自 Duck Core 的多樣化設計：同一個種子，永遠是同一隻鴨</small></h3>
+      <div class="neuro-ducks" id="neuroDucks" role="radiogroup" aria-label="選一隻小鴨" data-i18n-attr="aria-label:page.html.neuroDucks.aria"></div>
+      <p class="hint" id="neuroPickNote" data-i18n="page.html.neuroPickNote.text">換鴨子時物理身體留在原地，換掉的是牠的腦（天生的樣子、年紀和學到的東西都重新開始）。</p>
+    </div>
       </div>
       <div class="ctl-panel" role="tabpanel" id="ctl-status" data-ctl-panel="status" aria-labelledby="ctlTab-status" hidden >
         <div class="status-core">
@@ -690,33 +645,6 @@
     </div>
   </section>
       </div>
-      <div class="ctl-panel" role="tabpanel" id="ctl-phys" data-ctl-panel="phys" aria-labelledby="ctlTab-phys" hidden>
-        <section class="card accent-blue phys-card" aria-label="物理身體" data-i18n-attr="aria-label:page.shell.phys.title">
-          <h2 class="card-title"><span data-i18n="page.shell.phys.title">物理身體</span><small data-i18n="page.shell.phys.sub">身體真的量到的數字，和真實物理的開關</small></h2>
-          <div class="duck3d-readout" id="duck3dReadout"></div>
-          <div class="duck3d-place" id="duck3dPlace" data-core>
-              <span id="placeText" data-i18n="page.html.placeText.text">在桌上</span>
-              <button type="button" class="btn small" id="btnPlace" data-i18n="page.html.btnPlace.text">放到地上</button>
-            </div>
-          <div class="duck3d-live" id="duck3dLive" hidden>
-              <label title="畫面顯示上游 robotd --sim + MuJoCo 物理算出來的真實動作；關掉則顯示示意動畫" data-i18n-attr="title:page.html.duck3dLive.label.title.80116f">
-                <input type="checkbox" id="liveToggle" checked> <span data-i18n="page.html.duck3dLive.label.text.db43d0">真實物理</span>
-              </label>
-              <label title="頭部照物理身體實際轉到的角度畫（動作比指令小）；取消勾選則照小鴨的指令畫，那就不是物理（半透明的影子鴨一直照指令畫）" data-i18n-attr="title:page.html.duck3dLive.label.title.4881b0">
-                <input type="checkbox" id="physicsHead" checked> <span data-i18n="page.html.duck3dLive.label.text.fdf3b0">頭部也用物理</span>
-              </label>
-              <span id="liveStatus"></span>
-              <button type="button" class="btn ghost small" id="liveDemo" data-core title="不經過小鴨的決定，直接叫物理身體站起來走一小圈，用來看真實走路" data-i18n-attr="title:page.html.liveDemo.title" data-i18n="page.html.liveDemo.text">示範走一段</button>
-              <button type="button" class="btn ghost small" id="liveUpright" data-core title="物理身體跌倒時，一隻看得到的手過來把牠扶起來坐好（不會改變小鴨自己；平常用這個）" data-i18n-attr="title:page.html.liveUpright.title" data-i18n="page.html.liveUpright.text">扶起物理身體</button>
-              <button type="button" class="btn ghost small" id="liveReset" data-core title="備用：換一個新的物理身體在起點坐好（扶不起來、壞掉時才用；不會改變小鴨自己）" data-i18n-attr="title:page.html.liveReset.title" data-i18n="page.html.liveReset.text">重設物理身體</button>
-            </div>
-          <!-- The physical home (phase 2): which home the physics runs, the nest's contact, the
-                 world's hand and the family members who came over (app.js, from /api/body). -->
-          <p class="duck3d-world" id="worldLine" hidden></p>
-          <!-- The physics world's own battery (E1: shown only, never given to robotd until phase 5). -->
-          <div class="battery world-battery duck3d-battery" id="worldBattery" hidden title="物理世界裡的電池（照馬達的出力算）；只顯示，還沒有交給控制程式（robotd）" data-i18n-attr="title:page.html.worldBattery.title"><span data-i18n="page.html.worldBattery.span.text">物理電池</span><div class="bar"><i id="worldBatteryBar" style="width:100%"></i></div><span id="worldBatteryVal" class="mono">—</span></div>
-        </section>
-      </div>
     </div>
     </div>
   </aside>
@@ -752,6 +680,177 @@
     </div>
   </div>
 
+</div>
+
+<div id="viewData" class="view view-data" hidden>
+  <section class="section paper data-head" aria-label="實驗室" data-i18n-attr="aria-label:page.lab.title">
+    <div class="section-head">
+      <p class="eyebrow" data-i18n="page.lab.eyebrow">給做小鴨的人：腦、身體和測試</p>
+      <h2 class="display" data-i18n="page.lab.title">實驗室</h2>
+      <p class="cap-intro" data-i18n="page.lab.intro">這一頁是開發用的：小鴨的腦、物理身體、動作試玩、情緒、牠的內心、完整的成長紀錄和快轉測試、家的擺設、技能測試證據。陪小鴨玩，回到「小鴨」那一頁。</p>
+      <nav class="lab-jump" aria-label="實驗室的區塊" data-i18n-attr="aria-label:page.lab.jump.aria">
+        <a class="btn small" href="#neuroSide" data-i18n="page.shell.tab.brain">腦</a>
+        <a class="btn small" href="#physCard" data-i18n="page.shell.tab.phys">物理</a>
+        <a class="btn small" href="#neuroMotions" data-i18n="page.motion.title">動作試玩</a>
+        <a class="btn small" href="#neuroEmotions" data-i18n="page.motion.group.emotion">情緒</a>
+        <a class="btn small" href="#growthView" data-i18n="page.growth.aria">成長紀錄</a>
+        <a class="btn small" href="#mind" data-i18n="page.html.jumpnav.a.text.a819be">內心</a>
+        <a class="btn small" href="#homeEditor" data-i18n="page.layout.aria">家裡的擺設</a>
+        <a class="btn small" href="#capabilities" data-i18n="page.cap.aria">技能測試證據</a>
+      </nav>
+      <a class="btn primary" href="/" data-view-link="sim" data-i18n="page.lab.back">← 回到小鴨</a>
+    </div>
+              <section class="card accent-yellow neuro-skills" id="neuroSkills" data-neuro hidden aria-labelledby="neuroSkillsTitle">
+            <h2 class="card-title" id="neuroSkillsTitle"></h2>
+            <p class="neuro-skills-note" id="neuroSkillsNote"></p>
+            <div class="neuro-skills-grid" id="neuroSkillCards"></div>
+          </section>
+  </section>
+  <!-- 腦與身體 (moved here from the simulator's panel in item 6): the full brain, the physics body's readouts and switches,
+       every trained motion and the fourteen emotions; the same ids, so neuro.js / app.js / duck3d.js fill them as before -->
+  <section class="section paper lab-dev" id="labDev" aria-label="腦與身體" data-i18n-attr="aria-label:page.lab.dev.title">
+    <div class="section-head">
+      <h2 class="display" data-i18n="page.lab.dev.title">腦與身體</h2>
+    </div>
+    <div class="lab-cards">
+      <div class="lab-col">
+        <div class="neuro-side" id="neuroSide" data-neuro hidden>
+          <div class="neuro-top">
+            <p class="neuro-flag" id="neuroFlag" data-i18n="page.html.neuroFlag.text">神經鴨原型（示範）</p>
+            <a class="btn small neuro-jump" href="#neuroPicker" id="neuroPickJump" data-i18n="page.html.neuroPickJump.text">換一隻小鴨</a>
+          </div>
+          <p class="neuro-line" id="neuroLine">—</p>
+          <p class="neuro-note" id="neuroNote" hidden></p>
+          <section class="card accent-magenta neuro-brain" id="neuroBrain" aria-label="小鴨的腦" data-i18n-attr="aria-label:page.html.neuroBrain.aria">
+            <h2 class="card-title"><span data-i18n="page.html.neuroBrain.card-title.text">小鴨的腦</span><small id="neuroBrainSub" data-i18n="page.html.neuroBrainSub.text">連線中…</small></h2>
+            <div class="neuro-now">
+              <p class="eyebrow" data-i18n="page.html.eyebrow.text.312040">現在在做</p>
+              <strong id="neuroNow">—</strong>
+              <p class="neuro-why" id="neuroWhy">—</p>
+              <p class="hud-line hud-body" id="hudBody" hidden></p>
+              <p class="hud-line hud-reflex" id="hudReflex" hidden></p>
+              <!-- fid:page: what the physical body really does now (measured), and when it is not
+                   what the brain says (neuro.js, from the driver's witness). -->
+              <p class="neuro-body" id="neuroBody" hidden></p>
+              <p class="neuro-meta" id="neuroMeta"></p>
+            </div>
+            <div class="neuro-block neuro-rhythm">
+              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.8ab2e2">走路節奏</span><small data-i18n="page.html.eyebrow.small.text.0fd88b">最近 60 秒，一條是一秒：身體真的走的速度（量到的），越高走越快，下面的小記號是轉彎</small></h3>
+              <svg id="neuroRhythm" viewBox="0 0 600 64" preserveAspectRatio="none" role="img" aria-label="最近 60 秒走路的快慢" data-i18n-attr="aria-label:page.html.neuroRhythm.aria"></svg>
+              <p class="neuro-meta" id="neuroRhythmNote">—</p>
+            </div>
+            <div class="neuro-block">
+              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.776127">反射</span><small data-i18n="page.html.eyebrow.small.text.5bf22e">最新的在上面</small></h3>
+              <ol class="neuro-reflexes" id="neuroReflexes"><li class="empty" data-i18n="page.lab.reflex_none">還沒有反射：到「小鴨」那一頁的「玩」按一個按鈕試試</li></ol>
+            </div>
+            <div class="neuro-block">
+              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.165c95">牠現在想做的事</span><small data-i18n="page.html.eyebrow.small.text.273775">每一條的拉力；比正在做的強一截才會換</small></h3>
+              <div class="meters neuro-cands" id="neuroCands"></div>
+            </div>
+            <div class="neuro-block">
+              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.5bfe45">驅力與情緒</span><small data-i18n="page.html.eyebrow.small.text.162f6b">一直在慢慢漲跌</small></h3>
+              <div class="meters neuro-drives" id="neuroDrives"></div>
+            </div>
+            <div class="neuro-block">
+              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.edc71e">習慣了嗎</span><small data-i18n="page.html.eyebrow.small.text.996ff1">同一種刺激越多次，反應越小；被嚇過會變敏感</small></h3>
+              <div class="meters neuro-habits" id="neuroHabits"></div>
+            </div>
+            <div class="neuro-block">
+              <h3 class="eyebrow"><span data-i18n="page.html.eyebrow.text.b3c063">記得的地方</span><small data-i18n="page.html.eyebrow.small.text.736e08">牠自己的里程算的，不知道是哪個房間</small></h3>
+              <ul class="neuro-places" id="neuroPlaces"><li class="empty" data-i18n="page.html.neuroPlaces.li.text">還沒有</li></ul>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="lab-col">
+        <section class="card accent-blue phys-card" id="physCard" aria-label="物理身體" data-i18n-attr="aria-label:page.shell.phys.title">
+          <h2 class="card-title"><span data-i18n="page.shell.phys.title">物理身體</span><small data-i18n="page.shell.phys.sub">身體真的量到的數字，和真實物理的開關</small></h2>
+          <div class="duck3d-readout" id="duck3dReadout"></div>
+          <div class="duck3d-place" id="duck3dPlace" data-core>
+              <span id="placeText" data-i18n="page.html.placeText.text">在桌上</span>
+              <button type="button" class="btn small" id="btnPlace" data-i18n="page.html.btnPlace.text">放到地上</button>
+            </div>
+          <div class="duck3d-live" id="duck3dLive" hidden>
+              <label title="畫面顯示上游 robotd --sim + MuJoCo 物理算出來的真實動作；關掉則顯示示意動畫" data-i18n-attr="title:page.html.duck3dLive.label.title.80116f">
+                <input type="checkbox" id="liveToggle" checked> <span data-i18n="page.html.duck3dLive.label.text.db43d0">真實物理</span>
+              </label>
+              <label title="頭部照物理身體實際轉到的角度畫（動作比指令小）；取消勾選則照小鴨的指令畫，那就不是物理（半透明的影子鴨一直照指令畫）" data-i18n-attr="title:page.html.duck3dLive.label.title.4881b0">
+                <input type="checkbox" id="physicsHead" checked> <span data-i18n="page.html.duck3dLive.label.text.fdf3b0">頭部也用物理</span>
+              </label>
+              <span id="liveStatus"></span>
+              <button type="button" class="btn ghost small" id="liveDemo" data-core title="不經過小鴨的決定，直接叫物理身體站起來走一小圈，用來看真實走路" data-i18n-attr="title:page.html.liveDemo.title" data-i18n="page.html.liveDemo.text">示範走一段</button>
+              <button type="button" class="btn ghost small" id="liveUpright" data-core title="物理身體跌倒時，一隻看得到的手過來把牠扶起來坐好（不會改變小鴨自己；平常用這個）" data-i18n-attr="title:page.html.liveUpright.title" data-i18n="page.html.liveUpright.text">扶起物理身體</button>
+              <button type="button" class="btn ghost small" id="liveReset" data-core title="備用：換一個新的物理身體在起點坐好（扶不起來、壞掉時才用；不會改變小鴨自己）" data-i18n-attr="title:page.html.liveReset.title" data-i18n="page.html.liveReset.text">重設物理身體</button>
+            </div>
+          <!-- The physical home (phase 2): which home the physics runs, the nest's contact, the
+                 world's hand and the family members who came over (app.js, from /api/body). -->
+          <p class="duck3d-world" id="worldLine" hidden></p>
+          <!-- The physics world's own battery (E1: shown only, never given to robotd until phase 5). -->
+          <div class="battery world-battery duck3d-battery" id="worldBattery" hidden title="物理世界裡的電池（照馬達的出力算）；只顯示，還沒有交給控制程式（robotd）" data-i18n-attr="title:page.html.worldBattery.title"><span data-i18n="page.html.worldBattery.span.text">物理電池</span><div class="bar"><i id="worldBatteryBar" style="width:100%"></i></div><span id="worldBatteryVal" class="mono">—</span></div>
+        </section>
+                <!-- 動作試玩 (neuro.js, docs/design/neural-duck/SKILLS-2026-10-05.md): every motion trained on Colab, one
+             button each, with its gate verdict; the duck does it now, or says why not. -->
+        <section class="card accent-yellow neuro-motions" id="neuroMotions" data-neuro data-scenarios hidden aria-label="動作試玩" data-i18n-attr="aria-label:page.motion.aria">
+          <h2 class="card-title"><span data-i18n="page.motion.title">動作試玩</span><small data-i18n="page.motion.sub">練過的全身動作，按一下牠現在就做</small></h2>
+          <div class="motion-groups" id="motionGroups"></div>
+          <p class="hint motion-note" id="motionNote" role="status" aria-live="polite" hidden></p>
+          <p class="hint" data-i18n="page.motion.intro">每個動作都標著驗收結果。姿勢不對時，牠會說原因，不會硬做。按鈕不受每小時次數上限限制。</p>
+          <details class="neuro-more motion-details" id="motionDetails" hidden>
+            <summary data-i18n="page.motion.d.summary">各動作的驗收結果與限制</summary>
+            <ul class="motion-list" id="motionList"></ul>
+          </details>
+        </section>
+      </div>
+    </div>
+  </section>
+  <section class="section paper growth-view" id="growthView" aria-label="成長紀錄" data-i18n-attr="aria-label:page.growth.aria">
+    <div class="section-head">
+      <p class="eyebrow" data-i18n="page.growth.eyebrow">牠是誰、長成什麼樣子</p>
+      <h2 class="display" data-i18n-html="page.growth.title">牠的<span class="outline">成長</span></h2>
+      <p class="cap-intro" data-i18n="page.growth.intro">看小鴨怎麼長大：牠經歷了什麼、學到什麼、跟誰親近，睡著的時候身體怎麼跟著變。這裡每 15 秒更新一次。</p>
+    </div>
+    <p class="gv-status chip" id="gvStatus" role="status" aria-live="polite" data-i18n="page.growth.loading">正在讀成長資料…</p>
+    <div class="gv-live" id="gvLive"></div>
+    <section class="card accent-orange gv-ff" id="gvFf" aria-labelledby="gvFfTitle">
+      <h3 class="card-title" id="gvFfTitle" data-i18n="page.growth.ff.title">快轉測試</h3>
+      <p class="hint" data-i18n="page.growth.ff.intro">另外孵一隻測試鴨，在背景的空白世界裡快轉幾天，看不同的照顧會把牠養成什麼樣子。上面那隻小鴨完全不會被動到。</p>
+      <div class="gv-ff-form">
+        <label class="gv-field"><span data-i18n="page.growth.ff.days">快轉幾天</span>
+          <input type="number" id="gvFfDays" min="1" max="60" step="1" value="30" inputmode="numeric">
+        </label>
+        <label class="gv-field"><span data-i18n="page.growth.ff.style_a">照顧方式 A</span>
+          <select id="gvFfStyleA">
+            <option value="attentive" selected data-i18n="page.growth.ff.style.attentive">用心陪伴</option>
+            <option value="neglectful" data-i18n="page.growth.ff.style.neglectful">很少理牠</option>
+            <option value="rough" data-i18n="page.growth.ff.style.rough">粗魯對待</option>
+            <option value="praising" data-i18n="page.growth.ff.style.praising">常常稱讚</option>
+          </select>
+        </label>
+        <label class="gv-field"><span data-i18n="page.growth.ff.style_b">照顧方式 B（可以不選）</span>
+          <select id="gvFfStyleB">
+            <option value="" data-i18n="page.growth.ff.none">不比較</option>
+            <option value="attentive" data-i18n="page.growth.ff.style.attentive">用心陪伴</option>
+            <option value="neglectful" data-i18n="page.growth.ff.style.neglectful">很少理牠</option>
+            <option value="rough" selected data-i18n="page.growth.ff.style.rough">粗魯對待</option>
+            <option value="praising" data-i18n="page.growth.ff.style.praising">常常稱讚</option>
+          </select>
+        </label>
+        <label class="gv-field"><span data-i18n="page.growth.ff.seed">種子（蛋黃是 4107）</span>
+          <input type="number" id="gvFfSeed" min="0" max="999999" step="1" value="4107" inputmode="numeric">
+        </label>
+        <div class="gv-ff-buttons">
+          <button class="btn primary" type="button" id="gvFfStart" data-i18n="page.growth.ff.start">開始快轉</button>
+          <button class="btn" type="button" id="gvFfCancel" disabled data-i18n="page.growth.ff.cancel">取消</button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="page.growth.ff.styles_hint">用心陪伴：每天三次打招呼、說話、叫名字、摸、陪玩球。很少理牠：每三天來一下。粗魯對待：抱起來放下、戳、巨響、推到跌倒。常常稱讚：看到牠自己做了什麼就摸摸稱讚。</p>
+      <div class="gv-runs" id="gvFfProgress" aria-live="polite"></div>
+      <p class="gv-ff-note" id="gvFfNote" role="status" aria-live="polite"></p>
+      <p class="gv-warn" id="gvFfProblem" role="alert"></p>
+      <p class="hint" data-i18n="page.growth.ff.safe">測試鴨在另一個程序、自己的暫存資料夾裡長大，同一時間只跑一個；伺服器關掉或按取消就停，不會碰到上面那隻小鴨的紀錄。</p>
+    </section>
+    <div class="gv-results" id="gvResults"></div>
+  </section>
   <!-- ④ 內心 -->
   <section class="section dark" id="mind" aria-label="記憶" data-i18n-attr="aria-label:page.html.mind.aria">
     <div class="section-head">
@@ -854,70 +953,6 @@
         </div>
       </div>
     </div>
-  </section>
-</div>
-
-<div id="viewData" class="view view-data" hidden>
-  <section class="section paper data-head" aria-label="資料" data-i18n-attr="aria-label:page.data.aria">
-    <div class="section-head">
-      <p class="eyebrow" data-i18n="page.data.eyebrow">技能測試證據與小鴨正在學的本領</p>
-      <h2 class="display" data-i18n="page.data.title">資料</h2>
-      <p class="cap-intro" data-i18n="page.data.intro">這一頁放看資料用的東西。小鴨的腦（走路節奏、反射、驅力）在模擬畫面右邊的「腦」分頁。</p>
-      <a class="btn primary" href="/" data-view-link="sim" data-i18n="page.data.back">← 回到模擬畫面</a>
-    </div>
-              <section class="card accent-yellow neuro-skills" id="neuroSkills" data-neuro hidden aria-labelledby="neuroSkillsTitle">
-            <h2 class="card-title" id="neuroSkillsTitle"></h2>
-            <p class="neuro-skills-note" id="neuroSkillsNote"></p>
-            <div class="neuro-skills-grid" id="neuroSkillCards"></div>
-          </section>
-  </section>
-  <section class="section paper growth-view" id="growthView" aria-label="成長紀錄" data-i18n-attr="aria-label:page.growth.aria">
-    <div class="section-head">
-      <p class="eyebrow" data-i18n="page.growth.eyebrow">牠是誰、長成什麼樣子</p>
-      <h2 class="display" data-i18n-html="page.growth.title">牠的<span class="outline">成長</span></h2>
-      <p class="cap-intro" data-i18n="page.growth.intro">看小鴨怎麼長大：牠經歷了什麼、學到什麼、跟誰親近，睡著的時候身體怎麼跟著變。這裡每 15 秒更新一次。</p>
-    </div>
-    <p class="gv-status chip" id="gvStatus" role="status" aria-live="polite" data-i18n="page.growth.loading">正在讀成長資料…</p>
-    <div class="gv-live" id="gvLive"></div>
-    <section class="card accent-orange gv-ff" id="gvFf" aria-labelledby="gvFfTitle">
-      <h3 class="card-title" id="gvFfTitle" data-i18n="page.growth.ff.title">快轉測試</h3>
-      <p class="hint" data-i18n="page.growth.ff.intro">另外孵一隻測試鴨，在背景的空白世界裡快轉幾天，看不同的照顧會把牠養成什麼樣子。上面那隻小鴨完全不會被動到。</p>
-      <div class="gv-ff-form">
-        <label class="gv-field"><span data-i18n="page.growth.ff.days">快轉幾天</span>
-          <input type="number" id="gvFfDays" min="1" max="60" step="1" value="30" inputmode="numeric">
-        </label>
-        <label class="gv-field"><span data-i18n="page.growth.ff.style_a">照顧方式 A</span>
-          <select id="gvFfStyleA">
-            <option value="attentive" selected data-i18n="page.growth.ff.style.attentive">用心陪伴</option>
-            <option value="neglectful" data-i18n="page.growth.ff.style.neglectful">很少理牠</option>
-            <option value="rough" data-i18n="page.growth.ff.style.rough">粗魯對待</option>
-            <option value="praising" data-i18n="page.growth.ff.style.praising">常常稱讚</option>
-          </select>
-        </label>
-        <label class="gv-field"><span data-i18n="page.growth.ff.style_b">照顧方式 B（可以不選）</span>
-          <select id="gvFfStyleB">
-            <option value="" data-i18n="page.growth.ff.none">不比較</option>
-            <option value="attentive" data-i18n="page.growth.ff.style.attentive">用心陪伴</option>
-            <option value="neglectful" data-i18n="page.growth.ff.style.neglectful">很少理牠</option>
-            <option value="rough" selected data-i18n="page.growth.ff.style.rough">粗魯對待</option>
-            <option value="praising" data-i18n="page.growth.ff.style.praising">常常稱讚</option>
-          </select>
-        </label>
-        <label class="gv-field"><span data-i18n="page.growth.ff.seed">種子（蛋黃是 4107）</span>
-          <input type="number" id="gvFfSeed" min="0" max="999999" step="1" value="4107" inputmode="numeric">
-        </label>
-        <div class="gv-ff-buttons">
-          <button class="btn primary" type="button" id="gvFfStart" data-i18n="page.growth.ff.start">開始快轉</button>
-          <button class="btn" type="button" id="gvFfCancel" disabled data-i18n="page.growth.ff.cancel">取消</button>
-        </div>
-      </div>
-      <p class="hint" data-i18n="page.growth.ff.styles_hint">用心陪伴：每天三次打招呼、說話、叫名字、摸、陪玩球。很少理牠：每三天來一下。粗魯對待：抱起來放下、戳、巨響、推到跌倒。常常稱讚：看到牠自己做了什麼就摸摸稱讚。</p>
-      <div class="gv-runs" id="gvFfProgress" aria-live="polite"></div>
-      <p class="gv-ff-note" id="gvFfNote" role="status" aria-live="polite"></p>
-      <p class="gv-warn" id="gvFfProblem" role="alert"></p>
-      <p class="hint" data-i18n="page.growth.ff.safe">測試鴨在另一個程序、自己的暫存資料夾裡長大，同一時間只跑一個；伺服器關掉或按取消就停，不會碰到上面那隻小鴨的紀錄。</p>
-    </section>
-    <div class="gv-results" id="gvResults"></div>
   </section>
   <section class="section paper layout-editor" id="homeEditor" aria-label="家裡的擺設" data-i18n-attr="aria-label:page.layout.aria">
     <div class="section-head">
@@ -1066,6 +1101,7 @@
 <script src="/layout_editor.js"></script>
 <script src="/growth.js"></script>
 <script src="/duckfile.js"></script>
+<script src="/bodylink.js"></script>
 <script src="/minimap.js"></script>
 <script type="module" src="/neuro_sound.js"></script>
 <script src="/neuro.js"></script>

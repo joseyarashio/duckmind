@@ -62,6 +62,10 @@ class RightingConfig:
     overload_max_s: float = 1.0
     retry_every_s: float = 30.0  # waiting for help: the sit-stand try again this often ...
     retry_max: int = 3  # ... at most this many times, never after an overload trip (0: never)
+    toggle_retry_s: float = (
+        0.5  # a sit_toggle robotd did not take (its label says) is asked again …
+    )
+    toggle_retries: int = 6  # … this often at most per toggle (robotd 0.16+ refuses one mid-move)
 
 
 @dataclass(frozen=True)
@@ -89,6 +93,8 @@ class Righting:
         self.retries = 0  # sit-stand retries made from waiting_help in this episode
         self.retrying = False  # a retry is under way (its failure is not told again)
         self.last_t: int | None = None
+        self.t_toggle = 0  # when the last sit_toggle was sent …
+        self.toggles = 0  # … and how often it was asked again
         self.last: dict[str, Any] = {}
 
     @property
@@ -178,12 +184,17 @@ class Righting:
             self.tries = 2
             if c.sitstand:
                 self.phase, self.t_phase, self.how = "sit", t, "sitstand"
-                do = "sit_toggle"
+                do = self._toggle(t)
             else:
                 self.phase, self.t_phase = "pause", t
         elif self.phase == "sit" and age >= c.sit_s:
             self.phase, self.t_phase = "rise", t
-            do = "sit_toggle"
+            do = self._toggle(t)
+        elif self.phase == "rise" and self._refused(state, t):
+            # robotd 0.16+ refuses the stand while its 2 s sit ramp still runs ("still sitting down" —
+            # asked at exactly 2 s it races it) and says so only in its own log: still seated by the
+            # label, the stand is asked again
+            do = self._toggle(t, again=True)
         elif self.phase == "rise" and age >= c.watch_s:
             if not self.retrying:
                 events.append(self._result(t, False, None))
@@ -200,13 +211,28 @@ class Righting:
             self.tries, self.how = 2 + self.retries, "sitstand"
             self.over_s = 0.0
             self.phase, self.t_phase = "sit", t
-            do = "sit_toggle"
+            do = self._toggle(t)
         elif self.phase == "pause" and age >= c.pause_s:
             self.phase, self.t_phase = "try2", t
         elif self.phase == "try2" and age >= c.try_s:
             events.append(self._result(t, False, None))
             self._wait_for_help(t)
         return RightingOut(True, do, tuple(events))
+
+    def _toggle(self, t: int, *, again: bool = False) -> str:
+        self.t_toggle = t
+        self.toggles = self.toggles + 1 if again else 0
+        return "sit_toggle"
+
+    def _refused(self, state: RobotState, t: int) -> bool:
+        """The stand did not take: robotd's label still says ``sit``
+        :attr:`RightingConfig.toggle_retry_s` after it was sent; at most
+        :attr:`RightingConfig.toggle_retries` times. Only on the label, so a toggle that took is
+        never sent twice (on robotd 0.15 a second toggle would sit it down again)."""
+        c = self.cfg
+        if self.toggles >= c.toggle_retries or (t - self.t_toggle) / NS < c.toggle_retry_s:
+            return False
+        return state.policy == "sit"
 
     def _wait_for_help(self, t: int, *, overload: bool = False) -> None:
         self.phase, self.t_wait = "waiting_help", t

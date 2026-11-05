@@ -223,3 +223,36 @@ def test_a_new_fall_while_waiting_starts_the_count_again() -> None:
     _, dos, r = run(script, 200.0)
     # fall 1 at 1 s: try 2 at 9 s, retry at 50 s; up at 70 s; fall 2 at 71 s: try 2 at 79 s ...
     assert r.retries <= 3 and len(dos) >= 8
+
+
+def test_a_stand_toggle_robotd_refused_mid_sit_ramp_is_asked_again() -> None:
+    """robotd 0.16+ refuses sit_toggle while its 2 s sit ramp runs ("still sitting down", only in its
+    log); the stand asked at exactly 2 s races it. Seen still seated, the stand is asked again."""
+
+    def script(t, dos):
+        if t < 1.0:
+            return 3.0, False, "walk"
+        if not dos:
+            return 50.0, False, "walk"  # stuck nose-down (trigger B)
+        if len(dos) <= 2:
+            return 30.0, False, "sit"  # seated; the stand at exactly 2 s was refused
+        return 3.0, False, "walk"  # the toggle asked again took
+
+    events, dos, _ = run(script, 18.0)
+    assert [d for _, d in dos] == ["sit_toggle", "sit_toggle", "sit_toggle"]
+    assert dos[2][0] - dos[1][0] == 0.5  # asked again half a second later
+    assert events[-1][1]["ok"] and events[-1][1]["how"] == "sitstand"
+
+
+def test_a_toggle_that_took_is_never_sent_twice() -> None:
+    def script(t, dos):
+        if t < 1.0:
+            return 3.0, False, "walk"
+        if not dos:
+            return 50.0, False, "walk"
+        if len(dos) == 1:
+            return 30.0, False, "sit"
+        return 30.0, False, "rise" if t - dos[1][0] < 1.0 else "walk"  # rising, still tilted
+
+    _, dos, _ = run(script, 20.0)
+    assert [t for t, _ in dos] == [10.0, 12.0]

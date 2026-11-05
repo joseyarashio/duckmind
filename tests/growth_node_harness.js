@@ -105,6 +105,27 @@ out.note = describe(tree).text.includes("page.growth.voice.play_wait");
 
 const test = describe(api.renderView(input.test, "rough"));
 out.test = { text: test.text, buttons: test.buttons.length, classes: test.classes };
+
+// the 成長 tab's short view (item 6): the same reading, at a glance
+const short = describe(api.shortView(input.live));
+out.short = { text: short.text, classes: short.classes, buttons: short.buttons.length };
+const copy = (view) => JSON.parse(JSON.stringify(view));
+const bare = copy(input.live);
+bare.bonds.people = [];
+bare.experiences.recent = [];
+bare.diary = [];
+out.short_bare = describe(api.shortView(bare)).text;
+// a duck with a long record: only the newest few things, the rest counted
+const busy = copy(input.live);
+busy.experiences.recent = Array.from({ length: 9 }, (_, i) => ({ kind: "touch", at: `2026-10-04T0${i}:00:00+08:00`, minutes: i + 1 }));
+busy.diary = ["2026-10-04", "2026-10-03", "2026-10-02"].map((date, d) => ({
+  date,
+  gd: 3 - d,
+  lines: Array.from({ length: 7 }, (_, i) => ({ text: `day${d}-line${i}`, tone: "neutral" })),
+  more: 2,
+  lived: {},
+}));
+out.short_busy = describe(api.shortView(busy)).text;
 out.rows = api.compareRows([input.live, input.test]);
 out.rows_same = api.compareRows([input.live, input.live]).map((r) => r.differs);
 out.eta = [api.etaSeconds(7, 5, 30), api.etaSeconds(0, 0, 30), api.etaSeconds(100, 30, 30), api.etaSeconds(50, 15, 30)];

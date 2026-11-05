@@ -258,12 +258,10 @@
     "zh-Hans": "小鸭的脑",
     "ko": "오리의 뇌"
    },
-   "count": 4,
+   "count": 2,
    "sample_keys": [
     "page.html.neuroBrain.aria",
-    "page.html.neuroBrain.card-title.text",
-    "page.html.neuroStimNote.text",
-    "page.neuro.renderButtons.589a4c"
+    "page.html.neuroBrain.card-title.text"
    ]
   },
   {
@@ -624,13 +622,11 @@
     "zh-Hans": "逗逗它",
     "ko": "놀아 주기"
    },
-   "count": 7,
+   "count": 4,
    "sample_keys": [
     "page.html.eyebrow_neuro.text",
-    "page.html.neuroQuick.aria",
-    "page.html.neuroQuick.stage-stim-label.text",
-    "page.html.neuroReflexes.li.text",
-    "page.html.neuroStim.aria"
+    "page.html.neuroStim.aria",
+    "page.html.neuroStim.card-title.text"
    ]
   },
   {

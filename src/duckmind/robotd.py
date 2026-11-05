@@ -21,10 +21,16 @@ from duckmind.body import BodyAck, BodyIntent, RobotObservation, SafetyObservati
 
 API_VERSION = 37  # A liveness hint, not a version gate in current robotd.
 MAX_FRAME_BYTES = 2_000_000
-# Current v5 velstand policy observes head commands as deltas from this HOME.
-# robot.look currently returns absolute targets and must not be used as the
+# velstand (the walk slot since policy set v5; v8 keeps its 61 -> 14 contract) observes head commands
+# as deltas from this HOME. robot.look currently returns absolute targets and must not be used as the
 # first-board gameplay primitive until that upstream contract is reconciled.
 V5_HOME_HEAD = (0.3491, 0.3491, 0.0, 0.0)
+# The head profile is a capability, not a release: robot.head's joint-delta params were verified at
+# API 37 and robotd's API only grows (hello reports the version and refuses nobody; 38..49 added routes
+# and fields, robot.head untouched: UPSTREAM-0185-2026-11-05). So any daemon at or past the verified
+# API with velstand in the walk slot speaks it; an older daemon, or another walk network, does not.
+HEAD_PROFILE_SINCE_API = API_VERSION
+HEAD_PROFILE_WALK = "velstand.onnx"
 
 
 class RobotdProtocolError(RuntimeError):
@@ -245,9 +251,13 @@ class RobotdBodyPort:
 
     @property
     def supports_v5_head_profile(self) -> bool:
+        """robot.head as velstand's deltas from :data:`V5_HOME_HEAD` (see :data:`HEAD_PROFILE_SINCE_API`)."""
+        api = self.hello.get("api_version")
         return (
-            self.hello.get("api_version") == API_VERSION
-            and self.capabilities.get("walk") == "velstand.onnx"
+            isinstance(api, int)
+            and not isinstance(api, bool)
+            and api >= HEAD_PROFILE_SINCE_API
+            and self.capabilities.get("walk") == HEAD_PROFILE_WALK
         )
 
     def dispatch_intent(self, intent: BodyIntent) -> BodyAck:

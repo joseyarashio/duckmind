@@ -191,11 +191,19 @@ def global_per_hour(doc: Mapping[str, Any]) -> int:
     return G.GLOBAL_PER_HOUR
 
 
-def skill_guard(available: Iterable[str], environ: Mapping[str, str] | None = None) -> G.SkillGuard:
+def skill_guard(
+    available: Iterable[str],
+    environ: Mapping[str, str] | None = None,
+    *,
+    interrupt: bool = True,
+) -> G.SkillGuard:
     """A :class:`guard.SkillGuard` for the skills robotd loaded, with the installed table's
-    rules (the provisional defaults when the table carries none)."""
+    rules (the provisional defaults when the table carries none); ``interrupt``: robotd lets a
+    skill cut into a running one (``RobotdClient.skills_interrupt``)."""
     doc = table_doc(environ)
-    return G.SkillGuard(available, guard_rules(doc), global_per_hour=global_per_hour(doc))
+    return G.SkillGuard(
+        available, guard_rules(doc), global_per_hour=global_per_hour(doc), interrupt=interrupt
+    )
 
 
 def pick_loaded(skill: str | None, loaded: Iterable[str]) -> str | None:
