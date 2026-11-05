@@ -618,6 +618,12 @@ class Imprint:
             return None
         return min(near)[1]
 
+    def carer_bond(self, t_s: float, odom: tuple[float, float, float]) -> float:
+        """How close it feels (0..1) to the person it believes is right beside it now — whose hands lift and hold it
+        (:meth:`_hand_owner`, as for a touch) —; 0 when it believes nobody is there."""
+        pid = self._hand_owner(t_s, odom)
+        return 0.0 if pid is None else _clip(self.people.people[pid].bond)
+
     def _care(self, pid: int, amount: float, *, why: str = "", quiet: bool = False) -> None:
         person = self.people.people.get(pid)
         if person is None or amount <= 0.0:

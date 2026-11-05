@@ -57,6 +57,17 @@ def layout_of(home: str) -> Any:
     return _layout(home)
 
 
+def frame_of(home: str | None) -> str | None:
+    """The odometry-frame fingerprint of a home (``Layout.frame_fingerprint``); None when the home cannot be
+    read any more (a layout file since deleted, a name this build does not have)."""
+    if not home:
+        return None
+    try:
+        return str(_layout(home).frame_fingerprint)
+    except Exception:
+        return None
+
+
 @functools.lru_cache(maxsize=8)
 def _layout(home: str) -> Any:
     from duckmind.world import homelayout

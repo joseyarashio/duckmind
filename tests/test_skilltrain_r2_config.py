@@ -6,6 +6,8 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 pytest.importorskip("torch")
+pytest.importorskip("mjlab")  # bsk_tasks builds mjlab configs: torch alone (e.g. the voice extra) is not enough
+pytest.importorskip("mjlab_microduck")
 
 from duckmind.skilltrain import bsk_tasks as BSK
 from duckmind.skilltrain import bsk_train as BT

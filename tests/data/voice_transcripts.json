@@ -1,0 +1,2717 @@
+{
+"note": "What the local recogniser (mlx-whisper medium, primed) wrote for the 450 preregistered test sentences, clean speech (tools/voice_commands/measure.py, 2026-11-04). was_right: the words alone read as the right thing.",
+"duck_name": {
+"zh-Hant": "蛋黃",
+"zh-Hans": "蛋黄"
+},
+"right": {
+"zh-Hant": 58,
+"en": 72,
+"ja": 67,
+"es": 65,
+"zh-Hans": 62,
+"ko": 66
+},
+"rows": [
+{
+"lang": "zh-Hant",
+"cls": "sit",
+"heard": "坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "sit",
+"heard": "蛋黃、坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "sit",
+"heard": "請坐好。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "sit",
+"heard": "坐一下嘛。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "sit",
+"heard": "快點坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stand",
+"heard": "站起來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stand",
+"heard": "蛋黃站起來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stand",
+"heard": "請你",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "stand",
+"heard": "站好啊!",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stand",
+"heard": "快站起來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "come",
+"heard": "過來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "come",
+"heard": "蛋黃過來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "come",
+"heard": "來吧!",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "come",
+"heard": "開過來這邊。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "come",
+"heard": "多活捉你來。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "look_at_me",
+"heard": "看我。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "look_at_me",
+"heard": "韓著個。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "look_at_me",
+"heard": "蛋黃哼著呢?",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "look_at_me",
+"heard": "看過來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "look_at_me",
+"heard": "你看我這邊。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stop",
+"heard": "停。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stop",
+"heard": "停下來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stop",
+"heard": "但要動。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "stop",
+"heard": "站住。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "stop",
+"heard": "等一下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "follow",
+"heard": "跟著我。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "follow",
+"heard": "跟我來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "follow",
+"heard": "蛋黃跟我走。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "follow",
+"heard": "這麼棒。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "follow",
+"heard": "跟過來。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "go_home",
+"heard": "回家。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "go_home",
+"heard": "回你的鍋。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "go_home",
+"heard": "蛋黃回家啦。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "go_home",
+"heard": "去充電。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "go_home",
+"heard": "回一發火氣。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "lie_down",
+"heard": "趴下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "lie_down",
+"heard": "躺下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "lie_down",
+"heard": "睡覺囉!",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "lie_down",
+"heard": "壯士",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "lie_down",
+"heard": "啊。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "spin",
+"heard": "君君君",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "spin",
+"heard": "轉一圈。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "spin",
+"heard": "大王軍歌映",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "spin",
+"heard": "轉圈。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "spin",
+"heard": "轉身。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "bow",
+"heard": "鞠躬。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "bow",
+"heard": "敬禮",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "bow",
+"heard": "跟大家集合!",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "bow",
+"heard": "想你。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "bow",
+"heard": "鞠躬一下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "shake",
+"heard": "甩一甩。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "shake",
+"heard": "抖一抖。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "shake",
+"heard": "曬曬身體。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "shake",
+"heard": "蛋黃黎母。",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "shake",
+"heard": "甩一下。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "flip",
+"heard": "翻跟斗",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "flip",
+"heard": "翻個跟斗。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "flip",
+"heard": "請觀翻",
+"was_right": false
+},
+{
+"lang": "zh-Hant",
+"cls": "flip",
+"heard": "翻跟斗。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "flip",
+"heard": "蛋黃翻滾",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "praise",
+"heard": "乖。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "praise",
+"heard": "好乖。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "praise",
+"heard": "好棒。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "praise",
+"heard": "做得好。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "praise",
+"heard": "蛋黃真棒",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "scold",
+"heard": "不對。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "scold",
+"heard": "不對喲。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "scold",
+"heard": "錯了。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "scold",
+"heard": "不是這樣。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "scold",
+"heard": "不行。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "none",
+"heard": "今天天氣很好。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "none",
+"heard": "你導致餓了吧?",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "none",
+"heard": "媽媽去上班了。",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "none",
+"heard": "這是什麼東西?",
+"was_right": true
+},
+{
+"lang": "zh-Hant",
+"cls": "none",
+"heard": "晚安,大家。",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "sit",
+"heard": "Sit.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "sit",
+"heard": "Sit down.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "sit",
+"heard": "Sit down, please.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "sit",
+"heard": "Take a seat.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "sit",
+"heard": "Can you sit down?",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stand",
+"heard": "Stand up.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stand",
+"heard": "Get up.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stand",
+"heard": "Stand up, please.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stand",
+"heard": "Up you go.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stand",
+"heard": "Okay, stand up.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "come",
+"heard": "Come here.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "come",
+"heard": "Come.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "come",
+"heard": "Come to me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "come",
+"heard": "Come over here.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "come",
+"heard": "Come here, buddy.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "look_at_me",
+"heard": "Look at me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "look_at_me",
+"heard": "Look here.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "look_at_me",
+"heard": "Watch me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "look_at_me",
+"heard": "Hey, look at me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "look_at_me",
+"heard": "Eyes on me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stop",
+"heard": "Stop.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stop",
+"heard": "Wait.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stop",
+"heard": "Stay.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stop",
+"heard": "Freeze.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "stop",
+"heard": "Stop right there.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "follow",
+"heard": "Follow me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "follow",
+"heard": "Come with me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "follow",
+"heard": "Walk with me.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "follow",
+"heard": "Heel.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "follow",
+"heard": "Follow me, please.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "go_home",
+"heard": "Go home.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "go_home",
+"heard": "Go to your nest.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "go_home",
+"heard": "Go charge.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "go_home",
+"heard": "Go back to your nest.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "go_home",
+"heard": "Time to go home.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "lie_down",
+"heard": "Lie down.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "lie_down",
+"heard": "Lay down.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "lie_down",
+"heard": "Take a nap.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "lie_down",
+"heard": "Play dead.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "lie_down",
+"heard": "Go to sleep.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "spin",
+"heard": "Spin.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "spin",
+"heard": "Turn around.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "spin",
+"heard": "Do a spin.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "spin",
+"heard": "Spin around.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "spin",
+"heard": "Twirl.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "bow",
+"heard": "Boo.",
+"was_right": false
+},
+{
+"lang": "en",
+"cls": "bow",
+"heard": "Take a bow.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "bow",
+"heard": "Salute.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "bow",
+"heard": "Kurtzy.",
+"was_right": false
+},
+{
+"lang": "en",
+"cls": "bow",
+"heard": "Bow, please.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "shake",
+"heard": "Shake.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "shake",
+"heard": "Shake it off.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "shake",
+"heard": "Shake yourself.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "shake",
+"heard": "Give a shake.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "shake",
+"heard": "Shake your body.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "flip",
+"heard": "Do a flip.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "flip",
+"heard": "Flip.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "flip",
+"heard": "Roll over.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "flip",
+"heard": "Some assault.",
+"was_right": false
+},
+{
+"lang": "en",
+"cls": "flip",
+"heard": "Do a backflip.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "praise",
+"heard": "Good boy.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "praise",
+"heard": "Good job.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "praise",
+"heard": "Well done.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "praise",
+"heard": "Good duck.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "praise",
+"heard": "Great job.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "scold",
+"heard": "No.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "scold",
+"heard": "Bad duck.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "scold",
+"heard": "Wrong.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "scold",
+"heard": "No, not like that.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "scold",
+"heard": "Bad boy.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "none",
+"heard": "What a nice day.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "none",
+"heard": "Where are my keys?",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "none",
+"heard": "Dinner is ready.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "none",
+"heard": "I'm going to work.",
+"was_right": true
+},
+{
+"lang": "en",
+"cls": "none",
+"heard": "Who wants pizza?",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "sit",
+"heard": "お座り。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "sit",
+"heard": "座って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "sit",
+"heard": "座ってください。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "sit",
+"heard": "ほら、お座り。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "sit",
+"heard": "座れ。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stand",
+"heard": "立って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stand",
+"heard": "立ち上がって。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stand",
+"heard": "立ってください。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stand",
+"heard": "立ちなさい。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stand",
+"heard": "ほら、立って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "come",
+"heard": "おいで。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "come",
+"heard": "こっちにおいで。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "come",
+"heard": "こっちに来て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "come",
+"heard": "きて。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "come",
+"heard": "早く来て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "look_at_me",
+"heard": "見て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "look_at_me",
+"heard": "こっちを見て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "look_at_me",
+"heard": "私を見て、",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "look_at_me",
+"heard": "こっち見て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "look_at_me",
+"heard": "ねえ、見て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stop",
+"heard": "止まって。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stop",
+"heard": "待って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stop",
+"heard": "ストップ!",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stop",
+"heard": "動かないで。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "stop",
+"heard": "じっとして。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "follow",
+"heard": "ついてきて。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "follow",
+"heard": "ついておいで。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "follow",
+"heard": "一緒に来て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "follow",
+"heard": "ついてきて。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "follow",
+"heard": "ついてこい。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "go_home",
+"heard": "お家に帰って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "go_home",
+"heard": "帰って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "go_home",
+"heard": "すーに戻って、",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "go_home",
+"heard": "充電して。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "go_home",
+"heard": "ハウス",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "lie_down",
+"heard": "おせ。",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "lie_down",
+"heard": "こうせて。",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "lie_down",
+"heard": "寝て。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "lie_down",
+"heard": "お昼寝しよう。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "lie_down",
+"heard": "死んだふり",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "spin",
+"heard": "回って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "spin",
+"heard": "くるっと回って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "spin",
+"heard": "くるくる",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "spin",
+"heard": "たあ",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "spin",
+"heard": "一回転して、",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "bow",
+"heard": "おじぎ。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "bow",
+"heard": "お辞儀して。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "bow",
+"heard": "お辞儀して。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "bow",
+"heard": "健令。",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "bow",
+"heard": "ちゃんとお辞儀して。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "shake",
+"heard": "ぶるぶる",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "shake",
+"heard": "ぶるぶるして。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "shake",
+"heard": "体を振って。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "shake",
+"heard": "見するして。",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "shake",
+"heard": "ぶるぶる",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "flip",
+"heard": "宙返り",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "flip",
+"heard": "前転して。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "flip",
+"heard": "てんぐり返し",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "flip",
+"heard": "どうかえりして。",
+"was_right": false
+},
+{
+"lang": "ja",
+"cls": "flip",
+"heard": "でんぐり返しして。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "praise",
+"heard": "いいこ",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "praise",
+"heard": "えらいね。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "praise",
+"heard": "よくできました。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "praise",
+"heard": "すごい。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "praise",
+"heard": "上手だね。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "scold",
+"heard": "ダメ。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "scold",
+"heard": "違う。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "scold",
+"heard": "ダメだよー",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "scold",
+"heard": "それは違う。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "scold",
+"heard": "いけない。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "none",
+"heard": "今日は、いい天気だね。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "none",
+"heard": "おなかすいた。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "none",
+"heard": "テレビをつけよう。",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "none",
+"heard": "鍵はどこ?",
+"was_right": true
+},
+{
+"lang": "ja",
+"cls": "none",
+"heard": "ご飯できたよ。",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "sit",
+"heard": "Sientate.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "sit",
+"heard": "siéntate por favor.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "sit",
+"heard": "Sentaivo.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "sit",
+"heard": "A sentarse.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "sit",
+"heard": "Siéntese.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stand",
+"heard": "Levantate.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stand",
+"heard": "Ponte de pie.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stand",
+"heard": "De pie.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stand",
+"heard": "Levantate ya.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stand",
+"heard": "Riva, levantate.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "come",
+"heard": "Ben",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "come",
+"heard": "Ven aqui.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "come",
+"heard": "Ven acá.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "come",
+"heard": "acércate",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "come",
+"heard": "Ven a mi.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "look_at_me",
+"heard": "Mirame.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "look_at_me",
+"heard": "Mira aquí.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "look_at_me",
+"heard": "Mirame a mi.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "look_at_me",
+"heard": "Mira para acá.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "look_at_me",
+"heard": "Oye, mirame.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stop",
+"heard": "Detente.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stop",
+"heard": "Quieto.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stop",
+"heard": "¡Espera!",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stop",
+"heard": "No te muevas.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "stop",
+"heard": "Quédate.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "follow",
+"heard": "Sigueme.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "follow",
+"heard": "Ven conmigo.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "follow",
+"heard": "Acompáñame.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "follow",
+"heard": "Sigame, por favor.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "follow",
+"heard": "Ven detras de mi?",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "go_home",
+"heard": "Ve a casa.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "go_home",
+"heard": "Vete a casa.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "go_home",
+"heard": "¡Vamos a ser un hilo!",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "go_home",
+"heard": "Ve a cargar.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "go_home",
+"heard": "A casa.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "lie_down",
+"heard": "Echate.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "lie_down",
+"heard": "Tómbate.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "lie_down",
+"heard": "Acuestete.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "lie_down",
+"heard": "A dormir.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "lie_down",
+"heard": "Hasta el muerto.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "spin",
+"heard": "Gira.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "spin",
+"heard": "Da una vuelta.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "spin",
+"heard": "Date la vuelta.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "spin",
+"heard": "Gírate.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "spin",
+"heard": "Da vueltas.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "bow",
+"heard": "haz una reverencia.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "bow",
+"heard": "REVERENCIA",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "bow",
+"heard": "Incuina, te.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "bow",
+"heard": "Saluda.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "bow",
+"heard": "Una reverencia por favor.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "shake",
+"heard": "Sacudete.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "shake",
+"heard": "Sacude.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "shake",
+"heard": "Sacudete el cuerpo.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "shake",
+"heard": "Ajídate.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "shake",
+"heard": "Sacudete bien.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "flip",
+"heard": "Voltereta.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "flip",
+"heard": "Da una Voltereta.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "flip",
+"heard": "¡Asuna voltereta!",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "flip",
+"heard": "Rather.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "flip",
+"heard": "Haz la voltereta.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "praise",
+"heard": "buen chico",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "praise",
+"heard": "Muy bien.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "praise",
+"heard": "bien hecho",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "praise",
+"heard": "Buena chica.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "praise",
+"heard": "Que bien.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "scold",
+"heard": "No.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "scold",
+"heard": "asi no.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "scold",
+"heard": "Mao.",
+"was_right": false
+},
+{
+"lang": "es",
+"cls": "scold",
+"heard": "eso no",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "scold",
+"heard": "No, eso está mal.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "none",
+"heard": "Que dia tan bonito.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "none",
+"heard": "donde están mis llaves?",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "none",
+"heard": "La escena esta lista.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "none",
+"heard": "Voy al trabajo.",
+"was_right": true
+},
+{
+"lang": "es",
+"cls": "none",
+"heard": "Quien quiere pizza?",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "sit",
+"heard": "坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "sit",
+"heard": "蛋黄、坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "sit",
+"heard": "请坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "sit",
+"heard": "坐下吧。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "sit",
+"heard": "快点坐下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stand",
+"heard": "站起来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stand",
+"heard": "蛋黄站起来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stand",
+"heard": "停",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "stand",
+"heard": "站好哦。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stand",
+"heard": "快站起来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "come",
+"heard": "过来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "come",
+"heard": "蛋黄过来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "come",
+"heard": "来这里。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "come",
+"heard": "快过来这边。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "come",
+"heard": "到我这里来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "look_at_me",
+"heard": "看我。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "look_at_me",
+"heard": "看着我。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "look_at_me",
+"heard": "蛋黄看这里。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "look_at_me",
+"heard": "看过来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "look_at_me",
+"heard": "你看我这边。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stop",
+"heard": "停",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stop",
+"heard": "停下来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stop",
+"heard": "哟,听!",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "stop",
+"heard": "站住。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "stop",
+"heard": "等一下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "follow",
+"heard": "跟着我。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "follow",
+"heard": "跟我来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "follow",
+"heard": "蛋黄跟我走?",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "follow",
+"heard": "跟上来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "follow",
+"heard": "跟过来。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "go_home",
+"heard": "回家",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "go_home",
+"heard": "回你的窝。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "go_home",
+"heard": "大黄回家啦。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "go_home",
+"heard": "去充电。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "go_home",
+"heard": "回我去。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "lie_down",
+"heard": "趴下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "lie_down",
+"heard": "躺下。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "lie_down",
+"heard": "睡觉啦!",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "lie_down",
+"heard": "装死。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "lie_down",
+"heard": "她好。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "spin",
+"heard": "转圈圈。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "spin",
+"heard": "转一圈。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "spin",
+"heard": "蛋黄转个圈。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "spin",
+"heard": "转圈。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "spin",
+"heard": "转身。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "bow",
+"heard": "鞠躬。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "bow",
+"heard": "敬礼。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "bow",
+"heard": "跟大家聚功。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "bow",
+"heard": "行礼。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "bow",
+"heard": "举贡一下。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "shake",
+"heard": "帅也帅。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "shake",
+"heard": "到一到。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "shake",
+"heard": "甩甩身体。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "shake",
+"heard": "蛋黄、甩毛。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "shake",
+"heard": "帅一下。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "flip",
+"heard": "放跟头。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "flip",
+"heard": "翻个跟头。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "flip",
+"heard": "请滚发。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "flip",
+"heard": "翻镜头。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "flip",
+"heard": "蛋黄翻滚。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "praise",
+"heard": "乖。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "praise",
+"heard": "好贵。",
+"was_right": false
+},
+{
+"lang": "zh-Hans",
+"cls": "praise",
+"heard": "好棒。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "praise",
+"heard": "做得好。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "praise",
+"heard": "蛋黄真棒!",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "scold",
+"heard": "不对。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "scold",
+"heard": "不对哟。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "scold",
+"heard": "错了。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "scold",
+"heard": "不是这样。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "scold",
+"heard": "不行。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "none",
+"heard": "今天天气很好。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "none",
+"heard": "你肚子饿了吗?",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "none",
+"heard": "妈妈去上班啦。",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "none",
+"heard": "这是什么东西?",
+"was_right": true
+},
+{
+"lang": "zh-Hans",
+"cls": "none",
+"heard": "晚安,大家。",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "sit",
+"heard": "앉아",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "sit",
+"heard": "앉아라.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "sit",
+"heard": "앉으세요.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "sit",
+"heard": "앉아주세요.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "sit",
+"heard": "여기 앉아.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stand",
+"heard": "일어나.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stand",
+"heard": "일었어.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "stand",
+"heard": "일어나세요.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stand",
+"heard": "일어나 봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stand",
+"heard": "얼른 일어나.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "come",
+"heard": "이리 와.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "come",
+"heard": "이리 오세요.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "come",
+"heard": "이쪽으로 와.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "come",
+"heard": "와.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "come",
+"heard": "빨리 이리 와.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "look_at_me",
+"heard": "나 봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "look_at_me",
+"heard": "나를 봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "look_at_me",
+"heard": "요키 바.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "look_at_me",
+"heard": "나 좀 봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "look_at_me",
+"heard": "이쪽 봐",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stop",
+"heard": "멈춰",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stop",
+"heard": "그만.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stop",
+"heard": "기다려.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stop",
+"heard": "움직이지 마.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "stop",
+"heard": "가만히 있어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "follow",
+"heard": "따라와.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "follow",
+"heard": "나를 따라와.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "follow",
+"heard": "따라오세요.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "follow",
+"heard": "같이 가자, So good.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "follow",
+"heard": "따라와 봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "go_home",
+"heard": "집에 가.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "go_home",
+"heard": "집으로 가.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "go_home",
+"heard": "충전하러 가.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "go_home",
+"heard": "집에 가자.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "go_home",
+"heard": "이제 집에 가.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "lie_down",
+"heard": "어, 엎드려?",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "lie_down",
+"heard": "노어.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "lie_down",
+"heard": "낮잠 자.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "lie_down",
+"heard": "죽은 척",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "lie_down",
+"heard": "누우세요.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "spin",
+"heard": "빙글빙글",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "spin",
+"heard": "한바퀴 돌아.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "spin",
+"heard": "돌아 봐.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "spin",
+"heard": "함박크.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "spin",
+"heard": "빙글빙글 돌아.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "bow",
+"heard": "인사",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "bow",
+"heard": "인사해.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "bow",
+"heard": "저래.",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "bow",
+"heard": "고개 숙여.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "bow",
+"heard": "인사해봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "shake",
+"heard": "털어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "shake",
+"heard": "몸 털어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "shake",
+"heard": "타로바?",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "shake",
+"heard": "흔들어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "shake",
+"heard": "몸을 털어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "flip",
+"heard": "압구르기",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "flip",
+"heard": "굴러.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "flip",
+"heard": "공중제비",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "flip",
+"heard": "제주넘기",
+"was_right": false
+},
+{
+"lang": "ko",
+"cls": "flip",
+"heard": "크, 구르기 해봐.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "praise",
+"heard": "착하다.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "praise",
+"heard": "잘했어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "praise",
+"heard": "최고야.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "praise",
+"heard": "착해.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "praise",
+"heard": "잘한다.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "scold",
+"heard": "안돼.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "scold",
+"heard": "아니야.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "scold",
+"heard": "틀렸어.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "scold",
+"heard": "그거 아니야.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "scold",
+"heard": "안돼.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "none",
+"heard": "오늘 날씨 좋다.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "none",
+"heard": "배고파.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "none",
+"heard": "열쇠 어딨어. 후.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "none",
+"heard": "저녁 먹자.",
+"was_right": true
+},
+{
+"lang": "ko",
+"cls": "none",
+"heard": "엄마 출근했어.",
+"was_right": true
+}
+]
+}

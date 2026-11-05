@@ -378,6 +378,50 @@ def test_the_checks_catch_bad_placements() -> None:
     assert not any(s in ("glass", "wine_glass") for _c, s in codes)  # hazards are exempt
 
 
+def _cushion(ident: str, x: float, y: float, yaw_mrad: int = 785) -> dict[str, Any]:
+    """A 400 × 400 mm floor cushion turned 45°: its bounding box is 566 mm wide, its outline is not."""
+    return {
+        "id": ident,
+        "zh": "抱枕",
+        "cls": "furniture",
+        "shape": "box",
+        "size_mm": [400, 400, 110],
+        "mass_g": 350,
+        "colour": "#d49a8a",
+        "pos_mm": [round(x), round(y)],
+        "yaw_mrad": yaw_mrad,
+        "verbs": ["look", "bump"],
+    }
+
+
+def test_turned_things_are_checked_by_their_outline_not_their_bounding_box() -> None:
+    """Owner 2026-11-04: the editor kept saying a turned floor cushion overlapped something that only its
+    bounding box reached. Two turned cushions whose boxes overlap but whose outlines are 194 mm apart do not
+    overlap; neither does one beside a bookshelf's corner; real overlaps are still caught, and say with what."""
+    src = load("default_home").to_json()
+    shelf = load("default_home").element("bookshelf").footprint()  # x0, y0, x1, y1
+    corner_x, corner_y = shelf[2], shelf[1]
+    src["things"] = [
+        _cushion("apart_a", -1000, -2000),
+        # boxes overlap 146 mm, outlines 194 mm apart
+        _cushion("apart_b", -1000 + 420, -2000 + 420),
+        # its box reaches 60 mm into the shelf's box
+        _cushion("by_shelf", corner_x + 223, corner_y - 223),
+    ]
+    codes = {(p.code, p.subject) for p in load(src).check()}
+    assert not any(c in ("thing_overlap", "thing_in_furniture") for c, _s in codes), codes
+    src["things"] = [
+        _cushion("touch_a", -1000, -2000),
+        _cushion("touch_b", -1000 + 250, -2000 + 250),
+        _cushion("in_shelf", corner_x + 100, corner_y - 100),
+    ]
+    problems = load(src).check()
+    overlap = [p for p in problems if p.code == "thing_overlap"]
+    assert [(p.subject, p.other) for p in overlap] == [("touch_a", "touch_b")]
+    inside = [p for p in problems if p.code == "thing_in_furniture"]
+    assert [(p.subject, p.other) for p in inside] == [("in_shelf", "bookshelf")]
+
+
 def test_hazard_home_has_the_spec_hazards() -> None:
     layout = load("hazard_home")
     heights = sorted(e.size_mm[2] for e in layout.elements if e.kind == "threshold")

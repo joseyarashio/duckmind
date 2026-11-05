@@ -251,7 +251,14 @@ def check(raw: Mapping[str, Any]) -> dict[str, Any]:
             if clash:
                 problems.append({"code": "overlap", "id": a, "other": b})
     for gen in layout.check():
-        problems.append({"code": gen.code, "id": gen.subject, "detail": gen.detail})
+        problems.append(
+            {
+                "code": gen.code,
+                "id": gen.subject,
+                "detail": gen.detail,
+                **({"other": gen.other} if gen.other else {}),
+            }
+        )
     reach = reachability(layout)
     for room_id in reach["unreachable_rooms"]:
         problems.append({"code": "room_unreachable", "id": room_id})

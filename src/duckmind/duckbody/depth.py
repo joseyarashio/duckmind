@@ -720,6 +720,17 @@ def upright(
     return abs(float(odom_pos[2]) - standing_m) <= tol_m
 
 
+def trunk_height_mm(odom_pos: Sequence[float] | None) -> int | None:
+    """The trunk's measured height above the floor (mm) for the reprojection: robotd's contact odometry z, which the official
+    ``Reprojector`` takes as ``Posture.trunk_height_m`` ("contact odometry's Z is exactly this"). ``None`` (no odometry, z 0):
+    the model's standing height is assumed. Without it a seated or rising duck (trunk 6-10 cm instead of 12) took the whole
+    floor in front of it for a thing 4-6 cm high, 0.27-0.30 m ahead: the near stop held, and only arcs were let through for
+    5 s (measured 2026-11-05, docs/design/neural-duck/TOF-FLOOR-2026-11-05.md)."""
+    if odom_pos is None or len(odom_pos) < 3 or float(odom_pos[2]) <= 0.0:
+        return None
+    return int(round(float(odom_pos[2]) * 1000.0))
+
+
 def pose_from_frames(
     tof_pos_m: Sequence[float],
     tof_quat_wxyz: Sequence[float],

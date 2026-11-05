@@ -134,6 +134,7 @@ class Appraiser:
         "_learn",
         "_traces",
         "_lifted",
+        "_calm",
         "_bump_t",
         "_alarm_t",
         "threat_heading",
@@ -147,6 +148,7 @@ class Appraiser:
         self._learn = learner
         self._traces: dict[str, float] = {}
         self._lifted = False
+        self._calm = 0.0  # how calm it is in the hands that hold it (the brain's carry calm, 0..1)
         self._bump_t = -1e9
         self._alarm_t = -1e9  # its last startle alarm call (s)
         # where the last scare came from, as a heading in the duck's own odometry frame (so it
@@ -177,11 +179,15 @@ class Appraiser:
         moving: bool = False,
         looming_bearing: float | None = None,
         looming_track: int = 0,
+        carried_calm: float = 0.0,
     ) -> Appraisal:
         """``presented``: every onset the reflex arcs processed this tick; ``events``: the
         reflex events (:class:`~duckmind.neuro.contract.ReflexEvent`: fired reflexes and the
         fall episode's "body:fall" / "body:righted" / … marks); ``lifted``: held off the floor;
-        ``blocked_ahead``: the veer reflex will not let it walk straight on (a wall close ahead)."""
+        ``blocked_ahead``: the veer reflex will not let it walk straight on (a wall close ahead);
+        ``carried_calm``: lifted by someone it knows (0..1, the brain's own reading of whose hands): the lift frightens it
+        that much less."""
+        self._calm = _clip(carried_calm)
         out = Appraisal()
         tr = self._traces
         for key in list(tr):
@@ -286,7 +292,8 @@ class Appraiser:
             self._bump("after_fall", 1.0)
             self._bump("righted", 1.0)
         elif stimulus == "body:lifted":
-            out.threat = max(out.threat, 0.25 * (1.2 - self._g.axes["boldness"]))
+            calm = 1.0 - self._calm
+            out.threat = max(out.threat, 0.25 * (1.2 - self._g.axes["boldness"]) * calm)
         elif stimulus == "body:bump":
             if t_s - self._bump_t > BUMP_REFRACTORY_S:
                 self._bump_t = t_s

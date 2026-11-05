@@ -875,11 +875,13 @@ class Lights:
 
 @dataclass(frozen=True)
 class Problem:
-    """One generation-check failure (curiosity spec §4.1, physical-design spec §12.1)."""
+    """One generation-check failure (curiosity spec §4.1, physical-design spec §12.1). ``other``: what the
+    subject runs into, when that is another piece (the editor names both)."""
 
     code: str
     subject: str
     detail: str
+    other: str = ""
 
     def __str__(self) -> str:
         return f"{self.code} [{self.subject}]: {self.detail}"
@@ -942,6 +944,39 @@ class Layout:
         return Pose(
             int(round(lx)), int(round(ly)), _wrap_mrad(heading_mrad - self.frame.heading_mrad)
         )
+
+    @property
+    def frame_fingerprint(self) -> str:
+        """What the duck's own odometry frame hangs on, as a short sha256: the walls, the rooms and their
+        doorways, where the body starts (the spawn and the mat), the nest and Duck Core's origin. Furniture,
+        rugs, sills and things are left out: moving them leaves every place where it was (owner
+        2026-11-04: an applied layout that only moved furniture must not wipe what the duck learnt)."""
+        walls = sorted(
+            [e.shape, list(e.pos_mm), list(e.size_mm), e.yaw_mrad, list(e.fromto_mm), e.radius_mm]
+            for e in self.elements
+            if e.kind == "wall" and not e.place
+        )
+        nest = self.nest
+        blob = json.dumps(
+            {
+                "bounds": list(self.bounds_mm),
+                "rooms": sorted([r.id, list(r.rect_mm)] for r in self.rooms),
+                "doorways": sorted(
+                    [sorted(d.get("rooms") or []), d.get("from_mm"), d.get("to_mm")]
+                    for d in self.doorways
+                ),
+                "walls": walls,
+                "spawn": self.spawn.as_json(),
+                "mat": self.mat.pose.as_json(),
+                "nest": None
+                if nest is None
+                else {"kind": nest.kind, "seat": nest.seat.as_json(), "style": nest.style},
+                "frame": self.frame.as_json(),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
     # ── lookups ──
 
@@ -2234,6 +2269,95 @@ def _circle_rect_gap(cx: float, cy: float, rect: tuple[float, ...]) -> float:
     return math.hypot(dx, dy)
 
 
+# An outline on the floor: ("poly", corners in order) or ("circle", x, y, r), mm.
+Outline = tuple[Any, ...]
+
+
+def _turned_rect(x: float, y: float, sx: float, sy: float, yaw_mrad: float) -> Outline:
+    corners = []
+    for a, b in ((-sx / 2, -sy / 2), (sx / 2, -sy / 2), (sx / 2, sy / 2), (-sx / 2, sy / 2)):
+        dx, dy = _rot(a, b, yaw_mrad)
+        corners.append((x + dx, y + dy))
+    return ("poly", corners)
+
+
+def _part_outlines(thing: Thing) -> list[tuple[Outline, tuple[float, float]]]:
+    """Each part's own outline on the floor and its heights: a turned box is a turned rectangle, not the
+    bigger square around it (the editor draws the outline; a check by the square saw overlaps nobody could)."""
+    out = []
+    for part in thing.parts:
+        px, py = _rot(part.offset_mm[0], part.offset_mm[1], thing.yaw_mrad)
+        cx, cy = thing.pos_mm[0] + px, thing.pos_mm[1] + py
+        if part.shape in ("sphere", "cylinder"):
+            outline: Outline = ("circle", cx, cy, float(part.radius_mm))
+        else:
+            outline = _turned_rect(cx, cy, part.size_mm[0], part.size_mm[1], thing.yaw_mrad)
+        z0 = float(thing.pos_mm[2] + part.offset_mm[2])
+        out.append((outline, (z0, z0 + part.size_mm[2])))
+    return out
+
+
+def _element_outline(element: Element) -> Outline:
+    """A fixed piece's own outline on the floor (a capsule: its sides and round ends as one rectangle)."""
+    x, y, _ = element.pos_mm
+    if element.shape in ("cylinder", "sphere", "frustum"):
+        r = float(max(element.radius_mm, element.radius_bottom_mm))
+        return ("circle", float(x), float(y), r)
+    if element.shape == "capsule" and len(element.fromto_mm) == 6:
+        ax, ay, _, bx, by, _ = element.fromto_mm
+        r = float(element.radius_mm)
+        length = math.hypot(bx - ax, by - ay)
+        yaw = math.atan2(by - ay, bx - ax) * 1000.0
+        return _turned_rect((ax + bx) / 2, (ay + by) / 2, length + 2 * r, 2 * r, yaw)
+    if element.shape == "plane":
+        return _turned_rect(x, y, element.size_mm[0], element.size_mm[1], 0)
+    return _turned_rect(x, y, element.size_mm[0], element.size_mm[1], element.yaw_mrad)
+
+
+def _project(outline: Outline, nx: float, ny: float) -> tuple[float, float]:
+    if outline[0] == "circle":
+        _, cx, cy, r = outline
+        c = cx * nx + cy * ny
+        return c - r, c + r
+    values = [px * nx + py * ny for px, py in outline[1]]
+    return min(values), max(values)
+
+
+def _axes_of(outline: Outline, other: Outline) -> list[tuple[float, float]]:
+    if outline[0] == "circle":
+        _, cx, cy, _r = outline
+        if other[0] == "circle":
+            points = [(other[1], other[2])]
+        else:
+            points = [min(other[1], key=lambda p: math.hypot(p[0] - cx, p[1] - cy))]
+        out = []
+        for px, py in points:
+            n = math.hypot(px - cx, py - cy)
+            if n > 1e-9:
+                out.append(((px - cx) / n, (py - cy) / n))
+        return out
+    corners = outline[1]
+    out = []
+    for (ax, ay), (bx, by) in zip(corners, corners[1:] + corners[:1]):
+        n = math.hypot(bx - ax, by - ay)
+        if n > 1e-9:
+            out.append(((ay - by) / n, (bx - ax) / n))
+    return out
+
+
+def _outline_overlap(a: Outline, b: Outline) -> float:
+    """How deep two convex outlines overlap (negative: the gap between them), mm: the separating-axis test,
+    exact for turned rectangles and circles."""
+    depth = math.inf
+    for nx, ny in _axes_of(a, b) + _axes_of(b, a):
+        a0, a1 = _project(a, nx, ny)
+        b0, b1 = _project(b, nx, ny)
+        depth = min(depth, min(a1, b1) - max(a0, b0))
+    if depth == math.inf:  # two circles on one centre
+        return min(a[3], b[3]) * 2
+    return depth
+
+
 # ── the generation checks ───────────────────────────────────────────────────────
 
 
@@ -2253,16 +2377,27 @@ def _check(layout: Layout) -> list[Problem]:
     things = list(layout.things)
     # Things: not inside furniture, not on an edge or over a hole, not near a drop, not in a
     # trip zone, not overlapping each other (curiosity spec §4.1).
+    outlines = {thing.id: _part_outlines(thing) for thing in things}
     for thing in things:
         box, zr = thing.footprint(), thing.z_range()
         for e in solid:
-            if (
+            if not (
                 _overlap(box, e.footprint()) > TOLERANCE_MM
                 and _z_overlap(zr, e.z_range()) > TOLERANCE_MM
-                and _hits_outline(e, box)
+            ):
+                continue
+            shape, ez = _element_outline(e), e.z_range()
+            if any(
+                _z_overlap(pz, ez) > TOLERANCE_MM and _outline_overlap(part, shape) > TOLERANCE_MM
+                for part, pz in outlines[thing.id]
             ):
                 problems.append(
-                    Problem("thing_in_furniture", thing.id, f"「{thing.id}」放在「{e.id}」裡面")
+                    Problem(
+                        "thing_in_furniture",
+                        thing.id,
+                        f"「{thing.id}」放在「{e.id}」裡面",
+                        e.id,
+                    )
                 )
         tops = [layout.support_top(x, y) for x, y in _samples(box)]
         heights = [t for t in tops if t is not None]
@@ -2290,11 +2425,16 @@ def _check(layout: Layout) -> list[Problem]:
                     )
     for i, a in enumerate(things):
         for b in things[i + 1 :]:
-            if (
-                _overlap(a.footprint(), b.footprint()) > TOLERANCE_MM
-                and _z_overlap(a.z_range(), b.z_range()) > TOLERANCE_MM
+            if _overlap(a.footprint(), b.footprint()) <= TOLERANCE_MM:
+                continue
+            if any(
+                _z_overlap(az, bz) > TOLERANCE_MM and _outline_overlap(pa, pb) > TOLERANCE_MM
+                for pa, az in outlines[a.id]
+                for pb, bz in outlines[b.id]
             ):
-                problems.append(Problem("thing_overlap", a.id, f"「{a.id}」和「{b.id}」疊在一起"))
+                problems.append(
+                    Problem("thing_overlap", a.id, f"「{a.id}」和「{b.id}」疊在一起", b.id)
+                )
     problems += _check_nest(layout, solid, drops)
     # The duck starts clear of everything (standing footprint and height). A duck spawned in
     # its dock sits between the dock's own guides, which are sized around the seated duck
@@ -2331,17 +2471,6 @@ def _check(layout: Layout) -> list[Problem]:
             )
     problems += _check_gates(layout)
     return problems
-
-
-def _hits_outline(element: Element, box: tuple[float, float, float, float]) -> bool:
-    """Does a thing's box touch the element's own outline (a round pot, not its square box)?"""
-    if element.shape in ("cylinder", "sphere", "frustum"):
-        x, y, _ = element.pos_mm
-        r = max(element.radius_mm, element.radius_bottom_mm)
-        return _circle_rect_gap(x, y, box) < r - TOLERANCE_MM
-    if element.yaw_mrad == 0 or element.shape == "capsule":
-        return True
-    return any(element.contains_xy(x, y) for x, y in _samples(box))
 
 
 def _circle_hits_outline(element: Element, cx: float, cy: float, r: float) -> bool:

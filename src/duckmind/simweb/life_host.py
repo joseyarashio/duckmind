@@ -42,7 +42,7 @@ from duckmind.life import snapshot as snap
 from duckmind.life.clock import DuckClock
 from duckmind.life.experience import Experiences
 from duckmind.life.record import LifeRecord
-from duckmind.simweb import neuro_api
+from duckmind.simweb import homeview, neuro_api
 
 if TYPE_CHECKING:
     from duckmind.simweb.neuro_live import NeuroDriver, NeuroSpec
@@ -93,6 +93,10 @@ class LifeHost:
         # a snapshot file that could not be used, so nothing may overwrite it (set aside instead)
         self.restored: dict[str, Any] | None = None
         self.problem: str | None = None
+        # the layout editor applied a home in another odometry frame: the next body forgets the old
+        # frame's places (``frame_moved``), and what it dropped then (``frame_dropped``)
+        self.frame_moved = False
+        self.frame_dropped: list[str] | None = None
         self.saves = 0
         self.last_why = ""
         # why the mind is not being saved, when it is not (the page shows a demo duck, or a save
@@ -396,20 +400,31 @@ class LifeHost:
         """The neural duck has a new physics body (the layout editor's Apply): what was open on the
         old one (a contact, a sleep, a stay at the charger, a fall) ends at its last moment, and the
         new body's first readings (its battery, its sensors) are not compared with the old one's.
-        What it lived goes to Duck Core with the next second's news (no lock needed here)."""
+        What it lived goes to Duck Core with the next second's news. The driver calls this with its tick
+        lock held: when the new home is in another odometry frame (:attr:`frame_moved`), the old frame's
+        places, things, dock and map go now, as a restart into it would drop them."""
         t_s = int(self.clock.calendar().timestamp())
         with self._obs_lock:
             events = self.experiences.flush(t_s)
         if events:
             with self._pending_lock:
                 self._pending.extend(events)
+        if self.frame_moved:
+            self.frame_moved = False
+            brain = self._brain()
+            if brain is not None:
+                self.frame_dropped = snap.forget_frame(brain)
+                self._say(f"新的家換了牆、房間、起點或充電座：重新認識這個家（放下 {self.frame_dropped}）")
 
     def context(self) -> dict[str, Any]:
-        """Where the body starts: places and the nest are in its odometry frame, which is the same
-        only when it starts from the same home and place."""
+        """Where the body starts: places and the nest are in its odometry frame, which is the same when it
+        starts from the same place in a home with the same walls, rooms, start and nest (``frame``: the
+        home's frame fingerprint; moved furniture leaves it as it is)."""
         driver = self.driver
+        home = self.state.home()
         return {
-            "home": self.state.home(),
+            "home": home,
+            "frame": homeview.frame_of(home),
             "start": getattr(driver, "start_at", "mat") if driver is not None else "mat",
         }
 
@@ -575,6 +590,7 @@ class LifeHost:
                     seed=self.record.seed,
                     context=self.context(),
                     wall=self._wall(),
+                    frame_of=homeview.frame_of,
                     set_talk=self._set_talk,
                 )
             except snap.SnapshotUnusable as error:
@@ -868,4 +884,6 @@ class LifeHost:
             "restored": None
             if self.restored is None
             else {k: v for k, v in self.restored.items() if k != "names"},
+            # what the last layout that changed the home's frame made it relearn (None: none did)
+            "frame_dropped": self.frame_dropped,
         }

@@ -87,6 +87,15 @@ were checked against their primary sources on 2026-10-29.
 | RIRS_NOISES (OpenSLR 28), MobvoiHotwords (OpenSLR 87) | Apache-2.0 | No | Downloaded by the user. |
 | Name keyword detector weights | Derived from the datasets above | No | Kept out of this repository. If published on Hugging Face, it comes with a model card that lists every source and licence. It has **not** passed its acceptance test. |
 
+### Voice commands (the `voice` extra)
+
+| Item | Licence | Bundled? | How it is obtained |
+|---|---|---|---|
+| Whisper models (OpenAI; `mlx-community/whisper-medium-mlx`, `Systran/faster-whisper-small` conversions) | MIT | No | Downloaded once by the user from Hugging Face when the server first starts with voice commands on. |
+| mlx-whisper, mlx | MIT | No | pip (`voice` extra, Apple silicon only) |
+| faster-whisper, CTranslate2 | MIT | No | pip (`voice` extra) |
+| pypinyin | MIT | No | pip (`voice` extra) |
+
 ### The simulator page (bundled, no CDN)
 
 | Item | Licence | Bundled? | Notes |
@@ -134,3 +143,7 @@ These are installed by `uv` or `pip`; none of them is bundled.
 - **`kws` extra:** Apache-2.0 (`qwen-tts`, `transformers`, `accelerate`, `gradio`),
   MIT (`pypinyin`), BSD-3-Clause (`soundfile`, which ships libsndfile under LGPL),
   ISC (`librosa`); `soxr` is LGPL-2.1-or-later.
+- **`voice` extra:** MIT (`mlx-whisper`, `mlx`, `faster-whisper`, `ctranslate2`, `pypinyin`,
+  `tiktoken`, `onnxruntime`), BSD (`torch`, which `mlx-whisper` requires; `numba`, `scipy`),
+  Apache-2.0 (`tokenizers`). `av` (PyAV, BSD-3-Clause, required by `faster-whisper`) ships
+  FFmpeg, which is LGPL.

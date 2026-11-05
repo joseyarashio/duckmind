@@ -177,7 +177,9 @@
               <div class="cmd-say">
                 <input type="text" id="cmdText" maxlength="200" enterkeyhint="send" placeholder="對牠說：坐下、過來、看我…" aria-label="指令文字" data-i18n-attr="placeholder:page.cmd.text.placeholder;aria-label:page.cmd.text.aria">
                 <button type="submit" class="btn small primary" id="cmdSend" data-i18n="page.cmd.send">送出</button>
-                <button type="button" class="btn small" id="cmdMic" disabled title="語音指令之後才會開放" data-i18n-attr="title:page.cmd.mic.title"><span aria-hidden="true">🎤</span> <span data-i18n="page.cmd.mic">說話</span></button>
+                <!-- 按住說話 (voicecmd.js; docs/design/neural-duck/VOICE-COMMANDS-2026-11-04.md): push-to-talk, recognised on this computer only
+                     (POST /api/neuro/voice/command); on once GET /api/neuro/voice/status says the recogniser and the brain are ready -->
+                <button type="button" class="btn small" id="cmdMic" disabled aria-pressed="false" title="小鴨的腦開著時才能用說的" data-i18n-attr="title:page.voice.off.title"><span aria-hidden="true">🎤</span> <span data-voice-label data-i18n="page.cmd.mic">說話</span></button>
               </div>
               <!-- remote mode (remote.js; docs/design/neural-duck/REMOTE-GOTHERE-2026-10-23.md): a toggle that hands the legs to the person,
                    four 44 px buttons shown only while it is on (the keys, WASD and a gamepad stick work too), and one status line -->
@@ -192,6 +194,7 @@
                 <span class="remote-state" id="remoteState" role="status" aria-live="polite" data-state="off" data-i18n="page.remote.state.off">遙控關著</span>
               </div>
             </div>
+            <p class="cmd-voice-out" id="cmdVoiceOut" role="status" aria-live="polite" data-state="none" hidden></p>
             <details class="cmd-keys" id="cmdKeys" open>
               <summary data-i18n="page.cmd.keys">指令鍵</summary>
               <div class="cmd-group" role="group" aria-label="會的" data-i18n-attr="aria-label:page.cmd.group.builtin">
@@ -413,6 +416,29 @@
       <h3 class="card-title"><span data-i18n="page.html.neuroPicker.card-title.text">換一隻小鴨</span><small data-i18n="page.html.card-title.small.text.752014">天生的樣子全部來自 Duck Core 的多樣化設計：同一個種子，永遠是同一隻鴨</small></h3>
       <div class="neuro-ducks" id="neuroDucks" role="radiogroup" aria-label="選一隻小鴨" data-i18n-attr="aria-label:page.html.neuroDucks.aria"></div>
       <p class="hint" id="neuroPickNote" data-i18n="page.html.neuroPickNote.text">換鴨子時物理身體留在原地，換掉的是牠的腦（天生的樣子、年紀和學到的東西都重新開始）。</p>
+    </div>
+    <!-- 我的小鴨檔案 (docs/duck-file.md): export the duck this server lives, import another (duckfile.js). -->
+    <div class="card accent-magenta duckfile" id="duckFile" data-neuro hidden>
+      <h3 class="card-title"><span data-i18n="page.duckfile.title">我的小鴨檔案</span><small data-i18n="page.duckfile.small">一隻小鴨＝一個檔案，可以搬到另一台電腦</small></h3>
+      <p class="hint" data-i18n="page.duckfile.what">檔案裡有牠的名字、個性、成長、認得的人、學會的把戲和叫聲。</p>
+      <p class="hint" data-i18n="page.duckfile.home">家的地圖和家具不會跟著走：到了新家，牠要重新認識環境。</p>
+      <div class="duckfile-actions">
+        <a class="btn primary" id="duckFileExport" href="/api/life/duckfile/export" download hidden data-i18n="page.duckfile.export">匯出小鴨檔案</a>
+        <button type="button" class="btn" id="duckFileImport" data-i18n="page.duckfile.import">匯入小鴨檔案</button>
+        <input type="file" id="duckFileInput" accept=".duck" hidden>
+      </div>
+      <p class="hint" id="duckFileNoLife" hidden data-i18n="page.duckfile.no_life">這台模擬器沒有養著自己的小鴨，所以不能匯出；匯入還是可以。</p>
+      <div class="duckfile-found" id="duckFileFound" hidden>
+        <p id="duckFileFoundText"></p>
+        <p class="hint" id="duckFileSame" hidden></p>
+        <div class="duckfile-actions">
+          <button type="button" class="btn primary" id="duckFilePut" data-i18n="page.duckfile.put">放進這台電腦</button>
+          <button type="button" class="btn" id="duckFileReplace" hidden data-i18n="page.duckfile.replace">取代（先留備份）</button>
+          <button type="button" class="btn ghost" id="duckFileCancel" data-i18n="page.duckfile.cancel">取消</button>
+        </div>
+      </div>
+      <p class="hint duckfile-note" id="duckFileNote" role="status" aria-live="polite" hidden></p>
+      <p class="hint" id="duckFileBackup" hidden></p>
     </div>
       </div>
       <div class="ctl-panel" role="tabpanel" id="ctl-brain" data-ctl-panel="brain" aria-labelledby="ctlTab-brain" hidden >
@@ -952,6 +978,14 @@
             <button class="btn small" type="button" data-le="reset" data-i18n="page.layout.save.reset">重設成預設的家</button>
           </div>
           <button class="btn primary le-apply" type="button" data-le="apply" data-i18n="page.layout.save.apply">套用到模擬器</button>
+          <div class="le-confirm" id="leConfirm" role="alertdialog" aria-labelledby="leConfirmText" hidden>
+            <p class="le-confirm-text" id="leConfirmText"></p>
+            <p class="le-confirm-when" id="leConfirmWhen"></p>
+            <div class="le-row">
+              <button class="btn primary small" type="button" data-le="apply-yes" data-i18n="page.layout.confirm.yes">確定套用</button>
+              <button class="btn small" type="button" data-le="apply-no" data-i18n="page.layout.confirm.no">先不要</button>
+            </div>
+          </div>
           <p class="hint" data-i18n="page.layout.save.apply_hint">套用會重新載入物理，約十幾秒；小鴨的心會留著，牠會回到原來的位置（那裡被擺了東西就回到起點）。</p>
         </section>
         <section class="card accent-cyan le-card" aria-labelledby="leCheckTitle">
@@ -1031,6 +1065,7 @@
 <script src="/plan2d.js"></script>
 <script src="/layout_editor.js"></script>
 <script src="/growth.js"></script>
+<script src="/duckfile.js"></script>
 <script src="/minimap.js"></script>
 <script type="module" src="/neuro_sound.js"></script>
 <script src="/neuro.js"></script>
@@ -1038,5 +1073,6 @@
 <script type="module" src="/duck3d.js"></script>
 <script type="module" src="/remote.js"></script>
 <script type="module" src="/tricks.js"></script>
+<script type="module" src="/voicecmd.js"></script>
 </body>
 </html>

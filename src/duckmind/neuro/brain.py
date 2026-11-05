@@ -511,6 +511,22 @@ WALK_PROGRESS_MIN_MPS = 0.02  # ignore odometry jitter / stationary commanded st
 WALK_PROGRESS_MAX_MPS = 0.65  # reject odometry resets/teleports, not a speed estimate
 WALK_RECENT_TAU_S = 60.0
 ANSWER_TAU_S = 15.0
+# Staying put (docs/design/neural-duck/SETTLE-2026-11-04.md). A stay holds the legs where they are (a told 「停」: until it is
+# released or its cap; a hand's set-down: a short settle first) while the head looks about and it may sit or stand; the walking acts
+# are out of its competition (``Context.staying``). A new command, somebody pointing it somewhere, its name, a touch, a fright, being
+# held again, a fall, the pack running low or a docking end it at once; a reflex's own step (a poke) is never held.
+SETTLE_MIN_S = 2.0  # set down by a hand: it settles this long at least (a bold, lively duck) …
+SETTLE_MAX_S = 5.0  # … and this long at most (a shy, slow one)
+SETTLE_TOUCH_GRACE_S = 1.5  # the hand's own fingers on its shell as it lets go are no touch that ends the settle
+STAY_FEAR_RISE = 0.15  # a duck already afraid when it began to stay: this much more fear is a new fright that ends it
+# Carried by someone it knows (owner 2026-11-05: being carried by the family is less frightening). Whose hands they are is its
+# own reading (:meth:`NeuroBrain.carer_bond`): the person it believes is beside it as it is lifted and while it is held; how close
+# it feels to them (0..1) is how calm it is in their hands. The lift's own fright and a frightened ride are × (1 − calm) and its
+# fear settles faster while held and for CARRY_CALM_AFTER_S after the set-down (drives.SOOTHE_FEAR). Nobody seen, or somebody it
+# does not know: calm 0, as before. The grab's flinch, a startle, a fall or a drop are what they always were.
+CARRY_CALM_AFTER_S = 5.0
+CARER_SEEN_S = 10.0  # (learn.people) somebody it saw this recently is about it
+RIDE_FRIGHT = 0.15  # a frightened ride's start: this much fear, once
 
 
 def _clip(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -777,6 +793,13 @@ class NeuroBrain:
         self._by_nest_walk = 0.0  # its walking total then
         self._perform_until_ms = 0  # an emotion plays until then (neuro.emotions): it stands still
         self._still_until_ms = 0  # a told act waits for a still body until then (keep_still): no step, no turn
+        self._stay: tuple[int, int, str] | None = None  # staying put: (since t_ms, until t_ms, "told" | "set_down")
+        self.stay_ended: str | None = None  # why the last stay ended ("time", "command", "called", "touched", "afraid", …)
+        self._settles = 0  # set-downs it has settled after (the seeded draw of each settle's length)
+        self._stay_fear = 0.0  # the least fear it has had since the stay began (a new fright is a rise from it)
+        self.carry_calm = 0.0  # how calm it is in the hands that hold it (0..1: its closeness to whom it believes holds it)
+        self._carried_s: float | None = None  # when it was last held (s): the calm lasts CARRY_CALM_AFTER_S after
+        self._was_held = False
         self._over: str | None = None  # a told act whose command is over (act_over): its bout is used up
         self._stuck = 0.0  # its body's stalls, one after another at one place (a leaky count)
         self._stuck_at: tuple[float, float] = (0.0, 0.0)
@@ -820,6 +843,7 @@ class NeuroBrain:
         frame). The brain puts it in its OWN odometry frame, by its own odometry pose now, and keeps an errand
         (:mod:`duckmind.neuro.errand`) that it answers from its own senses. Returns ``(errand id, x, y)``."""
         x, y = to_odom(self._odom_now, float(bearing), float(range_m))
+        self.end_stay("errand")  # (sent somewhere: it is not to stay)
         return self.errand.start(x, y, self._clock_s(), self._odom_now, who), x, y
 
     def stop_errand(self, reason: str = "stopped") -> bool:
@@ -855,6 +879,113 @@ class NeuroBrain:
         """A told act waits for a still body (the flip: the roll begins only from a steady stand): until ``until_ms``
         the legs make no step, turn or arc of the duck's own — a reflex's quick step away from a poke apart."""
         self._still_until_ms = max(self._still_until_ms, int(until_ms))
+
+    def stay(self, seconds: float, kind: str = "told") -> None:
+        """Stay where it is for ``seconds`` at most (``kind``: ``told``, a person's 「停」; ``set_down``, the settle after a hand):
+        the legs hold, the walking acts are out of the competition, the head looks about. Ended at once by what releases it
+        (:meth:`_stay_step`) or :meth:`end_stay`."""
+        now = int(self._t_prev) if self._t_prev is not None else 0
+        self._stay = (now, now + int(round(float(seconds) * 1000.0)), str(kind))
+        self._stay_fear = float(self.drives.fear)
+        self.stay_ended = None
+
+    def end_stay(self, why: str) -> None:
+        """The stay in hand is over (``why``: what released it); nothing when it is not staying."""
+        if self._stay is not None:
+            self._stay = None
+            self.stay_ended = str(why)
+
+    def stay_view(self) -> dict[str, Any] | None:
+        """The stay in hand (its kind, how long it has stayed and has left, s), None when it is not staying."""
+        stay, now = self._stay, self._t_prev
+        if stay is None or now is None:
+            return None
+        return {
+            "kind": stay[2],
+            "since_s": round(max(0, now - stay[0]) / 1000.0, 2),
+            "left_s": round(max(0, stay[1] - now) / 1000.0, 2),
+        }
+
+    def _settle_s(self) -> float:
+        """How long it settles after a hand sets it down: the bold and the lively shorter, the shy and the slow longer, and a
+        little of its own each time (seeded) — always SETTLE_MIN_S..SETTLE_MAX_S."""
+        axes = self.genome.axes
+        self._settles += 1
+        jitter = N.Stream(self.seed, f"settle:{self._settles}").uniform() - 0.5  # (its own named stream: no other draw moves)
+        calm = 1.0 - 0.5 * float(axes.get("boldness", 0.5)) - 0.5 * float(axes.get("activity", 0.5)) + 0.2 * jitter
+        return SETTLE_MIN_S + (SETTLE_MAX_S - SETTLE_MIN_S) * _clip(calm)
+
+    def _stay_step(self, t_ms: int, frame: SensorFrame, rx: Any, fear: float, homing: float) -> bool:
+        """This tick's stay: a set-down starts a settle (a told stay in hand goes on); then whatever releases the stay ends it —
+        its time, being held, a fall, a fright, the pack running low, a docking, its name, a touch. True while it stays."""
+        if "set_down" in frame.events and not rx.lifted and (self._stay is None or self._stay[2] == "set_down"):
+            self.stay(self._settle_s(), "set_down")
+        stay = self._stay
+        if stay is None:
+            return False
+        why = None
+        if t_ms >= stay[1]:
+            why = "time"
+        elif rx.lifted or "lifted" in frame.events:
+            why = "held"
+        elif rx.fallen or frame.body.fallen:
+            why = "fallen"
+        elif self._frightened(fear, rx):
+            why = "afraid"
+        elif homing >= S.HOMING_RELEASE:
+            why = "battery"
+        elif self.dock.mode in ("docking", "leaving"):
+            why = "docking"
+        else:
+            touch_ok = stay[2] != "set_down" or t_ms - stay[0] >= SETTLE_TOUCH_GRACE_S * 1000.0
+            for onset in rx.presented:
+                if onset.stimulus == "sound:name":
+                    why = "called"
+                elif onset.stimulus.startswith("touch:") and touch_ok:
+                    why = "touched"
+        if why is not None:
+            self.end_stay(why)
+            return False
+        return True
+
+    def _frightened(self, fear: float, rx: Any) -> bool:
+        """A fright that ends a stay: a startle now, or fear that has risen to where a command is refused (CLAIM_FEAR_MAX) —
+        for a duck that was already that afraid when the stay began (just carried by a hand, 0.4-0.8), a rise of
+        STAY_FEAR_RISE above the least it has had since. A fear act it picks ends the stay too (the step, STAY_ESCAPES)."""
+        self._stay_fear = min(self._stay_fear, fear)
+        line = S.CLAIM_FEAR_MAX if self._stay_fear < S.CLAIM_FEAR_MAX else self._stay_fear + STAY_FEAR_RISE
+        return fear >= line or any(event.reflex == "startle" for event in rx.events)
+
+    def carer_bond(self, t_ms: int) -> float:
+        """How close it feels (0..1) to whoever it believes has it in their hands now, from its own senses: the people it saw
+        within CARER_SEEN_S (its own record of them, ``learn.people``); 0 when it saw nobody, or nobody it knows. The social
+        skill adds the person it believes is right beside it (:meth:`~duckmind.neuro.skill_imprint.Imprint.carer_bond`)."""
+        now_s = (t_ms - self._t0) / 1000.0 if self._t0 is not None else 0.0
+        seen = (float(p.bond) for p in self.learn.people.values() if now_s - float(p.seen_t) <= CARER_SEEN_S)
+        return _clip(max(seen, default=0.0))
+
+    def _carry_step(self, t_ms: int, t_s: float, frame: SensorFrame, rx: Any) -> None:
+        """How calm it is in the hands that hold it (``carry_calm``): its closeness to the one it believes lifted it, or holds
+        it now (the most of either), from the lift until CARRY_CALM_AFTER_S after the set-down; 0 otherwise."""
+        held = bool(rx.lifted) or "lifted" in frame.events
+        if held:
+            bond = self.carer_bond(t_ms)
+            self.carry_calm = max(self.carry_calm, bond) if self._was_held else bond
+            self._carried_s = t_s
+        elif self._carried_s is not None and t_s - self._carried_s > CARRY_CALM_AFTER_S:
+            self.carry_calm = 0.0
+            self._carried_s = None
+        self._was_held = held
+
+    def felt_ride(self, frightened: bool) -> None:
+        """A ride's start, felt by the slower systems: a fright is a threat (the fear drive, once — not a spiral; less in the
+        hands of someone it knows: × (1 − ``carry_calm``)), a thrill lifts the mood and the wish to play."""
+        d = self.drives
+        if frightened:
+            d.fear = min(1.0, d.fear + RIDE_FRIGHT * (1.0 - self.carry_calm))
+        else:
+            d.valence = min(1.0, d.valence + 0.1)
+            d.play = min(1.0, d.play + 0.1)
 
     def act_over(self, behaviour: str) -> None:
         """A told act's command is over (done, given up or cut short): the bout of ``behaviour`` is used up at once. A
@@ -1093,6 +1224,7 @@ class NeuroBrain:
                 kick += 0.3 * max(0.0, self.learn.value_of(onset.stimulus))
                 self._answer = min(2.0, self._answer + kick)
                 self._answer_tag = "greet" if onset.stimulus == "sound:hello" else "inquire"
+        self._carry_step(t_ms, t_s, frame, rx)  # (whose hands: before the lift is appraised)
         ap = self.appraiser.step(
             t_s,
             dt,
@@ -1106,6 +1238,7 @@ class NeuroBrain:
             moving=walking_now or frame.body.posture == "walk",
             looming_bearing=pct.looming_bearing,
             looming_track=pct.looming_track,
+            carried_calm=self.carry_calm,
         )
         hold = rx.hold if rx.hold in HOLD_BEHAVIOUR else None
         if hold is not None and self.moment == "still":
@@ -1338,6 +1471,7 @@ class NeuroBrain:
                 presence=presence,
                 contact=contact,
                 touch_gentle=touch_gentle,
+                soothe=self.carry_calm,
                 threat=ap.threat,
                 pain=ap.pain,
                 positive=ap.positive,
@@ -1654,6 +1788,12 @@ class NeuroBrain:
             home_i = self.sel.index("return_dock")
             if home_i is not None:
                 self.sel.sat[home_i] = 0.0
+        # staying put (a told 「停」, the settle after a set-down): the walking acts are out of the competition this tick, the
+        # fear acts too but for a fright of now — a strong scare, something looming (S.STAY_ESCAPES); a touch ends the stay
+        ctx.staying = self._stay_step(t_ms, frame, rx, float(d.fear), f[F["homing"]])
+        ctx.stay_fright = ctx.staying and (
+            t_s - self._strong_scare_s <= STARTLE_FLIGHT_S or f[F["looming"]] >= STARTLE_FLIGHT_LOOM
+        )
         self.cmd.apply(self.sel)  # (one owner of the channel: a command's ask and an errand's hold, composed)
         chosen, new_bout = self.sel.step(
             dt,
@@ -1664,6 +1804,8 @@ class NeuroBrain:
             release_commitment=attention_interrupt or self._walk_called,
             walking_to=self._walking_to,
         )
+        if ctx.staying and chosen in S.STAY_ESCAPES:
+            self.end_stay("afraid")  # (a fear act of its own won: it is scared, not staying — its legs are its own)
         if homing_i is not None and self.dock.mode == "docking" and consumed <= 0.0:
             # (dock:build, live check 2026-09-28) while its docking program has the legs, going
             # home does not tire of itself on the clock: it ends on its contacts, or when a try
@@ -2227,7 +2369,7 @@ class NeuroBrain:
             vx, vyaw = legal_walk(cdrive.vx, cdrive.vyaw, back_arc=cdrive.back)
             backing = cdrive.back and vx < 0.0
         if self._back is not None:
-            if t_ms >= self._back[0] or not standing or halted:
+            if t_ms >= self._back[0] or not standing or halted or self._stay is not None:
                 self._back = None
                 self._back_goal = None
             else:
@@ -2254,7 +2396,7 @@ class NeuroBrain:
             vx, vyaw = legal_walk(rx.escape[0], rx.escape[1], back_arc=back)
             backing = back and vx < 0.0
             docking = False  # (the reflex has the legs this moment)
-        elif halted or t_ms < self._still_until_ms:
+        elif halted or t_ms < self._still_until_ms or self._stay is not None:
             vx, vyaw = 0.0, 0.0
             backing = False
             docking = False

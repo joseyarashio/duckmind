@@ -1050,6 +1050,7 @@ def test_the_selector_takes_outside_input_like_any_other_reason() -> None:
             "posture_tired": 0.0,
             "recharging": False,
             "nest_rest": False,
+            "staying": False,
         },
     )()
     sel.set_extra({"greet": 1.0})

@@ -132,6 +132,85 @@ def test_places_are_kept_only_when_the_body_starts_where_it_did() -> None:
     assert other.hab.level("sound:clap", 0.0) < 0.9
 
 
+def _home_file(tmp_path, name: str, change) -> str:
+    """default_home,no_nest as the layout editor would apply it, with ``change`` made to it."""
+    from duckmind.world import homelayout
+
+    raw = homelayout.load("default_home,no_nest").to_json()
+    change(raw)
+    path = tmp_path / f"{name}.json"
+    path.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
+    return str(path)
+
+
+def _move_furniture(raw: dict) -> None:
+    for thing in raw["things"]:
+        if thing["id"] == "books":
+            thing["pos_mm"] = [-1200, -600]
+    for element in raw["elements"]:
+        if element["id"] == "bookshelf":
+            element["pos_mm"] = [element["pos_mm"][0], element["pos_mm"][1] - 300, 0]
+
+
+def _move_mat(raw: dict) -> None:
+    raw["mat"] = {**raw["mat"], "x_mm": raw["mat"]["x_mm"] + 800}
+
+
+def test_moved_furniture_keeps_places_a_moved_start_does_not(tmp_path) -> None:
+    """Owner 2026-11-04: an applied layout that only moved furniture wiped every place at the next restart,
+    because the home's name had become a file's. What the places hang on is the home's frame."""
+    from duckmind.simweb.homeview import frame_of
+
+    furniture = _home_file(tmp_path, "furniture", _move_furniture)
+    start = _home_file(tmp_path, "start", _move_mat)
+    saved = {**CTX, "frame": frame_of(CTX["home"])}
+    assert frame_of(furniture) == saved["frame"] != frame_of(start)
+    data = capture(taught())
+    data["context"] = saved
+    kept = FakeBrain()
+    ctx = {"home": furniture, "frame": frame_of(furniture), "start": "mat"}
+    report = snap.apply(kept, data, seed=4107, context=ctx, wall=1000.0, frame_of=frame_of)
+    assert report["skipped"] == [] and kept.learn.avoided_near((1.2, 0.3, 0.0))
+    assert kept.learn.dock == (0.1, -0.2) and kept.learn.things
+    moved = FakeBrain()
+    ctx = {"home": start, "frame": frame_of(start), "start": "mat"}
+    report = snap.apply(moved, data, seed=4107, context=ctx, wall=1000.0, frame_of=frame_of)
+    assert report["skipped"] == ["places", "things", "dock"] and not moved.learn.places
+    assert moved.learn.person_named("小明") is not None  # people are kept either way
+
+
+def test_a_snapshot_from_before_frames_is_read_by_its_home(tmp_path) -> None:
+    """A snapshot saved before ``frame`` was (only ``home``): the frame of the home it names is worked out
+    then; a home that cannot be read any more (a deleted layout file) keeps the old rule, the same name."""
+    from duckmind.simweb.homeview import frame_of
+
+    furniture = _home_file(tmp_path, "furniture", _move_furniture)
+    data = capture(taught())
+    assert "frame" not in data["context"]
+    ctx = {"home": furniture, "frame": frame_of(furniture), "start": "mat"}
+    kept = FakeBrain()
+    report = snap.apply(kept, data, seed=4107, context=ctx, wall=1000.0, frame_of=frame_of)
+    assert report["skipped"] == [] and kept.learn.places
+    data["context"] = {"home": str(tmp_path / "deleted.json"), "start": "mat"}
+    gone = FakeBrain()
+    report = snap.apply(gone, data, seed=4107, context=ctx, wall=1000.0, frame_of=frame_of)
+    assert report["skipped"] == ["places", "things", "dock"]
+    data["context"] = {"home": furniture, "start": "mat"}
+    named = FakeBrain()
+    ctx_no_frame = {"home": furniture, "frame": None, "start": "mat"}
+    report = snap.apply(named, data, seed=4107, context=ctx_no_frame, wall=1000.0)
+    assert report["skipped"] == []  # the same file by name
+
+
+def test_a_running_brain_forgets_only_what_hangs_on_the_frame() -> None:
+    brain = taught()
+    dropped = snap.forget_frame(brain)
+    assert dropped == ["places", "things", "dock"]
+    assert not brain.learn.places and not brain.learn.things and brain.learn.dock is None
+    assert brain.learn.person_named("小明") is not None and brain.learn.cues
+    assert brain.hab.level("sound:clap", 400.0) < 0.9 and brain.drives.fear == pytest.approx(0.4)
+
+
 def test_a_snapshot_of_another_duck_or_a_newer_build_is_never_applied() -> None:
     data = capture(taught())
     with pytest.raises(snap.SnapshotUnusable, match="seed"):

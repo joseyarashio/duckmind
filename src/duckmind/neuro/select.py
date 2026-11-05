@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from duckmind.i18n import join, lst, msg
 from duckmind.neuro.contract import BEHAVIOURS, MOMENTS, MOMENTS_WALKING
 from duckmind.neuro.genome import Genome
+from duckmind.neuro.repertoire import SHAPES_WALK
 from duckmind.neuro.signals import Stream
 
 FEATURES: tuple[str, ...] = (
@@ -711,6 +712,11 @@ LOCOMOTES = frozenset(b for b, spec in BEHAVIOURS.items() if spec.locomotes)
 INVESTIGATIVE = frozenset(
     {"investigate", "nibble", "peck", "forage", "survey", "look_around", "watch"}
 )
+# A duck that stays put (brain.stay: a told 「停」, the settle after a set-down) has no walking act in its competition but these,
+# and these only for a fright of now (``Context.stay_fright``: a strong scare, something looming, a reflex's escape — picking
+# one ends the stay). The fear a carry left is no such fright: with the walking acts out of the competition it would let a
+# flight win by default (headless 2026-11-05: afraid when told 「停」, the explorer fled 24 s into a quiet stay)
+STAY_ESCAPES = frozenset({"flee", "retreat", "hide"})
 
 
 def _clip(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -731,6 +737,8 @@ class Context:
     recharging: bool = False  # at the dock, below the genome's existing leave level
     charge_escape: bool = False  # a real fright/reflex, not noise selecting a defensive name
     nest_rest: bool = False  # its search for its nest ended without it: going home is let go for now (brain.NEST_REST_S)
+    staying: bool = False  # it stays put (brain.stay): the walking acts are out, the fear acts apart (STAY_ESCAPES)
+    stay_fright: bool = False  # … and a fright of now lets a fear act take it away (STAY_ESCAPES)
 
 
 class Selector:
@@ -1223,6 +1231,12 @@ class Selector:
             return 1.0
         g = ctx.wakefulness if ctx.asleep else 1.0
         if spec.locomotes and not ctx.can_walk:
+            return 0.0
+        if spec.locomotes and ctx.staying and (behaviour not in STAY_ESCAPES or not ctx.stay_fright):
+            return 0.0
+        if ctx.staying and ctx.standing and behaviour in SHAPES_WALK:
+            # (a shake standing is a shuffle of its feet — the motor's own steps, repertoire.SHAPES_WALK: headless 2026-11-05,
+            # set down after a ride the duck shook itself off 2.4 s into its settle and stepped away; sitting it shakes in place)
             return 0.0
         if ctx.recharging and behaviour != "return_dock":
             escape = behaviour in ("flee", "retreat") and ctx.charge_escape

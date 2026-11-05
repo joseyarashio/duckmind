@@ -21,7 +21,9 @@ jobs:
 
   tests:
     # The suite takes about an hour on one runner, so the test files are dealt round-robin
-    # (sorted by name) into four shards that run side by side.
+    # (sorted by name) into four shards that run side by side. Public repositories only: there
+    # Actions minutes are free; a private copy runs lint and the secrets scan (owner, 2026-11-05).
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -40,7 +42,8 @@ jobs:
       - name: Tests, shard ${{ matrix.shard }} of 4 (without the physics simulator; those tests skip)
         run: |
           files=$(python3 -c "import glob; f = sorted(glob.glob('tests/test_*.py')); print(' '.join(f[${{ matrix.shard }}::4]))")
-          uv run pytest -q -p no:cacheprovider $files
+          # a test still running after 10 min prints every thread's stack (a hang shows where it waits)
+          uv run pytest -q -p no:cacheprovider -o faulthandler_timeout=600 $files
 
   secrets:
     runs-on: ubuntu-latest

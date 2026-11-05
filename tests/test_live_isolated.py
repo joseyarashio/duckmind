@@ -36,6 +36,7 @@ def test_the_cases_that_need_a_real_brain_pass_in_their_own_process() -> None:
         "case_drives.py",
         "case_family_speaker.py",
         "case_replay_chain.py",
+        "case_stay.py",
         "case_wiring.py",
     ]
     result = subprocess.run(

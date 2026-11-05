@@ -51,6 +51,7 @@ Like a spinal reflex, these act before any deliberation and can interrupt whatev
 - **Drives and affect** (`neuro/drives.py`): energy, sleep pressure × a circadian clock, curiosity, fear, social need, comfort, boredom, the urge to walk, battery hunger, play; arousal and mood.
 - **Selection** (`neuro/select.py`) is a basal-ganglia-like competition. Each behaviour (the list is `BEHAVIOURS` in `neuro/contract.py`) is a channel whose salience is a weighted sum of drives, emotions, stimulus traces and learned values (the weight table `W` is the duck's wiring) × its temperament/stage gain × what the body can do now × satiation (`SATIATE_S`: a nap satiates over 900 s, a perk-and-tilt over 2.5 s), plus slow **seeded noise**. Channels are leaky accumulators; the winner gets a commitment bonus that fades as its bout satiates, so the duck neither dithers nor gets stuck.
 - **Claims**: a family command (`neuro/command_brain.py`), an errand (`neuro/errand.py`), a learned trick (`neuro/tricks.py`) or the remote (`neuro/remote.py`) can claim the body above the competition; reflexes still win.
+- **Staying put**: after "stop" the duck stays where it is (`brain.stay`) — even when it is afraid: the walking acts leave the competition and the legs hold, while the head still looks about and it may sit. A new command, its name, a touch, a new fright (a startle, something looming, fear rising further), being picked up, a fall or a low battery releases it; otherwise it is free again after 30–60 s (livelier ducks sooner). Set down by a hand, it first settles 2–5 s. Reflexes are never held, and a fear act takes it away for a fright of now — not for the fear a carry left. Being carried by someone it knows (the person it believes is beside it, by its own senses) frightens it less than an unseen hand or a stranger.
 - **Motor intent** (`neuro/motor.py`): a locomotor rhythm of bursts and pauses with drifting speed and meandering arcs, steered by the behaviour's goal; gaze, posture, head bob, calls.
 
 ### The motor contract and the body link
@@ -82,6 +83,8 @@ Forgetting appends a tombstone; rebuilding without those events is exactly "as i
 
 **Persistence.** The slow neural state is saved locally (`life/snapshot.py`, `SNAPSHOT_VERSION = 2`) next to Duck Core's record (`life/record.py`), with versioned migrations; older records are upgraded with a backup first (`life/upgrade.py`). Nothing is sent anywhere.
 
+**Moving a duck.** One duck is one file (`life/duckfile.py`, [duck-file.md](duck-file.md)): its life record, Duck Core's save, what the neural duck learnt (without the home map and furniture) and its voice library, each checked by SHA-256. Import makes a new life folder and never overwrites a duck silently.
+
 ## 4. Randomness and reproducibility
 
 - A **seed** gives a **genome** (`neuro/genome.py`): Duck Core's hatching draws — seven temperament axes, the four-branch nature, quirks like an innate head-tilt side, a favourite sound, tempo, growth pace — mapped onto the brain's gains, thresholds, time constants and motor style.
@@ -104,10 +107,10 @@ New motions are trained in MuJoCo (mjlab-based RL on a GPU box) and must pass `d
 - **Going to a spot** (remote "go there") arrives only about 26% of the time. Walk-tracking training was tried four times and failed its gate. Next: better path following in the brain on the lasting map, then retrain with a new reward.
 - **Door sills (~20 mm)** still make it fall. Step-walk training (6 tries) and brain-side fixes failed. Next: a ramp option for the room, and a dedicated step skill.
 - **Real hardware** is not validated; everything here runs in simulation. Next: bench tests on a real body with the same gates.
-- **Pet file export/import** and a **remote body** are planned, not built.
+- **Duck file export/import** is built: [duck-file.md](duck-file.md).
+- **Remote body** (the brain on your computer, robotd on the duck over the home LAN): built and rehearsed with a simulated duck behind a network shim; no real duck connected yet. See [real-microduck.md](real-microduck.md).
 - **Voice recognition**: local, six-language recognition is planned; today praise is a button. The name detector (keyword spotting) failed acceptance. Next: retrain on more local voices, never using outside services.
 - **False "brushed a wall" guesses** sometimes steer walking. Next: require agreement between touch and ToF before it turns.
-- **Wandering off after "stop"** or after being set down. Next: a stay intent that the competition respects.
 - **Standing up takes ~1.9 s** to start (robotd's sit/stand switch). Next: a faster switch in the body layer.
 - **Interface rework** into Play / Training / Growth / My duck.
 - **Personality check**: a χ² test that trick obedience really differs by temperament has not been run yet.

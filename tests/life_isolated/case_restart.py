@@ -199,6 +199,65 @@ def test_a_crash_loses_only_what_came_after_the_last_snapshot(tmp_path) -> None:
     assert second.report is not None and second.report["names"] == ["小明"]
 
 
+def _arranged(life: Life, change) -> dict[str, Any]:
+    """The home the life duck runs, as the layout editor holds it, with ``change`` made to it."""
+    from duckmind.simweb import homeview, layouts
+
+    raw = layouts.editable(homeview.layout_of(life.state.home()))
+    change(raw)
+    return raw
+
+
+def _move_cushion(raw: dict[str, Any]) -> None:
+    for p in raw["placements"]:
+        if p["id"] == "cushion_1":
+            p["x_mm"], p["y_mm"] = 450, -1200
+
+
+def _move_mat(raw: dict[str, Any]) -> None:
+    raw["mat"] = {**raw["mat"], "x_mm": raw["mat"]["x_mm"] + 400}
+
+
+def test_a_layout_that_only_moved_furniture_keeps_the_places_after_a_restart(tmp_path) -> None:
+    """Owner 2026-10-30 → 11-04: 蛋黃's owner applied a layout that moved furniture; at the next restart the
+    snapshot's home (the applied file) was not the home it started in (``--home real_home``) and every place
+    was dropped without a word. Moved furniture leaves the home's frame as it is: the places stay; a moved
+    start does not, and the duck relearns at once, before the old frame's places could be saved as new."""
+    from duckmind.simweb import homeview, layouts
+
+    folder, wall = tmp_path / "duck", Wall(BIRTH)
+    homeview.set_home("real_home")
+    try:
+        first = Life(folder, wall)
+        first.state.layouts = layouts.LayoutStore(folder / "layouts")
+        first.state.layout_default = "real_home"
+        first.live(2.0)
+        first.teach()
+        out = first.state.layout_apply(_arranged(first, _move_cushion))
+        assert out["frame"] == {"same": True, "life": True, "lasts": True}
+        first.host.body_replaced()  # (the driver says so when the new body comes)
+        assert first.remembered()["avoided"] is True and first.host.frame_dropped is None
+        wall.t += 20.0
+        first.host.stop()
+
+        wall.t += 30.0
+        homeview.set_home("real_home")  # started again by its --home, as 蛋黃's server is
+        second = Life(folder, wall)
+        assert second.report is not None and second.report["skipped"] == []
+        assert second.remembered() == {**second.remembered(), "names": ["小明"], "avoided": True}
+
+        second.state.layouts = layouts.LayoutStore(folder / "layouts")
+        second.state.layout_default = "real_home"
+        out = second.state.layout_apply(_arranged(second, _move_mat))
+        assert out["frame"]["same"] is False
+        assert second.remembered()["avoided"] is True  # (still walking the old body until the new one)
+        second.host.body_replaced()
+        assert second.host.frame_dropped and "places" in second.host.frame_dropped
+        assert second.remembered() == {**second.remembered(), "names": ["小明"], "avoided": False}
+    finally:
+        homeview.set_home(None)
+
+
 def test_time_off_counts_for_growth_as_the_familys_absence_and_the_genome_follows_the_day(
     tmp_path,
 ) -> None:

@@ -948,11 +948,29 @@
     return why ? tr("page.cmd.line.why", { verb, state, why }) : tr("page.cmd.line.base", { verb, state });
   }
 
+  function showCommandAnswer(data, verbKey) {
+    // one answer of the duck to a command, on the command line (a press, typed words, or spoken words: voicecmd.js)
+    const out = $("#cmdOut");
+    if (!out) return;
+    delete out.dataset.i18n;
+    if (data && data.ok === false && data.state === undefined && data.reason) {
+      // (a command that could not be made: its words)
+      out.dataset.state = "error";
+      out.textContent = tr("page.neuro.sendStim.076a5d", { label: tr("page.cmd.label"), error: F(data, "error") || tr("page.neuro.sendStim.a20b11") });
+      return;
+    }
+    const key = verbKey || (VERB_KEYS[data.verb] ? VERB_KEYS[data.verb] : "");
+    out.dataset.state = data.refused ? "refused" : data.state === "done" ? "done" : "heard";
+    out.textContent = cmdAnswerLine(data, key);
+    cmdUi.shown = "";
+  }
+  window.duckShowCommand = (data, verb) => showCommandAnswer(data, VERB_KEYS[verb] || "");
+
   async function sendCommand(params, verbKey) {
     if (cmdUi.sending || !nu.on) return;
     cmdUi.sending = true;
     const out = $("#cmdOut");
-    const keys = $$("#cmdStrip button:not(#cmdMic):not([data-remote]):not([data-feedback])"); // (the microphone is a placeholder: always off; the remote hand's buttons are remote.js's, never locked while a button is held; the feedback buttons are tricks.js's)
+    const keys = $$("#cmdStrip button:not(#cmdMic):not([data-remote]):not([data-feedback])"); // (the microphone is voicecmd.js's: it says itself when it is off; the remote hand's buttons are remote.js's, never locked while a button is held; the feedback buttons are tricks.js's)
     for (const key of keys) key.disabled = true;
     try {
       const response = await fetch("/api/neuro/command", {
@@ -962,11 +980,7 @@
       });
       const data = await response.json();
       if (!response.ok || data.ok === undefined) throw Object.assign(new Error(F(data, "error") || tr("page.neuro.sendStim.a20b11")), { data });
-      const key = verbKey || (VERB_KEYS[data.verb] ? VERB_KEYS[data.verb] : "");
-      out.dataset.state = data.refused ? "refused" : data.state === "done" ? "done" : "heard";
-      delete out.dataset.i18n;
-      out.textContent = cmdAnswerLine(data, key);
-      cmdUi.shown = "";
+      showCommandAnswer(data, verbKey);
       const text = $("#cmdText");
       if (text && params.text !== undefined && !data.refused) text.value = "";
     } catch (error) {

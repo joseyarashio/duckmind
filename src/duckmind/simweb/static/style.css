@@ -233,6 +233,13 @@ input[type="checkbox"] { accent-color: var(--orange); width: 16px; height: 16px;
 .card-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 22px; line-height: 1.1; margin: 0 0 14px; }
 .card-title .num { font-family: "Anton", var(--font-display); font-size: 30px; color: var(--accent-ink, var(--ink)); }
 .card-title small { font-size: 12.5px; }
+/* 我的小鴨檔案 (換鴨子 tab, duckfile.js): buttons that wrap, long folder names that break */
+.duckfile-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.duckfile-actions a.btn { text-decoration: none; }
+.duckfile-found { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--ink); }
+.duckfile-found p { margin: 0; overflow-wrap: anywhere; }
+.duckfile .hint { overflow-wrap: anywhere; }
+@media (pointer: coarse) { .duckfile-actions .btn { min-height: 44px; } }
 
 /* ---------- hero: the duck on stage ---------- */
 /* overflow: clip, not hidden — the static's ::before reaches 240 px past every edge, and a hidden overflow is still a
@@ -1597,3 +1604,21 @@ line.mm-fixed { fill: none; stroke-linecap: round; }
 @media (max-width: 520px), (pointer: coarse) {
   .trick-feedback .btn.small { min-height: 44px; padding: 4px 12px; font-size: 13.5px; }
 }
+
+/* 按住說話 (voicecmd.js; docs/design/neural-duck/VOICE-COMMANDS-2026-11-04.md): the command strip's microphone button is
+   push-to-talk — held, it turns yellow and sinks into its shadow like a held remote button; the line under the strip says
+   what was heard and what it became (orange: a command, green: praise, magenta: scold, a refusal or a problem).
+   Tokens and the standard's parts only: no new colour, no round corner, no soft shadow. */
+#cmdMic { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#cmdMic[data-state="listening"], #cmdMic[data-state="opening"] { background: var(--yellow); transform: translate(2px, 2px); box-shadow: 0 0 0 var(--orange); }
+#cmdMic[data-state="thinking"] { background: var(--ink-2); color: var(--yellow); }
+.cmd-voice-out {
+  margin: 0; padding: 2px 8px; overflow-wrap: anywhere;
+  font: 600 12.5px/1.4 var(--font-body); color: var(--on-dark-2);
+  border-left: 4px solid var(--on-dark-3); background: var(--ink-2);
+}
+.cmd-voice-out[hidden] { display: none; }
+.cmd-voice-out[data-state="listening"], .cmd-voice-out[data-state="heard"] { border-left-color: var(--orange); color: var(--on-dark); }
+.cmd-voice-out[data-state="up"] { border-left-color: var(--green); color: var(--on-dark); }
+.cmd-voice-out[data-state="down"], .cmd-voice-out[data-state="refused"], .cmd-voice-out[data-state="error"] { border-left-color: var(--magenta); color: var(--on-dark); }
+

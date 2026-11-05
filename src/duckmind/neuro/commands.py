@@ -179,39 +179,46 @@ def _remove(text: str, word: str) -> str:
     return re.sub(r"\s+", " ", text.replace(word, " ")).strip() if word else text
 
 
-def parse(text: str, *, lang: str | None = None, duck_name: str | None = None) -> Heard:
-    """The verb in ``text`` (any of the six languages, with or without the duck's name, with
-    politeness words around it), or none. ``lang``: the viewer's own language, used only to decide a
-    phrase two languages share (坐下 is both zh-Hant and zh-Hans). ``duck_name`` is data."""
-    hint = lang if lang in W.LANGS else None
+def prepare(text: str, duck_name: str | None) -> tuple[str, str, bool]:
+    """(the folded sentence without the duck's name, the same without filler words, whether the
+    name was in it): what both tables are matched against."""
     body = fold(str(text)[:MAX_TEXT])
     name = fold(duck_name) if duck_name else ""
     named = bool(name) and name in body
     if named:
         body = _remove(body, name)
-    if not body:
-        return Heard(None, hint or DEFAULT_LANG, 0.0, named)
     bare = f" {body} "
     for filler in _fillers():
         bare = bare.replace(f" {filler} ", " ") if _latin(filler) else bare.replace(filler, " ")
         bare = re.sub(r"\s+", " ", bare)
-    bare = bare.strip()
+    return body, bare.strip(), named
+
+
+def _found(body: str, bare: str, phrase: str, whole: bool) -> int:
+    """Where ``phrase`` starts in the sentence (-1: not in it), by the table's rules."""
+    if whole:
+        return 0 if bare == phrase else -1
+    if _latin(phrase):
+        found = _borders(phrase).search(body)
+        return found.start() if found else -1
+    return body.find(phrase)
+
+
+def parse(text: str, *, lang: str | None = None, duck_name: str | None = None) -> Heard:
+    """The verb in ``text`` (any of the six languages, with or without the duck's name, with
+    politeness words around it), or none. ``lang``: the viewer's own language, used only to decide a
+    phrase two languages share (坐下 is both zh-Hant and zh-Hans). ``duck_name`` is data."""
+    hint = lang if lang in W.LANGS else None
+    body, bare, named = prepare(text, duck_name)
+    if not body:
+        return Heard(None, hint or DEFAULT_LANG, 0.0, named)
     best: tuple[int, int, int, str, str, str] | None = None  # (length, -position, hint, verb, lang, phrase)
     rival = False
     negated = False
     for verb, plang, phrase, whole in _table():
-        if whole:
-            if bare != phrase:
-                continue
-            start = 0
-        else:
-            if _latin(phrase):
-                found = _borders(phrase).search(body)
-                start = found.start() if found else -1
-            else:
-                start = body.find(phrase)
-            if start < 0:
-                continue
+        start = _found(body, bare, phrase, whole)
+        if start < 0:
+            continue
         if _negated(body, start, plang):
             negated = True
             continue
@@ -242,6 +249,86 @@ def _both_chinese(verb: str, phrase: str) -> bool:
     """The matched phrase is spelled the same in zh-Hant and zh-Hans (坐下)."""
     langs = W.PHRASES[verb]
     return any(fold(p.lstrip("=")) == phrase for p in langs["zh-Hant"])
+
+
+@cache
+def _feedback_table() -> tuple[tuple[str, str, str, bool], ...]:
+    """(kind, language, folded phrase, whole-utterance only) for every praise/scold phrase, longest first."""
+    rows: list[tuple[str, str, str, bool]] = []
+    for kind, langs in W.FEEDBACK_PHRASES.items():
+        for lang, phrases in langs.items():
+            for raw in phrases:
+                whole = raw.startswith("=")
+                phrase = fold(raw[1:] if whole else raw)
+                if phrase:
+                    rows.append((kind, lang, phrase, whole))
+    rows.sort(key=lambda row: -len(row[2]))
+    return tuple(rows)
+
+
+@dataclass(frozen=True, slots=True)
+class Feedback:
+    """The owner's word in a sentence: ``praise`` (「乖」) or ``scold`` (「不對」), its language, how sure."""
+
+    kind: str
+    lang: str
+    confidence: float
+    named: bool = False
+
+
+def parse_feedback(
+    text: str, *, lang: str | None = None, duck_name: str | None = None
+) -> Feedback | None:
+    """The praise or scold in ``text`` (:data:`~duckmind.neuro.command_words.FEEDBACK_PHRASES`), or
+    None. The longest phrase wins (「不乖」 over 「乖」), a tie goes to the one said first, then to the
+    viewer's language ``lang``. No negation rule: 「不對」 and "not bad" are phrases of their own."""
+    hint = lang if lang in W.LANGS else None
+    body, bare, named = prepare(text, duck_name)
+    if not body:
+        return None
+    best: tuple[int, int, int, str, str] | None = None  # (length, -position, hint, kind, lang)
+    for kind, plang, phrase, whole in _feedback_table():
+        start = _found(body, bare, phrase, whole)
+        if start < 0:
+            continue
+        key = (len(phrase), -start, 1 if plang == hint else 0)
+        if best is None or key > best[:3]:
+            best = (*key, kind, plang)
+    if best is None:
+        return None
+    length, _, _, kind, plang = best
+    confidence = 0.55 + 0.45 * min(1.0, length / max(1, len(bare)))
+    if plang in ("zh-Hant", "zh-Hans") and hint in ("zh-Hant", "zh-Hans"):
+        plang = hint  # (乖 is both: the viewer's own Chinese)
+    return Feedback(kind, plang, round(confidence, 3), named)
+
+
+@dataclass(frozen=True, slots=True)
+class Understood:
+    """What a spoken sentence comes to: a command (``verb``), the owner's word (``feedback``:
+    praise / scold) or nothing (``reason``: ``negated`` | ``not_understood``)."""
+
+    verb: str | None = None
+    feedback: str | None = None
+    lang: str = DEFAULT_LANG
+    confidence: float = 0.0
+    named: bool = False
+    reason: str | None = None
+
+
+def understand(text: str, *, lang: str | None = None, duck_name: str | None = None) -> Understood:
+    """A sentence as one thing to do: a command phrase wins (「乖，坐下」 is 坐下), else a praise or
+    scold (a negated command such as 「不可以坐下」 is the owner's 「不可以」: a scold), else nothing."""
+    heard = parse(text, lang=lang, duck_name=duck_name)
+    if heard.verb is not None:
+        return Understood(heard.verb, None, heard.lang, heard.confidence, heard.named)
+    word = parse_feedback(text, lang=lang, duck_name=duck_name)
+    if word is not None:
+        return Understood(None, word.kind, word.lang, word.confidence, word.named)
+    hint = lang if lang in W.LANGS else DEFAULT_LANG
+    return Understood(None, None, hint, 0.0, heard.named,
+                      "negated" if heard.negated else "not_understood")  # fmt: skip
+
 
 
 def from_request(

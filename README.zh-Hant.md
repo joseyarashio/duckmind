@@ -73,7 +73,7 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 - 現在全部在電腦裡的物理模擬器跑（MuJoCo 加上 Pollen 的 robotd 模擬）。身體的物理、馬達的延遲、電量，都盡量照真的 Microduck 來模擬。
 - **一隻鴨就是一個檔案**：種子、基因、成長紀錄、學到的東西、叫聲。設計的目標是：在模擬器裡養大的鴨，連上實體 Microduck 之後，就是同一隻鴨換了真的身體——名字、個性、記憶、把戲都還在。
 - 大腦可以留在家裡的電腦，身體換成真的小鴨；同一套大腦程式，差別只在身體和感官的校正。
-- **老實說：** 實體小鴨還沒在真機上驗證過；「小鴨檔案匯出／匯入」和「遠端身體」是規劃中的功能。詳見上面的「現況」一節和 [SAFETY.md](SAFETY.md)。
+- **老實說：** 實體小鴨還沒在真機上驗證過。「小鴨檔案匯出／匯入」已經做好：一隻小鴨＝一個檔案，可以搬到另一台電腦（[docs/duck-file.zh-Hant.md](docs/duck-file.zh-Hant.md)）。遠端身體（大腦在你的電腦、robotd 在小鴨身上）已經做好，用模擬小鴨演練過，還沒接過真的小鴨，見 [docs/real-microduck.zh-Hant.md](docs/real-microduck.zh-Hant.md)。詳見上面的「現況」一節和 [SAFETY.md](SAFETY.md)。
 
 ### 現在就能玩、能做的事
 

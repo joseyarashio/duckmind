@@ -141,12 +141,19 @@ LOOK_FOR_S = 20.0
 LOOK_FOR_TURN_RAD = 2.0 * math.pi  # … and stops sooner once its own odometry says it turned all round
 LOOK_FOR_LOST_S = 4.0  # … and this long when come / follow loses the person in the middle of the walk
 MOVING_MPS = 0.05  # robotd's applied forward speed above this: the legs are going
+# 「停」 is "stay where you are until released" (docs/design/neural-duck/SETTLE-2026-11-04.md): once it has stopped it stays
+# (brain.stay) until a new command, its name, a touch, a fright, a lift, a fall — or this cap. The lively and the curious stay
+# less long, the slow ones longer: STOP_STAY_S ± the personality, always STOP_STAY_MIN_S..STOP_STAY_MAX_S.
+STOP_STAY_S = 45.0
+STOP_STAY_MIN_S = 30.0
+STOP_STAY_MAX_S = 60.0
 DECISION_WAIT_S = 1.0  # how long the API waits for the brain to take a command in
 # Holds that end by themselves in a beat (a stop at a wall or an edge, a flinch, a freeze): a command
 # heard then is carried out after them, unless one lasts this long (live :8796, 2026-10-23: 'sit' and
-# 'stop' refused ``body_busy`` at a bump stop or a short moment). Righting, being held and a startle
-# keep the body.
-BRIEF_HOLDS = frozenset({"bump_stop", "drop_stop", "withdraw", "freeze"})
+# 'stop' refused ``body_busy`` at a bump stop or a short moment). Righting and a startle keep the body; being held
+# is refused as ``held`` before this — what is left of ``lifted`` once it is down is the hold's last ~0.7 s after the
+# set-down (headless, 2026-11-04: 「停」 said as the hand let go was refused ``body_busy``, and the duck walked off).
+BRIEF_HOLDS = frozenset({"bump_stop", "drop_stop", "withdraw", "freeze", "lifted"})
 BRIEF_HOLD_MAX_S = 3.0
 LATENCY_KEEP = 200
 # The personality's beat before it acts (spec §4: a command to the start of motion ≤ 1.5 s median).
@@ -362,6 +369,9 @@ class CommandBrain:
                     "since_s": round(max(0.0, now - plan.t_heard), 2),
                 },
                 "pending": self._pending is not None,
+                # staying put (after 「停」 or a set-down): its kind and how long it has left; why the last one ended
+                "stay": self._brain.stay_view(),
+                "stay_ended": self._brain.stay_ended,
                 "counts": dict(self.counts),
                 "latency_ms": _stats(latency),
                 "decision_ms": _stats(decision),
@@ -509,18 +519,26 @@ class CommandBrain:
             self._answer(ticket, "refused", refusal)
             return
         if is_trick(command.verb):
+            brain.end_stay("command")  # (a word it takes releases a stay; one it refuses leaves it staying)
             self._take_trick(ticket, brain, t_ms, frame, now)
             return
         if not is_builtin(command.verb) or command.verb == "go_there":
             self._record(ticket, "refused", now, reason="not_yet")
             self._answer(ticket, "refused", "not_yet")
             return
+        brain.end_stay("command")  # (「停」 again starts a new one)
         verb = command.verb
+        if verb == "stop" and float(brain.drives.fear) >= S.CLAIM_FEAR_MAX:
+            # (owner 2026-11-05) afraid, 「停」 still counts: its legs hold at once — the claim that stops a calm duck is the
+            # one a frightened duck's competition mutes (select.CLAIM_FEAR_MAX) — and a new fright ends the stay as ever
+            brain.stay(self._stay_s(brain), "told")
         behaviour = BEHAVIOUR_OF[verb]
         # already as asked: nothing to do (and no latency to measure)
         if self._already(verb, brain, frame):
             self._record(ticket, "done", now, decided=0, motion=0, done=0, already=True)
             self._answer(ticket, "done", None, already=True)
+            if verb == "stop":
+                brain.stay(self._stay_s(brain), "told")  # (still already: it stays as it is)
             return
         person = self._person(brain, t_ms, frame)
         beat, lead_in = self._personality(brain)
@@ -742,8 +760,8 @@ class CommandBrain:
             return "held"
         if frame.body.fallen or getattr(reflex, "fallen", False):
             return "fallen"
-        if float(brain.drives.fear) >= S.CLAIM_FEAR_MAX:
-            return "afraid"
+        if float(brain.drives.fear) >= S.CLAIM_FEAR_MAX and (verb != "stop" or brain.behaviour in S.STAY_ESCAPES):
+            return "afraid"  # (「停」 counts for a frightened duck too — not in the middle of its getting away: owner 2026-11-05)
         if brain.behaviour in ("flee", "retreat") or brain._startled_s is not None:
             return "fleeing"
         if active is not None and active.reflex in R.HOLDS and active.reflex not in BRIEF_HOLDS:
@@ -826,6 +844,15 @@ class CommandBrain:
             beat += BEAT_DREAMER_S
         lead_in = {"snuggler": "greet", "songbird": "chirp"}.get(primary)
         return beat, lead_in
+
+    def _stay_s(self, brain: Any) -> float:
+        """How long a 「停」 holds at most: the lively and the curious a little less, the slow a little more (never under
+        STOP_STAY_MIN_S nor over STOP_STAY_MAX_S)."""
+        axes = brain.genome.axes
+        activity = _clip(float(axes.get("activity", 0.5)))
+        exploration = _clip(float(axes.get("exploration", 0.5)))
+        s = STOP_STAY_S - 20.0 * (activity - 0.5) - 10.0 * (exploration - 0.5)
+        return _clip(s, STOP_STAY_MIN_S, STOP_STAY_MAX_S)
 
     # -- carrying it out ---------------------------------------------------------------------
 
@@ -1002,8 +1029,12 @@ class CommandBrain:
             return "held"
         if frame.body.fallen or getattr(reflex, "fallen", False):
             return "fallen"
-        if float(brain.drives.fear) >= S.CLAIM_FEAR_MAX or brain._startled_s is not None:
+        if brain._startled_s is not None:
             return "afraid"
+        if float(brain.drives.fear) >= S.CLAIM_FEAR_MAX:
+            # (a frightened duck told 「停」 stays from the word on: it goes on while that stay holds; a fright that ends it ends this)
+            if plan.ticket.command.verb != "stop" or brain.stay_view() is None:
+                return "afraid"
         if active is None or active.reflex not in R.HOLDS or active.reflex == "freeze":
             plan.held_by_since = None
             return None
@@ -1038,8 +1069,8 @@ class CommandBrain:
                 return now - plan.held_since >= LOOK_HOLD_S
             plan.held_since = None
             return False
-        if verb == "stop":
-            return brain.behaviour == "freeze" and not _moving(frame)
+        if verb == "stop":  # (stopped by the freeze its claim asks for, or — afraid — by the stay begun at the word)
+            return (brain.behaviour == "freeze" or brain.stay_view() is not None) and not _moving(frame)
         if verb == "go_home":
             return bool(frame.power.on_dock or frame.power.charging or brain.dock.mode == "home")
         if is_trick(verb):
@@ -1082,6 +1113,8 @@ class CommandBrain:
             # the roll's bout is used up with its command (done, given up or cut short): what the duck does next is
             # chosen by its own wants, not left to a fright of noise size (the real simulator: a 1 s panic run after it)
             brain.act_over("flip")
+        if plan.ticket.command.verb == "stop" and state == "done":
+            brain.stay(self._stay_s(brain), "told")  # stopped: now it stays there until released (or the cap)
         last = self.last
         if last is None or self._last_ticket != id(ticket):
             return

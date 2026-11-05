@@ -166,6 +166,13 @@ export function createTricks(env) {
     } catch (error) {
       data = null;
     }
+    showFeedback(kind, status, data);
+    s.sending = false;
+    for (const b of buttons) b.disabled = false;
+  }
+
+  // one feedback's answer on the line and in the book (a button's, or a spoken 「乖」/「不對」: voicecmd.js)
+  function showFeedback(kind, status, data) {
     s.answer = feedbackAnswer(kind, status, data);
     paintAnswer();
     if (status === 200 && data && data.ok === true && s.rows) {
@@ -176,8 +183,6 @@ export function createTricks(env) {
     }
     // the server's picture may still be the one from before the word: read the book again once it has expired
     if (status === 200 && data && data.ok === true) later(STALE_MS);
-    s.sending = false;
-    for (const b of buttons) b.disabled = false;
   }
 
   for (const group of groups) {
@@ -327,6 +332,7 @@ export function createTricks(env) {
   return {
     refresh,
     sendFeedback,
+    showFeedback,
     get rows() {
       return s.rows;
     },

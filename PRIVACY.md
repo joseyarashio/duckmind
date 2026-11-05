@@ -14,6 +14,12 @@ turn on a cloud feature.
   the server starts.
 - `python -m duckmind.setup_cmd` downloads code and policies from GitHub and Hugging Face. It
   uploads nothing.
+- **Voice commands** (the page's 「按住說話」 / hold-to-speak button) are recognised on your
+  own computer by a local Whisper model. The page records only while you hold the button
+  and sends the clip to the duckmind server on your machine, never to a cloud service.
+  The server keeps the clip in memory for the one recognition and does not write it to
+  disk. The model files are downloaded once from Hugging Face; after that this works
+  offline. See [docs/voice-commands.md](docs/voice-commands.md).
 - Tests use recorded answers and never call a cloud service.
 
 ## What is kept on your machine
@@ -23,6 +29,11 @@ turn on a cloud feature.
   person looks to it (a number vector, not a photo), how close it feels to them,
   and notes. The folder is readable only by your user. Nothing in it is sent
   anywhere.
+- **A duck file** (`.duck`, made only when you export a duck: [docs/duck-file.md](docs/duck-file.md))
+  holds the same things as the life folder, except the home map. The command line writes
+  it readable only by your user (a browser download is saved by your browser), and the
+  simulator exports or imports one only for a browser on the same computer. Where the
+  file goes after that is up to you.
 - **Caches** in duckmind's data folder (`duckmind.paths.data_dir()`, by default
   `~/.duckmind/data`): the duck's synthesised voice sounds, the motion table, and
   measurement logs if you record them.

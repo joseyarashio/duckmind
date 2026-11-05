@@ -53,6 +53,13 @@ train = [
 ]
 # The name keyword detector: synthesising its training voices (Qwen3-TTS) and the pinyin labels.
 kws = ["qwen-tts", "transformers", "pypinyin", "soundfile"]
+# Voice commands (the page's hold-to-speak button), recognised on this computer: mlx-whisper on Apple
+# silicon, faster-whisper (CPU) elsewhere, and pinyin for the sound-alike step (duckmind.speech).
+voice = [
+    "mlx-whisper>=0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "faster-whisper>=1.2.1",
+    "pypinyin>=0.55",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/duckmind"]

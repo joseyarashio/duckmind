@@ -74,6 +74,11 @@ li.le-pass-chip, span.le-pass-chip { text-transform: none; }
 .le-facts dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhere; }
 .le-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; }
 .le-apply { width: 100%; margin: 4px 0 6px; }
+.le-confirm { margin: 6px 0 8px; padding: 10px 12px 2px; background: var(--white); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--green); }
+.le-confirm[data-tone="relearn"] { background: var(--yellow); box-shadow: 5px 5px 0 var(--magenta); }
+.le-confirm[hidden] { display: none; }
+.le-confirm-text { margin: 0; font-weight: 800; line-height: 1.5; overflow-wrap: anywhere; }
+.le-confirm-when { margin: 6px 0 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .le-problems { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .le-problem .btn { width: 100%; text-align: left; white-space: normal; background: var(--rose-soft); }
 .le-ok { padding: 8px 10px; background: var(--white); border: 2px solid var(--green); font-weight: 800; }

@@ -134,6 +134,27 @@ def upgrade(snapshot: dict[str, Any]) -> dict[str, Any]:
     return snapshot
 
 
+def same_frame(
+    saved: dict[str, Any],
+    context: dict[str, Any],
+    frame_of: Callable[[str], str | None] | None = None,
+) -> bool:
+    """Is the body's odometry frame now the one the snapshot's places were learnt in? The same start and
+    the same home frame (walls, rooms, spawn, mat, nest: ``frame``, see ``Layout.frame_fingerprint``), so
+    furniture moved by the layout editor keeps every place. A snapshot from before ``frame`` was saved
+    (owner 2026-11-04) has only its home's name or file: ``frame_of`` reads that home's frame; when it cannot
+    (a layout file since deleted) the old rule stands, the same home by name."""
+    if "start" in context and saved.get("start") != context["start"]:
+        return False
+    now = context.get("frame")
+    then = saved.get("frame")
+    if then is None and frame_of is not None and saved.get("home"):
+        then = frame_of(str(saved["home"]))
+    if now is not None and then is not None:
+        return bool(now == then)
+    return "home" not in context or saved.get("home") == context["home"]
+
+
 def apply(
     brain: Any,
     snapshot: dict[str, Any],
@@ -141,13 +162,14 @@ def apply(
     seed: int,
     context: dict[str, Any],
     wall: float | None = None,
+    frame_of: Callable[[str], str | None] | None = None,
     set_talk: Callable[[float], None] | None = None,
     bond_tau_s: float = 4.0 * 3600.0,
 ) -> dict[str, Any]:
     """Put a snapshot into ``brain`` (a fresh brain that has not stepped yet, or whose clock
     ``brain_time`` gives). Returns what was brought back, in numbers, or raises SnapshotUnusable
     when the snapshot is not this duck's. Places, things and the nest are kept only when the body
-    starts where it did (same home, same start): they are in the body's own odometry frame."""
+    starts in the same odometry frame (:func:`same_frame`)."""
     snapshot = upgrade(snapshot)
     duck = snapshot.get("duck") or {}
     if int(duck.get("seed", -1)) != int(seed):
@@ -159,9 +181,9 @@ def apply(
     t_now = brain_time(brain)
     learner = dict(snapshot.get("learner") or {})
     saved_ctx = snapshot.get("context") or {}
-    same_frame = all(saved_ctx.get(k) == v for k, v in context.items() if k in ("home", "start"))
+    same_frame_now = same_frame(saved_ctx, context, frame_of)
     skipped: list[str] = []
-    if not same_frame:
+    if not same_frame_now:
         for key in ("places", "things", "dock"):
             if learner.get(key):
                 skipped.append(key)
@@ -171,10 +193,10 @@ def apply(
     saved_map = snapshot.get("map")
     if saved_map:
         if lmap is not None and lmap.cfg.enabled:
-            # same home and start: the map is in this boot's odometry frame as it is. Else it is kept in the dock's frame and goes into
+            # the same frame: the map is in this boot's odometry frame as it is. Else it is kept in the dock's frame and goes into
             # this boot's frame at the first dock fix (a map saved with no dock pose cannot be, and is not taken)
-            lmap.load_state(saved_map, t_now, down, rebase=not same_frame)
-            if not same_frame:
+            lmap.load_state(saved_map, t_now, down, rebase=not same_frame_now)
+            if not same_frame_now:
                 skipped.append("map (waits for the dock)" if saved_map.get("dock") else "map")
     brain.hab.load_state(snapshot.get("habituation") or {}, t_now, down)
     brain.drives.load_state(snapshot.get("drives") or {}, down)
@@ -194,6 +216,25 @@ def apply(
         "skipped": skipped,
         "map_cells": 0 if lmap is None else len(lmap.cells),
     }
+
+
+def forget_frame(brain: Any) -> list[str]:
+    """The body now runs in another odometry frame (the layout editor applied a home whose walls, rooms,
+    start or nest differ): what a restart into that frame would drop is dropped now from the running brain —
+    the places, the things and the dock; the lasting map waits in its dock's frame — so the next save does
+    not write the old frame's places as the new one's. People, cues, tricks, habituation and drives stay.
+    Call it with the tick lock held. Returns what was dropped (the same words as ``apply``'s ``skipped``)."""
+    t_s = brain_time(brain)
+    learner = brain.learn.to_state(t_s)
+    dropped = [key for key in ("places", "things", "dock") if learner.get(key)]
+    learner["places"], learner["things"], learner["dock"] = [], [], None
+    brain.learn.load_state(learner, t_s)
+    lmap = getattr(brain, "lastmap", None)
+    if lmap is not None and getattr(lmap, "cfg", None) is not None and lmap.cfg.enabled and lmap.cells:
+        saved = lmap.to_state()
+        lmap.load_state(saved, t_s, 0.0, rebase=True)
+        dropped.append("map (waits for the dock)" if saved.get("dock") else "map")
+    return dropped
 
 
 # ── the file ──────────────────────────────────────────────────────────────────

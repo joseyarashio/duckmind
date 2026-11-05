@@ -1390,7 +1390,9 @@ class SenseHub:
             self.depth_tracker = ds.DepthTracker(standing_height_m=0.12)
         reading, _ = self.depth_tracker.step(
             ds.ToFFrame.of(t_ns, distances, statuses),
-            ds.pose_from_frames(pose[0], pose[1], gravity),
+            ds.pose_from_frames(
+                pose[0], pose[1], gravity, ds.trunk_height_mm(getattr(state, "odom_pos", None))
+            ),
             walking=walking,
             odom=(
                 float(getattr(state, "odom_pos", (0.0, 0.0, 0.0))[0]),

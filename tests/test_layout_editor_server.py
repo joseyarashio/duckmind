@@ -112,6 +112,42 @@ def test_apply_writes_the_layout_for_the_physics_and_remembers_it(server) -> Non
     assert out["ok"] and homeview.asked_home() == "real_home" and state.layouts.remembered() is None
 
 
+def test_check_says_whether_applying_keeps_what_the_duck_knows(server) -> None:
+    """The page asks before applying: moved furniture keeps the duck's places (the same frame), a moved
+    start makes it relearn its home."""
+    base, state, _ = server
+    layout = _get(f"{base}/api/layout")["layout"]
+    for p in layout["placements"]:
+        if p["id"] == "cushion_1":
+            p["x_mm"], p["y_mm"] = 450, -1200
+    out = _post(f"{base}/api/layout/check", {"layout": layout})[1]
+    assert out["ok"] and out["frame"] == {"same": True, "life": False, "lasts": True}
+    layout["mat"] = {**layout["mat"], "x_mm": layout["mat"]["x_mm"] + 400}
+    out = _post(f"{base}/api/layout/check", {"layout": layout})[1]
+    assert out["frame"]["same"] is False
+    state.layout_pinned = "default_home"  # started with --home default_home: a real_home layout is for now
+    assert _post(f"{base}/api/layout/check", {"layout": layout})[1]["frame"]["lasts"] is False
+    state.layout_pinned = "real_home"
+    assert _post(f"{base}/api/layout/check", {"layout": layout})[1]["frame"]["lasts"] is True
+    code, out = _post(f"{base}/api/layout/apply", {"layout": layout})
+    assert out["ok"] and out["frame"]["same"] is False
+
+
+def test_a_layout_applied_from_the_asked_home_survives_a_restart(tmp_path: Path) -> None:
+    """Owner 2026-11-04: 蛋黃's server starts with --home real_home, which won over the layout applied to
+    it, so every restart undid 「套用到模擬器」. A layout made from the asked home is that home, arranged."""
+    store = layouts.LayoutStore(tmp_path)
+    raw = layouts.editable(homelayout.load("real_home", variant="no_nest"))
+    raw["derived_from"] = "real_home"
+    applied = str(store.applied_path(raw))
+    assert store.home_at_start("real_home") == "real_home"  # nothing applied yet
+    store.remember(applied)
+    assert store.home_at_start("real_home") == applied
+    assert store.home_at_start("real_home,no_nest") == applied
+    assert store.home_at_start(None) == applied
+    assert store.home_at_start("default_home") == "default_home"  # another home asked: it wins
+
+
 def test_the_store_refuses_what_it_should(tmp_path: Path) -> None:
     store = layouts.LayoutStore(None)
     with pytest.raises(layouts.LayoutProblem):

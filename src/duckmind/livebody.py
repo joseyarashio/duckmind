@@ -110,6 +110,10 @@ FRAME_JOINTS = tuple(name for name in WIRE_JOINTS if name != "mouth")
 REALTIME_WINDOW_S = 2.0  # the realtime reading: simulated per wall second over this long
 POSTURE_RETRY_S = 3.0  # re-send a posture change the body has not made by then
 RISE_WAIT_S = 6.0  # a walk waits this long for the body to finish standing up
+REMOTE_DIAL_S = 20.0  # a remote body's bridge must answer within this at start
+REMOTE_STATE_WAIT_S = 10.0  # ... and its robotd's first state frame within this
+UP_POLICIES = frozenset({"walk", "stand", "sit"})  # an enabled body (no enable needed)
+REMOTE_RETRY_S = (0.1, 0.2, 0.5)  # a remote body's link dials again on its own: try sooner
 # Owner decisions 2026-09-26 (phase 0): the whole body collides, and the physics advances
 # only when robotd has written that tick's targets (see duckmind.bodyhost).
 DEFAULT_COLLISION = bodyhost.DEFAULT_COLLISION
@@ -370,6 +374,15 @@ class LivePaths:
         return [name for name, ok in checks.items() if not ok]
 
 
+@dataclass(frozen=True)
+class RemoteBodySpec:
+    """A body on another machine behind ``python -m duckmind.remotebody`` (its bridge's
+    ``remote://host:port``) and the file holding the token the two machines share."""
+
+    url: str
+    token_file: Path
+
+
 class ClipPlayer:
     """Duck Core expression intents → per-tick head offsets and mouth opening (duck-body)."""
 
@@ -456,8 +469,13 @@ class LiveBody:
         home: str | None = None,
         nest: bool | None = None,
         tof: bool | None = None,
+        remote: RemoteBodySpec | None = None,
     ) -> None:
         self.paths = paths
+        # A body on another machine (duckmind.remotebody) instead of one started here.
+        self.remote = remote
+        self._link: Any = None  # its RemoteLink once start() has dialled it
+        self._port_lock = threading.Lock()  # one renewal of a remote body's robotd connection
         self.seated_start = seated
         # None: duckmind.bodyhost (phase 0); a home: duckmind.world.simhome (live_home). A
         # duck without a nest gets the home's no_nest variant; ``tof``: whether its head has
@@ -493,6 +511,7 @@ class LiveBody:
         self._awake = True
         self.policy = "starting"
         self.fallen = False
+        self.state_at = -math.inf  # monotonic time of robotd's latest state frame
         self.error: str | None = None
         # The failures reported by links that may still come back (LinkWatch.source -> the error
         # text); ``error`` shows the first and is cleared again when that link speaks. An error
@@ -547,6 +566,9 @@ class LiveBody:
     # ── lifecycle ───────────────────────────────────────────────────────
 
     def start(self, timeout_s: float = 60.0) -> None:
+        if self.remote is not None:
+            self._start_remote(timeout_s)
+            return
         missing = self.paths.missing()
         if missing:
             raise FileNotFoundError("live body needs: " + ", ".join(missing))
@@ -609,6 +631,51 @@ class LiveBody:
             stderr=subprocess.STDOUT,
         )
         _wait_ready(self._robotd, lambda: _socket_open(sock), deadline_s=30, label="robotd")
+        self._attach(sock, timeout_s)
+
+    def _start_remote(self, timeout_s: float) -> None:
+        """The body runs on another machine behind duckmind.remotebody's bridge: dial it, take its
+        daemons as local sockets (:class:`~duckmind.remotebody.client.RemoteLink`) and attach to
+        them exactly as to a local body. The body's own launcher owns its physics and its home."""
+        from duckmind.remotebody.client import RemoteLink
+        from duckmind.remotebody.link import read_token
+
+        assert self.remote is not None
+        link = RemoteLink(
+            self.remote.url,
+            read_token(self.remote.token_file),
+            log=lambda event, **fields: print(f"live body: remote {event} {fields}", flush=True),
+        )
+        link.start(timeout_s=min(timeout_s, REMOTE_DIAL_S))
+        self._link = link
+        if "world" not in link.channels:
+            # A real duck: the page draws and senses through the simulated world's truth today,
+            # so it attaches to simulated remote bodies only (docs/real-microduck.md).
+            link.close()
+            self._link = None
+            raise RuntimeError(
+                f"remote body {self.remote.url} has no simulated world (a real Microduck?): "
+                "the simulator page drives simulated remote bodies only for now"
+            )
+        info = link.info
+        self._state_dir = link.dir  # robotd.sock (and tof.sock, media.sock) live here
+        self.home = info.get("home") or None
+        self.pose_joints_ok = bool(info.get("pose_joints"))
+        if isinstance(info.get("collision"), str):
+            self.collision = str(info["collision"])
+        if isinstance(info.get("lockstep"), bool):
+            self.lockstep = bool(info["lockstep"])
+        if isinstance(info.get("head_alpha"), (int, float)):
+            self.robotd_head_alpha = float(info["head_alpha"])  # (its robotd's, not this machine's)
+        self.body_port = link.world_port
+        self._host = bodyhost.HostClient(int(link.world_port or 0))
+        self.host_info = self._host.info()
+        self._attach(link.robotd_socket, timeout_s)
+
+    def _attach(self, sock: Path, timeout_s: float) -> None:
+        """Connect to a running body's robotd (and the world's oracle on ``body_port``), start the
+        body threads and bring it up: enabled, standing, then seated when asked."""
+        assert self.body_port is not None
         self._port = RobotdBodyPort(sock, backend="simulator", hz=25)
         if self._port.capabilities.get("walk") != "velstand.onnx":
             raise RuntimeError(f"unexpected walking policy: {self._port.capabilities}")
@@ -617,7 +684,7 @@ class LiveBody:
         if missing_skills:
             raise RuntimeError(f"robotd did not load the trained skills {missing_skills}")
         self._operator = RobotdOperatorClient(sock)
-        self._oracle = SimOracle(port)
+        self._oracle = SimOracle(self.body_port)
         threads = [self._read_state, self._control, self._sample, self._watch]
         if self.home:
             threads.append(self._world_watch)
@@ -625,6 +692,12 @@ class LiveBody:
             thread = threading.Thread(target=target, daemon=True)
             thread.start()
             self._threads.append(thread)
+        if self.remote is not None:
+            # A remote body was brought up by its own launcher (and may have been driven by an
+            # earlier brain): enable it only when it is not up yet.
+            self._wait(lambda: self.policy != "starting", REMOTE_STATE_WAIT_S, "a state frame")
+            if self.policy in UP_POLICIES:
+                return
         ack = self._operator.enable(True)
         if not ack.accepted:
             raise RuntimeError(f"robotd refused enable: {ack.reason}")
@@ -695,7 +768,9 @@ class LiveBody:
         for thread in self._threads:
             thread.join(timeout=2)
         try:
-            if self._operator is not None:
+            # A remote body is not switched off by a brain that leaves: its bridge sees the link
+            # go and stops and sits it (the next brain finds it seated and enabled).
+            if self._operator is not None and self.remote is None:
                 self._operator.enable(False)
         except Exception:
             pass
@@ -705,6 +780,9 @@ class LiveBody:
                     closer.close()
             except Exception:
                 pass
+        if self._link is not None:
+            self._link.close()  # (removes its own folder: the local sockets)
+            return
         _stop_child(self._robotd)
         _stop_child(self._body)
         if self._state_dir is not None and not os.environ.get("DUCKMIND_KEEP_LIVE_LOGS"):
@@ -740,34 +818,52 @@ class LiveBody:
         self, targets: Sequence[float | None], off: Sequence[str], *, gain: int, ramp_s: float
     ) -> bool:
         """The operator's ``robot.poseJoints`` (play dead's scripted pose); False when this robotd has none or refuses."""
-        operator = self._operator
-        if operator is None or not self.pose_joints_ok:
+        if self._operator is None or not self.pose_joints_ok:
             return False
         try:
-            return bool(operator.pose_joints(targets, off, gain=gain, ramp_s=ramp_s).accepted)
+            return bool(
+                self._operator_call(
+                    lambda op: op.pose_joints(targets, off, gain=gain, ramp_s=ramp_s)
+                ).accepted
+            )
         except Exception as error:  # an older robotd answers 'unknown method'
             self.error = f"poseJoints: {error}"
             self.pose_joints_ok = False
             return False
 
+    def _operator_call(self, call: Callable[[RobotdOperatorClient], Any]) -> Any:
+        """One operator request; a remote body's operator connection that went with a dropped
+        link is opened again once (a refusal is never retried)."""
+        operator = self._operator
+        assert operator is not None
+        try:
+            return call(operator)
+        except OSError:
+            if self.remote is None or self._link is None:
+                raise
+        try:
+            operator.close()
+        except Exception:
+            pass
+        self._operator = operator = RobotdOperatorClient(self._link.robotd_socket)
+        return call(operator)
+
     def operator_init(self) -> bool:
         """The operator's ``robot.init`` (torque back on everywhere, the ramp home)."""
-        operator = self._operator
-        if operator is None:
+        if self._operator is None:
             return False
         try:
-            return bool(operator.init().accepted)
+            return bool(self._operator_call(lambda op: op.init()).accepted)
         except Exception as error:
             self.error = f"init: {error}"
             return False
 
     def operator_enable(self, on: bool = True) -> bool:
         """The operator's ``robot.enable`` (the walking policy back on)."""
-        operator = self._operator
-        if operator is None:
+        if self._operator is None:
             return False
         try:
-            return bool(operator.enable(bool(on)).accepted)
+            return bool(self._operator_call(lambda op: op.enable(bool(on))).accepted)
         except Exception as error:
             self.error = f"enable: {error}"
             return False
@@ -865,12 +961,32 @@ class LiveBody:
     def _process_gone(self, process: subprocess.Popen[bytes] | None) -> bool:
         return process is not None and process.poll() is not None
 
+    def _renew_port(self, broken: RobotdBodyPort) -> bool:
+        """A remote body's link dropped and every robotd connection with it: open a fresh
+        :class:`RobotdBodyPort` through the link (once, whichever body thread asks first)."""
+        with self._port_lock:
+            if self._port is not broken:
+                return True
+            try:
+                broken.close()
+            except Exception:
+                pass
+            try:
+                self._port = RobotdBodyPort(self._link.robotd_socket, backend="simulator", hz=25)
+            except Exception:
+                return False
+            return True
+
+    def _link_watch(self, source: str, label: str) -> LinkWatch:
+        return LinkWatch(source, label, retry_s=REMOTE_RETRY_S if self.remote else None)
+
     def _read_state(self) -> None:
         assert self._port is not None
-        link = LinkWatch("state", "robotd state")
+        link = self._link_watch("state", "robotd state")
         while not self._stop.is_set():
+            port = self._port
             try:
-                observed = self._port.observe()
+                observed = port.observe()
             except TimeoutError as error:  # silence: the host stalls and answers again
                 if self._stop.is_set():
                     return
@@ -883,18 +999,28 @@ class LiveBody:
                 self._stop.wait(wait)
                 continue
             except Exception as error:  # the daemon went away
-                if not self._stop.is_set():
+                if self._stop.is_set():
+                    return
+                if self.remote is None:
                     self.error = f"robotd state: {error}"
-                return
+                    return
+                # A remote body: its link dropped (robotd "went away" here) and dials again.
+                wait, report = link.missed()
+                if report:
+                    self._link_failed(link, error)
+                self._stop.wait(wait)
+                self._renew_port(port)
+                continue
             self._link_heard(link)
             self.policy = observed.policy
             self.fallen = observed.safety.fallen
+            self.state_at = time.monotonic()  # (a remote body: when the link last brought one)
 
     def _control(self) -> None:
         assert self._port is not None
         period = 1.0 / CONTROL_HZ
         next_tick = time.monotonic()
-        link = LinkWatch("command", "robotd command")
+        link = self._link_watch("command", "robotd command")
         while not self._stop.is_set():
             now = time.monotonic()
             if self.passive:
@@ -905,6 +1031,7 @@ class LiveBody:
                 next_tick = time.monotonic() + period
                 time.sleep(period)
                 continue
+            port = self._port
             try:
                 with self._lock:
                     offsets, mouth = (
@@ -978,9 +1105,19 @@ class LiveBody:
                 next_tick = time.monotonic()
                 continue
             except Exception as error:
-                if not self._stop.is_set():
+                if self._stop.is_set():
+                    return
+                if self.remote is None:
                     self.error = f"robotd command: {error}"
-                return
+                    return
+                # A remote body: its link dropped and dials again (see _read_state).
+                wait, report = link.missed()
+                if report:
+                    self._link_failed(link, error)
+                self._stop.wait(wait)
+                self._renew_port(port)
+                next_tick = time.monotonic()
+                continue
             self._link_heard(link)
             next_tick += period
             slack = next_tick - time.monotonic()
@@ -1282,7 +1419,10 @@ class LiveBody:
                         )
                     self._world_client.send(op, **params)
                     sent = True
-                    return self._world_client.receive(op)
+                    answer = self._world_client.receive(op)
+                    if op == "x_sensors" and self._link is not None:
+                        return self._local_sensors(answer)
+                    return answer
                 except (OSError, ValueError) as error:
                     client, self._world_client = self._world_client, None
                     try:
@@ -1323,7 +1463,7 @@ class LiveBody:
         return self.latest
 
     def status(self) -> dict[str, Any]:
-        return {
+        status = {
             "running": self.error is None and self.latest is not None,
             "policy": self.policy,
             "fallen": self.fallen,
@@ -1332,6 +1472,25 @@ class LiveBody:
             "monitor": self.monitor_view(),
             "held": self._held,
         }
+        if self._link is not None:
+            status["remote"] = self._link.stats()
+        return status
+
+    def _local_sensors(self, answer: dict[str, Any]) -> dict[str, Any]:
+        """A remote world's ``x_sensors`` names its camera's and ToF's sockets on the body's
+        machine: point them at this machine's ends of the link (None: the body offers none)."""
+        link = self._link
+        out = dict(answer)
+        media = dict(out.get("media") or {})
+        if media.get("socket"):
+            local = link.endpoint("media")
+            media["socket"] = None if local is None else str(local)
+            out["media"] = media
+        tofd = out.get("tofd")
+        if isinstance(tofd, dict) and tofd.get("socket"):
+            local = link.endpoint("tofd")
+            out["tofd"] = {**tofd, "socket": None if local is None else str(local)}
+        return out
 
 
 def main(argv: list[str] | None = None) -> None:

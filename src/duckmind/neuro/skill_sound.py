@@ -623,13 +623,7 @@ class SkillBrain:
             base._vocal_seq = out_cmd.vocal_seq
         ride = out.ride
         if ride.started:
-            # the ride's start, felt by the slower systems: a fright is a threat (the fear
-            # drive, once — not a spiral), a thrill lifts the mood and the wish to play
-            if ride.frightened:
-                d.fear = min(1.0, d.fear + 0.15)
-            else:
-                d.valence = min(1.0, d.valence + 0.1)
-                d.play = min(1.0, d.play + 0.1)
+            base.felt_ride(bool(ride.frightened))  # (the ride's start, felt by the slower systems: NeuroBrain.felt_ride)
         self.last = out
         if out_cmd.behaviour != cmd.behaviour:
             tel = replace(

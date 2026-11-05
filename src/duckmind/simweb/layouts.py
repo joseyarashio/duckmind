@@ -154,6 +154,28 @@ class LayoutStore:
             return None
         return home
 
+    def home_at_start(self, asked: str | None) -> str | None:
+        """The home a (re)started server runs. ``asked`` (``--home``) wins, except over a layout the editor
+        applied from that same home: ``--home real_home`` and an applied real_home layout run the applied one
+        (owner 2026-11-04: else every restart quietly undid 「套用到模擬器」). No ``asked``: the applied one."""
+        remembered = self.remembered()
+        if not asked or not remembered or not remembered.endswith(".json"):
+            return asked or remembered
+        try:
+            raw = json.loads(Path(remembered).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return asked
+        return remembered if isinstance(raw, dict) and runs_at_start(raw, asked) else asked
+
+
+def runs_at_start(raw: dict[str, Any], asked: str | None) -> bool:
+    """Does a layout applied now still run after a restart with ``asked`` (``--home``; None: none)? When it was
+    made from that home (its ``derived_from``, else its own id): see :meth:`LayoutStore.home_at_start`."""
+    if not asked:
+        return True
+    made_from = str(raw.get("derived_from") or raw.get("id") or "")
+    return bool(made_from) and made_from == asked.split(",")[0].strip()
+
 
 def editable(layout: homelayout.Layout) -> dict[str, Any]:
     """The home as the editor holds it: the file's form (placements, not the pieces they made)."""

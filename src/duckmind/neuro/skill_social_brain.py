@@ -605,6 +605,11 @@ class SocialBrain(B.NeuroBrain):
         """This tick's MODEL readings (looks, voice, roof) until the contract carries them."""
         self._social_in = social
 
+    def carer_bond(self, t_ms: int) -> float:
+        """(``NeuroBrain.carer_bond``) and the person it believes is right beside it (its imprint's own rule for whose hand
+        it is): the closer of the two."""
+        return max(super().carer_bond(t_ms), self.imprint.carer_bond(t_ms / 1000.0, self._s_odom))
+
     # ── the step ─────────────────────────────────────────────────────────────
 
     def step(self, t_ms: int, frame: SensorFrame) -> tuple[MotorCommand, C.BrainTelemetry]:

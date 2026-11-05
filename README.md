@@ -79,7 +79,7 @@ In one sentence: **a little robot duck that slowly grows into a pet that truly b
 - Right now everything runs in a physics simulator on your computer (MuJoCo plus Pollen's robotd simulation). Body physics, motor delay and battery are all modelled as closely to a real Microduck as we can.
 - **A duck is a file**: its seed, genes, growth record, what it has learned, its calls. The design goal: a duck you raised in the simulator, once connected to a real Microduck, is the same duck in a real body — name, personality, memories and tricks all still there.
 - The brain can stay on your home computer while the body becomes a real little duck; it's the same brain code, and the only differences are the body and the calibration of its senses.
-- **To be honest:** the real duck hasn't been validated on real hardware yet, and "export/import a duck file" and "remote body" are planned features. See the Status section above and [SAFETY.md](SAFETY.md).
+- **To be honest:** the real duck hasn't been validated on real hardware yet. "Export/import a duck file" is built: one duck is one file you can move to another computer ([docs/duck-file.md](docs/duck-file.md)). The remote body (the brain on your computer, robotd on the duck) is built and rehearsed with a simulated duck; no real duck has been connected yet — see [docs/real-microduck.md](docs/real-microduck.md). See the Status section above and [SAFETY.md](SAFETY.md).
 
 ### What you can play with and do right now
 

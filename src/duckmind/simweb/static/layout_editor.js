@@ -32,6 +32,9 @@
     saved: $("leSaved"),
     running: $("leRunning"),
     snap: $("leSnap"),
+    confirm: $("leConfirm"),
+    confirmText: $("leConfirmText"),
+    confirmWhen: $("leConfirmWhen"),
   };
 
   const S = {
@@ -366,6 +369,7 @@
   }
 
   function changed() {
+    hideConfirm();
     render();
     scheduleCheck();
     updateRunning();
@@ -699,6 +703,7 @@
   }
 
   function adopt(layout, check) {
+    hideConfirm();
     pushUndo(clone(placements()));
     S.layout = layout;
     if (!S.layout.placements) S.layout.placements = [];
@@ -745,11 +750,41 @@
     reader.readAsText(file);
   }
 
+  // Before applying: say plainly what happens to what the duck knows of its home, and when it takes effect
+  // (the server compares the home's frame: walls, rooms, start, nest; furniture leaves it as it is).
+  function hideConfirm() {
+    if (els.confirm) els.confirm.hidden = true;
+  }
+
+  async function askApply() {
+    if (S.busy) return;
+    let res;
+    try {
+      res = await api("/api/layout/check", { layout: layoutFor(els.name.value.trim()) });
+    } catch (error) {
+      return say("page.layout.error.other", { code: String(error) }, "warn");
+    }
+    if (res.ok === false) return say(...failure(res), "warn");
+    if (res.problems && res.problems.length) {
+      applyCheck(res);
+      return say("page.layout.error.invalid", {}, "warn");
+    }
+    const frame = res.frame || {};
+    const relearn = frame.life && frame.same !== true;
+    const what = !frame.life ? "page.layout.confirm.plain" : relearn ? "page.layout.confirm.relearn" : "page.layout.confirm.keep";
+    window.I18N.text(els.confirmText, what);
+    window.I18N.text(els.confirmWhen, frame.lasts ? "page.layout.confirm.when_lasts" : "page.layout.confirm.when_now");
+    els.confirm.dataset.tone = relearn ? "relearn" : "keep";
+    els.confirm.hidden = false;
+    const yes = els.confirm.querySelector('[data-le="apply-yes"]');
+    if (yes) yes.focus();
+  }
+
   async function applyNow() {
+    hideConfirm();
     if (S.busy) return;
     S.busy = true;
     updateButtons();
-    say("page.layout.status.applying", {}, "info");
     let res;
     try {
       res = await api("/api/layout/apply", { layout: layoutFor(els.name.value.trim()) });
@@ -856,7 +891,9 @@
     else if (act === "open") openSaved();
     else if (act === "delete") deleteSaved();
     else if (act === "reset") resetToDefault();
-    else if (act === "apply") applyNow();
+    else if (act === "apply") askApply();
+    else if (act === "apply-yes") applyNow();
+    else if (act === "apply-no") hideConfirm();
     else if (act === "download") download();
     else if (act === "upload") $("leFile").click();
   });

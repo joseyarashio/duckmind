@@ -287,11 +287,7 @@ class IntegratedBrain(SP.PlayBrain, SB.SocialBrain):
             self._vocal_seq = cmd.vocal_seq
         ride = out.ride
         if ride.started:
-            if ride.frightened:
-                self.drives.fear = min(1.0, self.drives.fear + 0.15)
-            else:
-                self.drives.valence = min(1.0, self.drives.valence + 0.1)
-                self.drives.play = min(1.0, self.drives.play + 0.1)
+            self.felt_ride(bool(ride.frightened))
         self.sound_out = out
         if live is not None:
             try:

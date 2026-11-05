@@ -68,7 +68,7 @@ from typing import TYPE_CHECKING, Any
 
 from duckmind.duckcore.api import _motion
 from duckmind.i18n import lst, msg
-from duckmind.livebody import FRAME_JOINTS, LiveBody, LivePaths
+from duckmind.livebody import FRAME_JOINTS, LiveBody, LivePaths, RemoteBodySpec
 from duckmind.simweb.eyecam import EyeCam, taipei_now
 
 if TYPE_CHECKING:
@@ -467,6 +467,7 @@ class LiveBridge:
         home: str | None = None,
         nest: bool | None = None,
         tof: bool | None = None,
+        remote: RemoteBodySpec | None = None,
     ) -> None:
         self.paths = paths
         self.side = side
@@ -475,7 +476,10 @@ class LiveBridge:
         self.home_asked = home
         self.nest = nest
         self.tof = tof
-        self.body = LiveBody(paths, side=side, seated=True, home=home, nest=nest, tof=tof)
+        # A body on another machine (--body remote://host:port): its own launcher owns its
+        # physics and home; None: the body is started here.
+        self.remote = remote
+        self.body = self._new_body()
         self.error: str | None = None
         self.ready = False
         self._lock = threading.Lock()
@@ -544,10 +548,20 @@ class LiveBridge:
             raise RuntimeError("configure() the bridge before start()")
         self.nest = nest
         self.tof = tof
-        self.body = LiveBody(
-            self.paths, side=self.side, seated=True, home=self.home_asked, nest=nest, tof=tof
-        )
+        self.body = self._new_body()
         self._thread = threading.Thread(target=self._start, args=(self.body,), daemon=True)
+
+    def _new_body(self) -> LiveBody:
+        """A body for the duck as it is now: started here, or the remote one (``remote``)."""
+        return LiveBody(
+            self.paths,
+            side=self.side,
+            seated=True,
+            home=self.home_asked,
+            nest=self.nest,
+            tof=self.tof,
+            remote=self.remote,
+        )
 
     def start(self) -> None:
         self._thread.start()
@@ -878,14 +892,7 @@ class LiveBridge:
             self.tof = self.tof if tof is None else tof
             self.ready = False
             self.error = None
-            self.body = LiveBody(
-                self.paths,
-                side=self.side,
-                seated=True,
-                home=self.home_asked,
-                nest=self.nest,
-                tof=self.tof,
-            )
+            self.body = self._new_body()
             self._thread = threading.Thread(target=self._start, args=(self.body,), daemon=True)
         self._placed = None
         self.hand_note = None

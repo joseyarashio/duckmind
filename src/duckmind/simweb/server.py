@@ -86,6 +86,7 @@ from duckmind.simweb import (
     voice,
 )
 from duckmind.simweb.live_voice_api import LiveHub
+from duckmind.world import homelayout
 from duckmind.world import layoutcheck as _layoutcheck
 from duckmind.world import lights as world_lights
 
@@ -203,6 +204,7 @@ class SimState:
         # server started with (what 「回到預設」 goes back to); set by main()
         self.layouts = layouts.LayoutStore(None)
         self.layout_default: str = "default_home"
+        self.layout_pinned: str | None = None  # --home (a layout made from another home does not outlive a restart)
         self.caps_file = config.caps_file
         self.state_file = state_file
         self.realtime = False
@@ -302,10 +304,32 @@ class SimState:
         out["restored"] = getattr(self.live, "restored", None)
         return out
 
+    def layout_frame(self, raw: dict[str, Any] | None) -> dict[str, Any]:
+        """What applying this layout (None: the server's default home) does to what the duck knows of its
+        home: ``same`` the odometry frame stays (only furniture, rugs, sills or things moved: places,
+        things and the map are kept), False it changes (the walls, rooms, start or nest differ: it relearns
+        the home; people, tricks and growth are kept), None it cannot tell (the layout cannot be read).
+        ``life``: this duck keeps a memory at all (a life); ``lasts``: the layout stays after a restart."""
+        from duckmind.livebody import live_home
+
+        now = homeview.frame_of(self.home())
+        try:
+            if raw is None:
+                home = live_home(self.layout_default, nest=bool(self.session.core.hw.nest))
+                then = homeview.frame_of(home or self.layout_default)
+            else:
+                then = homelayout.load(dict(raw)).frame_fingerprint
+        except Exception:
+            then = None
+        same = None if now is None or then is None else now == then
+        lasts = self.layouts.enabled and (raw is None or layouts.runs_at_start(raw, self.layout_pinned))
+        return {"same": same, "life": self.life_host is not None, "lasts": lasts}
+
     def layout_apply(self, raw: dict[str, Any] | None) -> dict[str, Any]:
-        """Run this layout in the simulator (None: the server's own default home). The physics is reloaded;
-        the duck's mind is kept (the life snapshot is taken first, the same neural driver goes on) and the
-        duck is put back where it was if that spot is free in the new home, else at its spawn."""
+        """Run this layout in the simulator (None: the server's own default home). The physics is reloaded
+        now; the duck's mind is kept (the life snapshot is taken first, the same neural driver goes on) and
+        the duck is put back where it was if that spot is free in the new home, else at its spawn. A home in
+        another odometry frame (:meth:`layout_frame`) makes it relearn its places when the new body comes."""
         if raw is None:
             home = self.layout_default
             problems: list[dict[str, Any]] = []
@@ -315,6 +339,7 @@ class SimState:
             if not verdict["ok"]:
                 raise layouts.LayoutProblem("invalid", problems=problems)
             home = str(self.layouts.applied_path(raw))
+        frame = self.layout_frame(raw)
         pose = None
         if self.live is not None:
             truth = self.live.truth_now()
@@ -327,11 +352,19 @@ class SimState:
                 )  # the mind first: the reload only moves the body
             except Exception:
                 traceback.print_exc()
+            # the old frame's places go when the new body comes (not before: the duck still walks the old one)
+            self.life_host.frame_moved = frame["same"] is False
         homeview.set_home(home)
         self.layouts.remember(None if raw is None else home)
         if self.live is not None:
             self.live.restart(home=home, restore=pose)
-        return {"ok": True, "home": home, "problems": problems, "live": self.live is not None}
+        return {
+            "ok": True,
+            "home": home,
+            "problems": problems,
+            "live": self.live is not None,
+            "frame": frame,
+        }
 
     def duck_at(self) -> tuple[float, float] | None:
         """Where the duck is in its home's world (m), for the room whose light the page draws:
@@ -997,6 +1030,7 @@ def make_handler(
     neuro: neuro_api.NeuroHub | None = None,
     voice_bank: voice.VoiceBank | None = None,
     live_hub: LiveHub | None = None,
+    voice_commands: Any = None,
 ) -> type[BaseHTTPRequestHandler]:
     static_root = resources.files("duckmind.simweb").joinpath("static")
     # The neural-duck prototype's page routes (/api/neuro/…, neuro_api): "off" without it.
@@ -1011,6 +1045,15 @@ def make_handler(
     # The talk panel's routes (live voice, LV5): "off" (``enabled: false``) without --live-voice.
     live_voice_hub = live_hub if live_hub is not None else LiveHub()
     mic_hub = MicHub(lambda: getattr(state.live, "neuro", None), on_speaker=live_voice_hub.speaker)
+    # The duck file (docs/duck-file.md): export the duck this server lives, import another as a new life.
+    from duckmind.simweb.duckfile_api import DuckFileHub
+
+    duckfile_hub = DuckFileHub(state)
+    # 按住說話 (voice commands, voice_cmd_api): the page's clip, recognised on this computer. Off (no
+    # recogniser) unless the server made one (--voice-commands).
+    from duckmind.simweb.voice_cmd_api import VoiceHub
+
+    voice_hub = voice_commands if voice_commands is not None else VoiceHub(hub, None, problem="off")
     # The duck's own official voice (voice.py): this one, else the hub's, else the state's.
     if voice_bank is None:
         voice_bank = hub.voice if hub.voice is not None else state.voice
@@ -1170,7 +1213,9 @@ def make_handler(
             try:
                 if verb == "check":
                     raw = layouts.validate_upload(body.get("layout"))
-                    self._json(HTTPStatus.OK, {"ok": True, **_layoutcheck.check(raw)})
+                    verdict = _layoutcheck.check(raw)
+                    frame = state.layout_frame(raw) if verdict["ok"] else None
+                    self._json(HTTPStatus.OK, {"ok": True, **verdict, "frame": frame})
                 elif verb == "save":
                     raw = layouts.validate_upload(body.get("layout"))
                     verdict = _layoutcheck.check(raw)
@@ -1235,6 +1280,9 @@ def make_handler(
                 return
             if mic_hub.handles(path):
                 mic_hub.get(self, path, query)
+                return
+            if voice_hub.handles(path):
+                voice_hub.get(self, path, query)
                 return
             if sound_hub.handles(path):
                 sound_hub.get(self, path, query)
@@ -1313,6 +1361,9 @@ def make_handler(
             if path == "/api/life/growth":
                 self._life_growth()
                 return
+            if duckfile_hub.handles(path):
+                duckfile_hub.get(self, path)
+                return
             if path == "/api/life/fastforward":
                 answer = fast_forward().status(results=parse_qs(query).get("results") == ["1"])
                 self._json(HTTPStatus.OK, {"ok": True, "fastforward": answer})
@@ -1382,6 +1433,9 @@ def make_handler(
             if mic_hub.handles(post_path):
                 mic_hub.post(self, post_path, post_query)
                 return
+            if voice_hub.handles(post_path):
+                voice_hub.post(self, post_path, post_query)
+                return
             if sound_hub.handles(post_path):
                 sound_hub.post(self, post_path)
                 return
@@ -1393,6 +1447,9 @@ def make_handler(
                 return
             if post_path in {"/api/life/fastforward", "/api/life/fastforward/cancel"}:
                 self._fastforward_post(post_path)
+                return
+            if duckfile_hub.handles(post_path):
+                duckfile_hub.post(self, post_path, post_query)
                 return
             if self.path != "/api/call":
                 self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
@@ -1587,6 +1644,18 @@ def main(argv: list[str] | None = None) -> None:
     live.add_argument("--policies", type=Path, help="official policy set (…/current)")
     live.add_argument("--robotd-bin", type=Path, help="robotd binary built for this machine")
     live.add_argument("--ort-lib", type=Path, help="ONNX Runtime library for robotd")
+    live.add_argument(
+        "--body",
+        metavar="remote://HOST:PORT",
+        help="the live body runs on another machine of the home LAN behind "
+        "`python -m duckmind.remotebody sim-body` or `bridge` (default: started here)",
+    )
+    live.add_argument(
+        "--body-token-file",
+        type=Path,
+        help="the token shared with the remote body (default: remote-body.token in the "
+        "duckmind home folder)",
+    )
     neuro = parser.add_argument_group(
         "neural duck (prototype)",
         "--brain neuro: the neural duck (duckmind.neuro), not Duck Core's planner, drives the "
@@ -1721,6 +1790,14 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="turn the cloud off by itself after this many minutes of microphone audio were sent",
     )
+    parser.add_argument(
+        "--voice-commands",
+        default="auto",
+        help="按住說話 (push-to-talk commands, recognised on this computer only): 'auto' (the "
+        "measured default: mlx-whisper medium on Apple silicon, else faster-whisper small), "
+        "'mlx:<model>', 'faster:<model>' or 'off'. Needs the optional voice packages "
+        "(pip install 'duckmind[voice]'); the model is fetched once, then it works offline",
+    )
     neuro_api.add_arguments(parser)  # (--neuro-stub: the prototype's page, made-up numbers)
     args = parser.parse_args(argv)
     # (--name given: the neural duck's card shows it; not given: each duck keeps its own name)
@@ -1733,6 +1810,8 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--live-voice talks to the neural duck's live body: add --brain neuro --live")
     if args.live_voice_cap_minutes is not None and not args.live_voice_cap_minutes > 0:
         parser.error("--live-voice-cap-minutes must be above 0")
+    if args.body and not args.live:
+        parser.error("--body remote://host:port is the live body on another machine: add --live")
     if args.robotd_head_alpha is not None:
         if not 0.0 < args.robotd_head_alpha <= 1.0:
             parser.error("--robotd-head-alpha must be in (0, 1]")
@@ -1764,13 +1843,14 @@ def main(argv: list[str] | None = None) -> None:
         state_file = life.core_path
         args.seed, args.name, args.name_given = life.seed, life.name, life.name
     # The home: --home, else the layout the editor applied last (kept in the layouts folder), else the
-    # environment's, else default_home. What 「回到預設」 goes back to is the first and the last of those.
+    # environment's, else default_home; a layout applied from the --home home itself is that home as the
+    # family arranged it, and runs. What 「回到預設」 goes back to is the first and the last of those.
     layouts_dir = args.layouts_dir or (
         life.folder / "layouts" if life is not None else Path.home() / ".duckmind" / "layouts"
     )
     layout_store = layouts.LayoutStore(Path(layouts_dir).expanduser())
     home_default = args.home or os.environ.get("DUCKMIND_LIVE_HOME") or "default_home"
-    home_asked = args.home or layout_store.remembered()
+    home_asked = layout_store.home_at_start(args.home)
     homeview.set_home(home_asked)
     # the duck's one clock (real time unless a test says otherwise): the neural duck's day and
     # night, the room's lights, the world camera's and the duck's-eye light, Duck Core's growth days
@@ -1796,6 +1876,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     state.layouts = layout_store
     state.layout_default = home_default
+    state.layout_pinned = args.home
     if bridge is not None:
         bridge.home_asked = home_asked
     if life is not None:
@@ -1817,7 +1898,10 @@ def main(argv: list[str] | None = None) -> None:
         print(f"叫聲：{voice_bank.problem}", file=sys.stderr)
     # (bound before the physics body starts: a port in use never leaves a body behind)
     live_hub = LiveHub()
-    server = SimServer((args.host, args.port), make_handler(state, hub, voice_bank, live_hub))
+    voice_hub = _voice_commands(args.voice_commands, hub)
+    server = SimServer(
+        (args.host, args.port), make_handler(state, hub, voice_bank, live_hub, voice_hub)
+    )
     life_host: Any = None
     if bridge is not None and args.brain == "neuro":
         from duckmind.simweb.neuro_live import NeuroDriver, NeuroSpec, world_extensions
@@ -2076,6 +2160,28 @@ def _life_line(
     return text
 
 
+def _voice_commands(spec: str, hub: Any) -> Any:
+    """按住說話's routes: the local recogniser ``spec`` names (``auto``: the measured default), loaded in
+    the background so the first press is not slow; a missing package or ``off`` leaves the button off
+    with the reason."""
+    from duckmind.simweb.voice_cmd_api import VoiceHub
+    from duckmind.speech import asr
+
+    try:
+        recognizer, why = asr.make(None if spec == "auto" else spec)
+    except ValueError as error:
+        recognizer, why = None, str(error)
+    if recognizer is None:
+        print(f"按住說話：關著（{why}）", file=sys.stderr)
+        return VoiceHub(hub, None, problem=why)
+    print(
+        f"按住說話：本機語音辨識 {recognizer.engine.name}:{recognizer.engine.model}（背景載入中；聲音不離開這台電腦）",
+        file=sys.stderr,
+    )
+    threading.Thread(target=recognizer.warm, name="voice-asr-warm", daemon=True).start()
+    return VoiceHub(hub, recognizer)
+
+
 def _live_bridge(args: argparse.Namespace) -> LiveBridge:
     from duckmind.livebody import LivePaths
     from duckmind.simweb.live import LiveBridge
@@ -2091,9 +2197,28 @@ def _live_bridge(args: argparse.Namespace) -> LiveBridge:
         paths = LivePaths(args.microduck, args.microduck_rl, args.policies, args.robotd_bin, ort)
     if paths is None:
         raise SystemExit("--live needs --microduck, --microduck-rl, --policies and --robotd-bin")
-    missing = paths.missing()
-    if missing:
-        raise SystemExit("--live is missing: " + ", ".join(missing))
+    remote = None
+    if args.body:
+        from duckmind import paths as dm_paths
+        from duckmind.livebody import RemoteBodySpec
+        from duckmind.remotebody.link import parse_url
+
+        try:
+            parse_url(args.body)
+        except ValueError as error:
+            raise SystemExit(f"--body: {error}") from error
+        token = args.body_token_file or dm_paths.duckmind_home() / "remote-body.token"
+        if not token.is_file():
+            raise SystemExit(
+                f"--body needs the token shared with the body: {token} (make one with "
+                "`python -m duckmind.remotebody token PATH` and copy it to both machines)"
+            )
+        remote = RemoteBodySpec(args.body, token)
+    else:
+        # (a remote body runs robotd and the physics on its own machine: none needed here)
+        missing = paths.missing()
+        if missing:
+            raise SystemExit("--live is missing: " + ", ".join(missing))
     # The page reads the same home layout the body's world runs; a home built on an official
     # scene (the apartment) needs the official MJCF folder here too: the live checkout's, when
     # --microduck-mjcf did not name one.
@@ -2102,7 +2227,7 @@ def _live_bridge(args: argparse.Namespace) -> LiveBridge:
     folder = official_mjcf(paths)
     if not os.environ.get("DUCKMIND_MICRODUCK_MJCF") and folder.is_dir():
         os.environ["DUCKMIND_MICRODUCK_MJCF"] = str(folder)
-    return LiveBridge(paths)  # (started once the duck is known: its home and head)
+    return LiveBridge(paths, remote=remote)  # (started once the duck is known: its home and head)
 
 
 if __name__ == "__main__":

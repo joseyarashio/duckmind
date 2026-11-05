@@ -89,6 +89,25 @@ def test_the_checks_pass_for_every_home_and_catch_what_the_editor_can_do_wrong()
     assert with_({"id": "r", "lib": "rug_thin", "x_mm": -900, "y_mm": -1000}) == []
 
 
+def test_a_turned_cushion_beside_a_sock_can_be_applied_and_a_real_overlap_names_both() -> None:
+    """Owner 2026-11-04: 「套用到模擬器」 stayed off on real_home because the check said the floor cushion
+    overlapped 「家裡本來就有的東西」. The cushion is turned (400 mrad): its bounding box reached the sock beside
+    it, its outline does not; and the words had no name for the sock because the problem did not say it."""
+
+    def cushion_at(x: int, y: int) -> dict:
+        raw = _raw()
+        for p in raw["placements"]:
+            if p["id"] == "cushion_1":
+                p["x_mm"], p["y_mm"] = x, y
+        return layoutcheck.check(raw)
+
+    beside = cushion_at(450, -1200)
+    assert beside["ok"], beside["problems"]
+    on_the_ball = cushion_at(700, -900)  # right over the felt ball
+    overlap = [p for p in on_the_ball["problems"] if p["code"] == "thing_overlap"]
+    assert overlap and {(p["lib"], p["other_lib"]) for p in overlap} == {("cushion", "ball_felt")}
+
+
 def test_a_shut_in_room_is_found() -> None:
     raw = _raw()
     # wardrobes across the bedroom doorway and the sofa-side opening shut the bedroom in

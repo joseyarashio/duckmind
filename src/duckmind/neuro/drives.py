@@ -42,6 +42,9 @@ GROOM_USE_S = 40.0  # (neuro:fix 08:30: at 90 s a preen used a sixth of its itch
 # comfort budget is 10–20 %: now a 15–30-s preen scratches the itch away)
 PECK_USE_S = 40.0
 VIGIL_USE_S = 20.0
+# Held by someone it knows, and just set down by them (owner 2026-11-05: being carried by the family is less frightening):
+# its fear settles faster, the fear's time × (1 − SOOTHE_FEAR × the carry's calm)
+SOOTHE_FEAR = 0.75
 
 
 def _relax(x: float, target: float, dt_s: float, tau_s: float) -> float:
@@ -83,6 +86,7 @@ class DriveInputs:
     presence: float = 0.0  # level: family close (seen near, touching, voice close)
     contact: float = 0.0  # impulse: Duck Core contact weight (voice, name, touch, hello…)
     touch_gentle: float = 0.0  # level
+    soothe: float = 0.0  # level: held by someone it knows, or just set down by them (the brain's carry calm, 0..1)
     threat: float = 0.0  # impulse: startle/looming/sharp touch strength
     pain: float = 0.0  # impulse: a fall, a hard bump
     positive: float = 0.0  # impulse: a good thing (play answered, praise, gentle touch)
@@ -160,7 +164,10 @@ class Drives:
         # fear: jumps at threats, decays (faster with family close: social buffering)
         self.fear = _clip(self.fear + (1 - self.fear) * p.fear_gain * (inp.threat + 0.8 * inp.pain))
         tau_fear = (
-            p.fear_tau_s * (1.0 - 0.45 * inp.presence) * (0.6 if inp.touch_gentle > 0.2 else 1.0)
+            p.fear_tau_s
+            * (1.0 - 0.45 * inp.presence)
+            * (0.6 if inp.touch_gentle > 0.2 else 1.0)
+            * (1.0 - SOOTHE_FEAR * _clip(inp.soothe))
         )
         self.fear = _relax(self.fear, 0.0, dt, tau_fear)
         # social need

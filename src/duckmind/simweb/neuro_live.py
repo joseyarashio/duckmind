@@ -1767,7 +1767,10 @@ class NeuroDriver:
     def _connect(self, body: Any, stop: threading.Event) -> RobotdClient | None:
         from duckmind.duckbody.server import UnixWire
 
-        deadline = time.monotonic() + ATTACH_WAIT_S
+        # A remote body's link may stay down longer than a local robotd takes to start (a Wi-Fi
+        # drop): the driver keeps dialling until it is stopped, and the brain resumes then.
+        remote = getattr(body, "remote", None) is not None
+        deadline = math.inf if remote else time.monotonic() + ATTACH_WAIT_S
         while not stop.is_set() and time.monotonic() < deadline:
             sock = getattr(body, "robotd_socket", None)
             if sock is not None and Path(sock).exists():
@@ -1949,7 +1952,9 @@ class NeuroDriver:
             if self._depth_tracker is None:
                 self._depth_tracker = D.DepthTracker(standing_height_m=0.12)
             pos, quat = state.tof
-            pose = D.pose_from_frames(pos, quat, state.down or (0.0, 0.0, -1.0))
+            pose = D.pose_from_frames(
+                pos, quat, state.down or (0.0, 0.0, -1.0), D.trunk_height_mm(state.odom_pos)
+            )
             tof = D.ToFFrame.of(
                 int(frame.get("t_ns") or state.t_ns),
                 frame.get("distance_mm") or [],
