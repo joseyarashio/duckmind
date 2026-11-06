@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hant / neuro (1270 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hant / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hant", "neuro", {
 "neuro.act.body_shake.body": "原地小步踩一踩、身體晃一晃，頭跟著甩",
 "neuro.act.body_shake.name": "抖抖身體",
@@ -330,6 +330,7 @@ DuckI18n.load("zh-Hant", "neuro", {
 "neuro.command.reason.timeout": "牠試了，但這次沒做到",
 "neuro.command.reason.too_dark": "太暗了，牠不敢走",
 "neuro.command.reason.too_young": "牠還太小，還不會這個動作",
+"neuro.command.reason.uneasy": "牠會這個把戲，只是現在有點怕或太睏，這次不做",
 "neuro.command.state.doing": "正在做",
 "neuro.command.state.done": "做到了",
 "neuro.command.state.gave_up": "放棄了",

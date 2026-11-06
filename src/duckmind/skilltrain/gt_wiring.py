@@ -166,9 +166,13 @@ def check_pins(doc: Mapping[str, Any]) -> list[str]:
     return problems
 
 
-def verified_section(environ: Mapping[str, str] | None = None) -> str:
+def verified_section(
+    environ: Mapping[str, str] | None = None, *, one_move_at_a_time: bool = False
+) -> str:
     """The ``[[policy.skill]]`` section of the installed table, **only if** every network it
     runs is the one it was gated with (:func:`check_pins`); '' when no table is installed.
+    ``one_move_at_a_time``: for a robotd 0.16.0+ (held entries in renewal slots,
+    :func:`table.robotd_defs`).
     Raises ValueError otherwise — the launcher refuses to start (a simulator running networks
     its gates never saw is worse than one that says so)."""
     env = os.environ if environ is None else environ
@@ -181,7 +185,7 @@ def verified_section(environ: Mapping[str, str] | None = None) -> str:
         raise ValueError(
             "the skill table's networks are not the gated ones: " + "; ".join(problems)
         )
-    return toml_section(load(raw))
+    return toml_section(load(raw), one_move_at_a_time=one_move_at_a_time)
 
 
 def global_per_hour(doc: Mapping[str, Any]) -> int:

@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / neuro (1270 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "neuro", {
 "neuro.act.body_shake.body": "stamps its feet in place, wiggles its body, head shaking along",
 "neuro.act.body_shake.name": "Shake it off",
@@ -330,6 +330,7 @@ DuckI18n.load("en", "neuro", {
 "neuro.command.reason.timeout": "The duck tried but did not manage it this time",
 "neuro.command.reason.too_dark": "It is too dark to walk",
 "neuro.command.reason.too_young": "The duck is too young for that yet",
+"neuro.command.reason.uneasy": "It knows this trick, but it is a little scared or sleepy right now, so not this time",
 "neuro.command.state.doing": "Doing it",
 "neuro.command.state.done": "Done",
 "neuro.command.state.gave_up": "Gave up",

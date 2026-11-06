@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / neuro (1270 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "neuro", {
 "neuro.act.body_shake.body": "Da pasitos en el sitio, sacude el cuerpo y la cabeza lo sigue",
 "neuro.act.body_shake.name": "Sacudirse",
@@ -330,6 +330,7 @@ DuckI18n.load("es", "neuro", {
 "neuro.command.reason.timeout": "Lo intentó, pero esta vez no lo logró",
 "neuro.command.reason.too_dark": "Hay demasiada oscuridad para caminar",
 "neuro.command.reason.too_young": "Todavía es muy pequeño para eso",
+"neuro.command.reason.uneasy": "Sabe este truco, pero ahora está un poco asustado o con sueño; esta vez no lo hace",
 "neuro.command.state.doing": "Lo está haciendo",
 "neuro.command.state.done": "Hecho",
 "neuro.command.state.gave_up": "Se rindió",

@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / neuro (1270 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "neuro", {
 "neuro.act.body_shake.body": "제자리에서 종종 발을 구르고 몸을 흔들흔들, 머리도 같이 털어요",
 "neuro.act.body_shake.name": "몸 털기",
@@ -330,6 +330,7 @@ DuckI18n.load("ko", "neuro", {
 "neuro.command.reason.timeout": "해 봤지만 이번에는 못 했어요",
 "neuro.command.reason.too_dark": "너무 어두워서 걷지 못해요",
 "neuro.command.reason.too_young": "아직 어려서 그 동작은 못 해요",
+"neuro.command.reason.uneasy": "이 재주는 알지만 지금은 조금 무섭거나 졸려서 이번에는 안 해요",
 "neuro.command.state.doing": "하는 중이에요",
 "neuro.command.state.done": "했어요",
 "neuro.command.state.gave_up": "포기했어요",

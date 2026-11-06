@@ -12,7 +12,14 @@ for a grid of commands (vx 0.30-0.55 m/s, vyaw -1..1 rad/s), measured on the liv
 command delay. One entry is the reference (v5: the policy the brain was tuned on); for any other walk with a table the link
 sends the command whose measured answer on that walk equals the reference's measured answer to the brain's command (the
 path speed and the turning rate together, so an arc keeps its radius). The reference walk, or a walk without a table, gets
-the command unchanged. Commands outside the table (slower than 0.30, reversing) are never changed.
+the command unchanged. Other forward commands (slower than 0.30) and the docking reverse are never changed.
+
+Curiosity's back arc (the other reversing twist: (−0.40, ±1.0) for ``BACK_ARC_MS`` = 1 s, a reflex's escape alike) gets
+its turn mapped from a second table per walk (``back_arc``): the turn (rad/s) and the distance moved (m/s) over the first
+second of a 1 s reverse arc, measured on the live robotd (2026-11-06, from standing and from walking at 0.35). In that
+second v5 turns ≈ 24° left / 38° right and v8 sent the same twist ≈ 60° either way. proprio judges a graze by the heading
+swing its v5 own-turn model does not explain (``brushed``), and v8 backs off fast enough to count as progress, so a v8 back
+arc that lasted past proprio's 1 s spin-up was read as a graze (live wall check: 15 of v8's 63 brushes, 0 of v5's 48).
 """
 
 from __future__ import annotations
@@ -43,6 +50,8 @@ class WalkResponse:
     vyaws: tuple[float, ...]
     speed: tuple[tuple[float, ...], ...]
     yaw: tuple[tuple[float, ...], ...]
+    # curiosity's 1 s back arc (vx −0.40…−0.30): turn and path speed over its first second (None: not measured)
+    back_arc: WalkResponse | None = None
 
     @staticmethod
     def of(entry: Mapping[str, object]) -> WalkResponse:
@@ -53,6 +62,7 @@ class WalkResponse:
 
         vxs = tuple(float(v) for v in entry["vx"])  # type: ignore[union-attr]
         vyaws = tuple(float(v) for v in entry["vyaw"])  # type: ignore[union-attr]
+        back = entry.get("back_arc")
         out = WalkResponse(
             walk_sha256=str(entry["walk_sha256"]),
             name=str(entry["name"]),
@@ -62,6 +72,11 @@ class WalkResponse:
             vyaws=vyaws,
             speed=grid("speed"),
             yaw=grid("yaw_rate"),
+            back_arc=None
+            if back is None
+            else WalkResponse.of(
+                {**{k: entry[k] for k in ("walk_sha256", "name", "body", "delay_ms")}, **back}  # type: ignore[dict-item]
+            ),
         )
         if list(vxs) != sorted(set(vxs)) or list(vyaws) != sorted(set(vyaws)):
             raise ValueError(f"walk response {out.name}: the grid is not increasing")
@@ -154,6 +169,35 @@ class WalkMap:
         if vx <= 0.0 or not self.loaded.covers(vx):
             return vx, vyaw
         return _matched(self.loaded, self.reference, vx, vyaw)
+
+    def back_arc(self, vx: float, vyaw: float) -> tuple[float, float]:
+        """The reverse twist for the loaded walk whose 1 s back arc turns as far as the reference walk's back arc
+        (``vx``, ``vyaw``) does, at the same ``vx`` (the distance backed off is close already: at −0.40 v5 0.09-0.10 m,
+        v8 0.08 m, and a slower reverse backs off less on both); unchanged when either walk's back arc was not measured
+        or ``vx`` is outside it."""
+        ref, loaded = self.reference.back_arc, self.loaded.back_arc
+        if (
+            vx >= 0.0
+            or ref is None
+            or loaded is None
+            or not ref.covers(vx)
+            or not loaded.covers(vx)
+        ):
+            return vx, vyaw
+        return vx, round(loaded.vyaw_for(vx, ref.at(vx, vyaw)[1], vyaw), 4)
+
+    def planned_back_arc(self, vx: float, vyaw: float) -> tuple[float, float]:
+        """The brain's back-arc twist that :meth:`back_arc` turns into (``vx``, ``vyaw``)."""
+        ref, loaded = self.reference.back_arc, self.loaded.back_arc
+        if (
+            vx >= 0.0
+            or ref is None
+            or loaded is None
+            or not ref.covers(vx)
+            or not loaded.covers(vx)
+        ):
+            return vx, vyaw
+        return vx, round(ref.vyaw_for(vx, loaded.at(vx, vyaw)[1], vyaw), 4)
 
 
 def _matched(

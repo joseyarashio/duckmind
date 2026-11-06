@@ -167,3 +167,91 @@ def test_the_table_file_is_well_formed() -> None:
         assert len(w.speed) == len(w.vxs) and all(len(r) == len(w.vyaws) for r in w.speed)
         assert all(math.isfinite(v) and v >= 0.0 for r in w.speed for v in r)
         assert all(math.isfinite(v) for r in w.yaw for v in r)
+    for w in (V5, V8):
+        b = w.back_arc
+        assert b is not None and b.vxs == (-0.4, -0.3)
+        assert all(math.isfinite(v) and v >= 0.0 for r in b.speed for v in r)
+        assert all(math.isfinite(v) for r in b.yaw for v in r)
+
+
+# curiosity's back arc (and a reflex's escape) as the brain asks for it: BACK_ARC_VYAW at REVERSE_VX for 1 s
+BACK_ARCS = [(-0.40, 1.0), (-0.40, -1.0)]
+
+
+def _back_state(
+    t: float, x: float, y: float, yaw: float, applied: tuple[float, float]
+) -> RobotState:
+    state = _state(t, (applied[0], 0.0, applied[1]))
+    return replace(state, odom_pos=(x, y, 0.0), odom_yaw=yaw)
+
+
+def _back_arc(
+    link: BodyLink, body: walkcal.WalkResponse, vyaw: float, seconds: float = 1.4
+) -> tuple[list, list, float]:
+    """``link`` backs an arc on a body that answers each streamed twist as ``body``'s measured 1 s back arc does:
+    the twists sent, proprio's edges, the heading turned."""
+    back = body.back_arc
+    assert back is not None
+    x = y = yaw = 0.0
+    sent: tuple[float, float] = (0.0, 0.0)
+    twists, edges = [], []
+    for k in range(int(seconds / DT)):
+        out = link.tick(
+            _back_state(k * DT, x, y, yaw, sent),
+            BodyRequest(vx=-0.40, vyaw=vyaw, posture="stand", back_arc=True),
+        )
+        moves = [i.twist for i in out.intents if i.method == "robot.move"]
+        if moves:
+            sent = moves[-1]
+            twists.append(sent)
+        edges += list(out.prox.edges)
+        if sent[0] < 0.0:
+            speed, rate = back.at(*sent)
+            yaw += rate * DT
+            x -= speed * DT * math.cos(yaw)
+            y -= speed * DT * math.sin(yaw)
+    return twists, edges, yaw
+
+
+def test_v5_backs_its_arcs_exactly_as_it_always_did(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(walkcal, "walk_sha256", lambda _p: V5.walk_sha256)
+    body = SimpleNamespace(paths=SimpleNamespace(policies="policies"), collision="allcollisions")
+    for vx, vyaw in BACK_ARCS:
+        v5 = _link(neuro_live._walk_map(body, 20.0))
+        twists, edges, _ = _back_arc(v5, V5, vyaw)
+        assert set(twists) == {(vx, vyaw)}
+        assert "brushed" not in edges and "blocked" not in edges
+
+
+def test_a_v8_back_arc_turns_as_v5s_and_is_not_read_as_a_graze() -> None:
+    for vx, vyaw in BACK_ARCS:
+        v8 = _link(_v8_map())
+        twists, edges, turned = _back_arc(v8, V8, vyaw)
+        assert twists and all(t[0] < 0.0 for t in twists)
+        sent = twists[-1]
+        # live wall check, 2026-11-06: sent as it is, v8's back arc turned ≈ 57° in its first second (v5 ≈ 26°) and
+        # backed off fast enough to count as progress — proprio's 'brushed' at the end of 15 of 25 arcs, at no wall
+        assert "brushed" not in edges, (vyaw, sent)
+        assert V8.back_arc.at(*sent)[1] == pytest.approx(V5.back_arc.at(vx, vyaw)[1], abs=0.03), (
+            vyaw,
+            sent,
+        )
+        assert v8.walk_sent == (
+            sent,
+            (vx, vyaw),
+        )  # proprio's own-turn model reads the arc the brain asked for
+        _, _, v5_turned = _back_arc(_link(None), V5, vyaw)
+        assert turned == pytest.approx(v5_turned, abs=math.radians(4.0))
+
+
+def test_the_brain_reads_a_v8_back_arc_as_the_arc_it_asked_for_and_a_docking_reverse_as_it_is() -> (
+    None
+):
+    for vx, vyaw in BACK_ARCS:
+        link = _link(_v8_map())
+        sent, _, _ = _back_arc(link, V8, vyaw, seconds=0.3)
+        seen = link.planned_state(_state(0.0, (sent[-1][0], 0.0, sent[-1][1])))
+        assert (seen.applied[0], seen.applied[2]) == pytest.approx((vx, vyaw), abs=0.03)
+    link.tick(_state(9.0), BodyRequest(vx=-0.4, vyaw=0.3, posture="stand", docking=True))
+    state = _state(9.02, (-0.4, 0.0, 0.3))
+    assert link.planned_state(state).applied == state.applied

@@ -575,18 +575,34 @@ class BodyLink:
         # twist it was made from), so proprio's own-turn model reads the twist it was tuned with.
         self.walk: walkcal.WalkMap | None = None
         self.walk_sent: tuple[tuple[float, float], tuple[float, float]] | None = None
+        # the loaded seat's name when proprio's seated lift levels follow it (use_proprio; None: proprio's own numbers)
+        self.seat: str | None = None
 
     def planned_state(self, state: RobotState) -> RobotState:
         """``state`` as the brain reads it: robotd's requested and applied twists in the units the brain plans in (the
-        walk it was tuned on; :meth:`walkcal.WalkMap.planned`). Without a walk map, ``state`` itself."""
+        walk it was tuned on; :meth:`walkcal.WalkMap.planned`, and :meth:`walkcal.WalkMap.planned_back_arc` while the link
+        backs a mapped arc — a docking reverse is not mapped). Without a walk map, ``state`` itself."""
         walk = self.walk
         if walk is None:
             return state
+        backing = self.walk_sent is not None and self.walk_sent[1][0] < 0.0
+
+        def plan(vx: float, vyaw: float) -> tuple[float, float]:
+            if vx < 0.0:
+                return walk.planned_back_arc(vx, vyaw) if backing else (vx, vyaw)
+            return walk.planned(vx, vyaw)
+
         rx, ry, rw = state.requested
         ax, ay, aw = state.applied
-        rx, rw = walk.planned(rx, rw)
-        ax, aw = walk.planned(ax, aw)
+        rx, rw = plan(rx, rw)
+        ax, aw = plan(ax, aw)
         return replace(state, requested=(rx, ry, rw), applied=(ax, ay, aw))
+
+    def use_proprio(self, cfg: ProprioConfig, *, seat: str | None = None) -> None:
+        """proprio's numbers for this body (the loaded seat's lift levels, :mod:`duckmind.neuro.seatcal`, named
+        ``seat``): thresholds only, so the windows the senses keep are unchanged."""
+        self.proprio.cfg = cfg
+        self.seat = seat
 
     # ── helpers ──
 
@@ -1229,12 +1245,17 @@ class BodyLink:
                 delay_compensated_vx(twist[0], self.delay_ms),
                 delay_compensated_vyaw(twist[1], self.delay_ms),
             )
-        # (the loaded walk: the command that answers as the walk the brain was tuned on answers the brain's twist)
+        # (the loaded walk: the command that answers as the walk the brain was tuned on answers the brain's twist; curiosity's
+        # back arc from its own measured table — unmapped, v8 turned it twice as far and proprio read each one as a graze)
         self.walk_sent = None
-        if self.walk is not None and twist[0] > 0.0 and not held_flight and not coasting:
+        if self.walk is not None and not held_flight and not coasting:
             planned = twist
-            twist = self.walk.command(*twist)
-            self.walk_sent = (twist, planned)
+            if twist[0] > 0.0:
+                twist = self.walk.command(*twist)
+                self.walk_sent = (twist, planned)
+            elif twist[0] < 0.0 and backing_arc:
+                twist = self.walk.back_arc(*twist)
+                self.walk_sent = (twist, planned)
 
         # ── posture (sit_toggle until robotd's policy says it) ──
         # A stand-up or sit-down is a balance manoeuvre (spec §10.3: 4.7–6.3 % of sit–stand

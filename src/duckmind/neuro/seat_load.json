@@ -1,0 +1,22 @@
+{
+ "about": "The sit-stand networks' seat (neuro/seatcal.py): the legs' load (proprio's raw units, the simulator's leg-force proxy) seated on the floor, the median over every seated tick at least 2 s after robotd's sit label, and how long after the label the seat-down unload lasts; live robotd in the simulator (real_home, 20 ms servo command delay), free roam 2 x 30 min + sit/stand 2 x 40 cycles (V8Compare records, 2026-11-05/06; v5 50 sit-downs / 22969 seated ticks, v8 56 / 33128) and 20 page sit-downs per arm (V8Fix seatcal, 2026-11-06). The reference is the seat the lift numbers were set on.",
+ "reference": "c6c40e35e726eabd803d633e090d112994f469921152448367953fbaf9799bc8",
+ "seats": [
+  {
+   "sitstand_sha256": "c6c40e35e726eabd803d633e090d112994f469921152448367953fbaf9799bc8",
+   "name": "v5 alpha_sitstand (microduck-policies v5)",
+   "body": "allcollisions",
+   "delay_ms": 20.0,
+   "load": 25.9,
+   "settle_s": 0.0
+  },
+  {
+   "sitstand_sha256": "a6f102d9fd655782ba85bfffe18175c34621da719cffcdd673be7982a06fc254",
+   "name": "v8 alpha_sitstand (microduck-policies v8)",
+   "body": "allcollisions_backlash",
+   "delay_ms": 20.0,
+   "load": 22.75,
+   "settle_s": 2.0
+  }
+ ]
+}

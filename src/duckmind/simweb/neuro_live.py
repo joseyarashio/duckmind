@@ -57,11 +57,12 @@ from pathlib import Path
 from typing import Any
 
 from duckmind.duckbody import protocol as P
+from duckmind.duckbody.proprio import ProprioConfig
 from duckmind.duckbody.robotd_client import RobotdClient, RobotdError, RobotState
 from duckmind.i18n import carried_words, lst, msg
 from duckmind.life.clock import TPE, DuckClock
 from duckmind.neuro import contract as C
-from duckmind.neuro import walkcal
+from duckmind.neuro import seatcal, walkcal
 from duckmind.neuro.bodylink import (
     GATE_ZH,
     BodyLink,
@@ -1672,6 +1673,9 @@ class NeuroDriver:
         cfg = self.lanes.link
         link = BodyLink(cfg) if cfg is not None else BodyLink()
         link.walk = _walk_map(self._body, link.delay_ms)
+        seated = _seat_proprio(self._body, link.proprio.cfg, link.delay_ms)
+        if seated is not None:
+            link.use_proprio(seated[0], seat=seated[1])
         return link
 
     # ── lifecycle ──
@@ -2521,6 +2525,8 @@ class NeuroDriver:
             "walk_map": None
             if self._link is None or self._link.walk is None
             else self._link.walk.loaded.name,
+            # the loaded seat (seatcal): the measured seat proprio's seated lift levels follow, or None (its own numbers)
+            "seat_cal": None if self._link is None else self._link.seat,
             "errand": self.errand_view(),  # go there: idle | waiting | walking | arrived | gave_up (+ reason)
             **self.telemetry_store.since(int(since)),
         }
@@ -2581,6 +2587,31 @@ def _walk_map(body: Any, delay_ms: float) -> walkcal.WalkMap | None:
     return _WALK_TABLE.map_for(
         walkcal.walk_sha256(Path(policies)), None if collision is None else str(collision), delay_ms
     )
+
+
+_SEAT_TABLE: seatcal.SeatTable | None = None
+
+
+def _seat_proprio(
+    body: Any, cfg: ProprioConfig, delay_ms: float
+) -> tuple[ProprioConfig, str] | None:
+    """proprio's numbers for ``body``'s seat (seatcal: its sit-stand file's sha256 in its policy folder, its collision
+    model, the link's servo command delay) and the seat's name. None without a body, for the seat the numbers were set
+    on, or for a seat not measured on that body with that delay."""
+    global _SEAT_TABLE
+    paths = getattr(body, "paths", None) if body is not None else None
+    policies = getattr(paths, "policies", None)
+    if policies is None:
+        return None
+    if _SEAT_TABLE is None:
+        _SEAT_TABLE = seatcal.load()
+    collision = getattr(body, "collision", None)
+    body_name = None if collision is None else str(collision)
+    sha = seatcal.seat_sha256(Path(policies))
+    seat = _SEAT_TABLE.seat_for(sha, body_name, delay_ms)
+    if seat is None:
+        return None
+    return _SEAT_TABLE.proprio_for(cfg, sha, body_name, delay_ms), seat.name
 
 
 def _sync_head_alpha(lanes: Lanes, body: Any) -> None:

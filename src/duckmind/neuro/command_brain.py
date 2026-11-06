@@ -192,6 +192,7 @@ REASON_MSG = {
     "no_one_seen": msg("neuro.command.reason.no_one_seen"),
     "no_home": msg("neuro.command.reason.no_home"),
     "not_learned": msg("neuro.command.reason.not_learned"),
+    "uneasy": msg("neuro.command.reason.uneasy"),
     "not_running": msg("neuro.command.reason.not_running"),
     "not_yet": msg("neuro.command.reason.not_yet"),
     # the flip (the official roll): what its own senses say against it
@@ -574,9 +575,19 @@ class CommandBrain:
         a trick it has no word for always had (a tilt of the head and an ``inquire`` chirp); a pass is
         carried out like a built-in verb."""
         verb = ticket.command.verb
-        chance, proficiency = self._obey_chance(verb, brain, t_ms)
+        chance, calm, proficiency = self._obey_chance(verb, brain, t_ms)
         draw = random.Random(f"trick:{int(brain.seed)}:{self.seq}").random()
         if draw >= chance:
+            if draw < calm:
+                # it knows the trick (calm and rested it would have done it): a scare or sleepiness took it away —
+                # no "not learned" and no puzzled tilt (2026-11-06: a duck held at proficiency 0.95 said "not learned"
+                # for up to a minute after each fright, the page telling the family it had never learned it)
+                self._record(
+                    ticket, "refused", now, reason="uneasy",
+                    p_obey=round(chance, 3), proficiency=round(proficiency, 3),
+                )  # fmt: skip
+                self._answer(ticket, "refused", "uneasy")
+                return
             self._react_unknown(brain)
             self._record(
                 ticket, "refused", now, reason="not_learned", reaction="tilt",
@@ -608,19 +619,21 @@ class CommandBrain:
         )
         self._answer(ticket, "heard", None, queued=True, beat_s=round(beat, 2))
 
-    def _obey_chance(self, verb: str, brain: Any, t_ms: int) -> tuple[float, float]:
-        """(the chance it does the trick now, its proficiency): from this duck's own state only."""
+    def _obey_chance(self, verb: str, brain: Any, t_ms: int) -> tuple[float, float, float]:
+        """(the chance it does the trick now, the chance a calm and rested duck would, its proficiency): from this
+        duck's own state only."""
         book = brain.learn.tricks
         book.settle(int(brain.genome.gd))
         proficiency = book.proficiency(verb)
+        bond, primary = self._bond(brain), str(getattr(brain.genome, "primary", ""))
         chance = T.obey_probability(
             proficiency,
             fear=float(brain.drives.fear),
             sleepiness=float(brain.drives.sleepiness),
-            bond=self._bond(brain),
-            primary=str(getattr(brain.genome, "primary", "")),
+            bond=bond,
+            primary=primary,
         )
-        return chance, proficiency
+        return chance, T.obey_probability(proficiency, bond=bond, primary=primary), proficiency
 
     def _bond(self, brain: Any) -> float:
         """How close it feels to the person it saw most recently (0 when nobody lately): its own

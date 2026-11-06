@@ -2091,6 +2091,7 @@
 "neuro.command.reason.timeout": {"kind": "server", "src": "7a539ee9e0", "tone": "plain, short, kind", "where": "the command strip's outcome line: the duck tried and did not get there in time", "zh_len": 10},
 "neuro.command.reason.too_dark": {"kind": "server", "src": "53660f1012", "tone": "plain, short", "where": "the command strip's outcome line: why the duck did not do it", "zh_len": 8},
 "neuro.command.reason.too_young": {"kind": "server", "src": "f69380ddb5", "tone": "plain, short, kind", "where": "the command strip's outcome line: an act the duckling has not grown into yet (a hatchling cannot follow or go home)", "zh_len": 12},
+"neuro.command.reason.uneasy": {"kind": "server", "src": "2153c3ef7e", "tone": "plain, short, kind", "where": "the command strip's outcome line: a trick the duck has learned but did not do this time because it is a little scared or sleepy", "zh_len": 22},
 "neuro.command.state.doing": {"kind": "server", "src": "c52b6c1b32", "tone": "one or two words", "where": "the command strip's outcome line: the duck is doing it", "zh_len": 3},
 "neuro.command.state.done": {"kind": "server", "src": "044fd856a5", "tone": "one or two words", "where": "the command strip's outcome line: the duck did it", "zh_len": 3},
 "neuro.command.state.gave_up": {"kind": "server", "src": "520f1c104e", "tone": "one or two words", "where": "the command strip's outcome line: the duck started and gave up (the reason follows)", "zh_len": 3},

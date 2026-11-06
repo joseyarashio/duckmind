@@ -450,6 +450,26 @@ def test_an_untaught_trick_mostly_gets_the_puzzled_tilt(verb: str) -> None:
     assert chirped >= refused // 2  # it says it heard (a call already in its beak may take the place)
 
 
+def test_a_learned_trick_refused_out_of_fear_says_uneasy_not_not_learned() -> None:
+    """A duck taught past the learned line that is a little scared (fear under the afraid gate) sometimes does not do
+    the trick: the page is told it is uneasy, never that it has not learned it, and it gives no puzzled tilt."""
+    from duckmind.neuro import tricks as T
+
+    refused = 0
+    for seed in range(12):
+        brain, clock = _duck(seed=2000 + seed, posture="stand", sightings=_person())
+        _teach(brain, "bow", 0.95)
+        assert 0.95 >= T.LEARNED_AT
+        brain.drives.fear = 0.4  # (afraid is 0.5 and up: this one only lowers the chance)
+        ticket, _ = _tell(brain, clock, "bow", 0.5, posture="stand", sightings=_person())
+        if ticket.answer["state"] != "refused":
+            continue
+        refused += 1
+        assert ticket.answer["reason"] == "uneasy" and ticket.answer.get("reaction") is None
+        assert _last(brain)["reason"] == "uneasy" and _last(brain)["reason_zh"] == CB.REASON_MSG["uneasy"]
+    assert refused >= 2  # (the chance is about a third at this fear: some refusals in 12)
+
+
 def test_a_taught_trick_is_never_done_by_a_duck_that_is_held_or_afraid() -> None:
     held, clock = _duck(posture="stand", sightings=_person())
     _teach(held, "bow", 1.0)

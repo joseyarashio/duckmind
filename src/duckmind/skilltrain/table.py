@@ -35,6 +35,14 @@ crouches (``freeze_*``: chain, no unwind, re-requested while the fear lasts, end
 ``startle_release``) so a startle that turns into a freeze is one crouch and one rise, and a finer
 one-shot grid for per-execution variation. :func:`stage1` stays the training contract.
 
+**On robotd 0.16.0+** (one move at a time: nothing cuts into a running skill, so ``skill_abort`` and
+the releases never run) a held entry (``hold``) ends only at a window's end once nobody asks for it:
+up to the chain window plus one whole window after the last request. :func:`toml_section` with
+``one_move_at_a_time`` writes such entries with a :data:`RENEW_SLOT_S` window instead (the network
+sees the same command each window — every skill network is a plain MLP, robotd's chained restart
+resets nothing it reads), so a run ends at most two slots after the client lets go. Older daemons
+get the table's own windows.
+
 A table travels as ``skills.json`` (:func:`save` / :func:`load`): robotd's fields plus our
 ``family`` / ``level`` / ``postures`` / ``hold`` for the gates, which the TOML never carries.
 """
@@ -45,13 +53,17 @@ import json
 import math
 import os
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 FORMAT = "duckmind-skill-table-1"
 MAX_SKILLS = 30  # robotd intents.rs: the request mask is a u32 with 2 bits reserved
 CHAIN_WINDOW_S = 0.15  # control.rs CHAIN_WINDOW
+# robotd 0.16.0+: a held entry's window (its renewal slot). Below the chain window, so every window ends
+# with a request inside the chain window while the client asks (requests every 20 ms tick: five per slot)
+# and a run ends one to two slots after the last request (≤ 0.2 s; 0.4–1.0 s windows ran on up to 1.15 s).
+RENEW_SLOT_S = 0.1
 DAEMON_OWNED = ("ground_pick", "sit_toggle")  # robotd-params DAEMON_OWNED_SKILLS
 NONE_SENTINEL = "none"
 STANDING_THRESHOLD = 0.05  # duck-control DEFAULT_STANDING_THRESHOLD
@@ -280,11 +292,26 @@ def resolve(
     return [d for d in resolved if not d.removed]
 
 
-def toml_section(entries: Sequence[SkillDef | Entry]) -> str:
+def robotd_defs(
+    entries: Sequence[SkillDef | Entry], *, one_move_at_a_time: bool = False
+) -> list[SkillDef]:
+    """The entries as robotd gets them: robotd's fields only; on a robotd that runs one move at a
+    time (0.16.0+), each held entry's window is its renewal slot (:data:`RENEW_SLOT_S`, module doc)."""
+    defs = []
+    for e in entries:
+        d = e.skill if isinstance(e, Entry) else e
+        if one_move_at_a_time and isinstance(e, Entry) and e.hold and d.chain:
+            d = replace(d, duration=min(d.duration, RENEW_SLOT_S))
+        defs.append(d)
+    return defs
+
+
+def toml_section(entries: Sequence[SkillDef | Entry], *, one_move_at_a_time: bool = False) -> str:
     """The ``[[policy.skill]]`` blocks to append to a ``robotd.toml`` whose ``[policy]`` table
-    is already written (what our live launcher writes into ``/private/tmp/dm-live-*/``).
+    is already written (what our live launcher writes into ``/private/tmp/dm-live-*/``), for a
+    robotd that runs one move at a time or not (:func:`robotd_defs`).
     Raises ValueError on anything :func:`problems` would refuse outright."""
-    defs = [e.skill if isinstance(e, Entry) else e for e in entries]
+    defs = robotd_defs(entries, one_move_at_a_time=one_move_at_a_time)
     refusals = [p for p in problems(defs) if "never chains" not in p]
     if refusals:
         raise ValueError("robotd would refuse this skill table: " + "; ".join(refusals))
@@ -686,4 +713,6 @@ __all__ = [
     "stage1",
     "stage1_live",
     "toml_section",
+    "RENEW_SLOT_S",
+    "robotd_defs",
 ]

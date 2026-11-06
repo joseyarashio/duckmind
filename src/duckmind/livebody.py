@@ -55,6 +55,7 @@ import sys
 import tempfile
 import threading
 import time
+import tomllib
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -64,6 +65,7 @@ from typing import Any, cast
 import duckmind
 from duckmind import bodyhost
 from duckmind.body import BodyIntent
+from duckmind.duckbody.robotd_client import SKILLS_ONE_AT_A_TIME_SINCE, daemon_before
 from duckmind.duckcore import content
 from duckmind.i18n import msg
 from duckmind.robotd import RobotdBodyPort, RobotdOperatorClient
@@ -224,6 +226,25 @@ def robotd_upstream_section(microduck: Path, environ: Mapping[str, str] | None =
         else:
             out += ["", f"[{name}]", f"enabled = {on}"]
     return "\n".join(out) + "\n" if out else ""
+
+
+def robotd_checkout_version(microduck: Path) -> str | None:
+    """The robotd release the ``--microduck`` checkout builds (its workspace ``Cargo.toml``
+    ``[workspace.package] version``, what ``hello`` then says as ``daemon_version``); None when
+    the checkout does not say."""
+    try:
+        doc = tomllib.loads((microduck / "Cargo.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    version = (doc.get("workspace") or {}).get("package", {}).get("version")
+    return version if isinstance(version, str) else None
+
+
+def robotd_one_move_at_a_time(microduck: Path) -> bool:
+    """Whether this checkout's robotd runs one move at a time (0.16.0+: nothing cuts into a running
+    skill; :attr:`RobotdClient.skills_interrupt`, which also takes a daemon that does not say as the
+    newer kind) — its held skills then get renewal slots (:func:`table.robotd_defs`)."""
+    return not daemon_before(robotd_checkout_version(microduck), SKILLS_ONE_AT_A_TIME_SINCE)
 
 
 class LinkWatch:
@@ -684,7 +705,9 @@ class LiveBody:
             _policy_config(self.paths.policies, none_slots=skill_table_none_slots())
             + robotd_control_section(head_alpha)
             + robotd_upstream_section(self.paths.microduck)
-            + verified_skill_section()
+            + verified_skill_section(
+                one_move_at_a_time=robotd_one_move_at_a_time(self.paths.microduck)
+            )
         )
         sock = state / "robotd.sock"
         body_log = (state / "body.log").open("w")

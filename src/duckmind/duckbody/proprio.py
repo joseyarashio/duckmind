@@ -87,6 +87,9 @@ class ProprioConfig:
     lift_load_sit: float = 18.5
     lift_hold_s: float = 0.30
     lift_hold_sit_s: float = 0.40
+    # a sit-stand network whose seat lands in a bounce unloads the legs for a moment this long after robotd's ``sit``
+    # label: the seated light-legs claim waits it out (0: none; neuro.seatcal sets it from the loaded seat's measurement)
+    seat_settle_s: float = 0.0
     flail_load: float = 100.0  # mean over quiet_window_s: stopped, trunk still, legs working hard
     flail_stopped_s: float = 1.0
     flail_hold_s: float = 0.5
@@ -369,7 +372,9 @@ class Proprio:
                 and self.gyro_win.covered_s() >= c.quiet_window_s * 0.8
                 and self.gyro_win.rms() < c.quiet_gyro
             )
-            light_s = self._light.update(load < unsure_load, t)
+            # (the loaded seat's own seat-down unload, seat_settle_s after the sit label, is no hand)
+            seat_down = sit and (t - self._policy_since) / NS < c.seat_settle_s
+            light_s = self._light.update(load < unsure_load and not seat_down, t)
             quiet_s = self._quiet.update(
                 trunk_still
                 and state.policy == "walk"
@@ -377,7 +382,7 @@ class Proprio:
                 and walk_age >= (c.quiet_spinup_reverse_s if reversing else c.quiet_spinup_s),
                 t,
             )
-            lift_s = self._lift.update(load < lift_load and stopped, t)
+            lift_s = self._lift.update(load < lift_load and stopped and not seat_down, t)
             flail_s = self._flail.update(
                 trunk_still
                 and stopped
