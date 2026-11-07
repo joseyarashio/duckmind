@@ -605,11 +605,13 @@ class Clutter:
         goal: tuple[float, float | None] | None = None,
         held: bool = False,
         lmap=None,
+        errand: bool = False,
     ) -> Drive | None:
         """One tick. ``active``: standing, may walk, nothing else has the legs (not docking, lifted, fallen, asleep, in a flight);
         ``want``: the brain asked to walk this tick; ``goal``: where it was walking to, as (bearing from the trunk in rad, range in m
         or None), or None. ``held``: the legs are held this tick (a reflex stop, a ToF touch): the odometry may still creep while the
-        legs push, so a stall is also "held for most of stall_ms"."""
+        legs push, so a stall is also "held for most of stall_ms". ``errand``: the goal is a place somebody pointed at (the escape
+        ends as soon as the way straight to it is clear)."""
         cfg = self.cfg
         if not cfg.enabled:
             return None
@@ -694,7 +696,12 @@ class Clutter:
             goal_open = self._clear(odom, bound, goal[0]) >= min(reach, cfg.goal_open_m)
             if goal[1] is not None and float(goal[1]) <= cfg.goal_there_m:
                 goal_open = True  # (it is there)
-        if self.why != "mapgoal" and out >= self._out_m and ahead_m >= cfg.out_open_m and goal_open:
+        # (GOTHERE-CONTACT-2026-11-07) on a walk to a place somebody pointed at, it is out as soon as the way straight to the place is
+        # clear: the escape's "1 m from the knot" took the legs a median 21 s of a 40 s errand on v8, most of it after the way was open
+        out_now = errand and goal is not None and goal_open
+        if self.why != "mapgoal" and (
+            out_now or (out >= self._out_m and ahead_m >= cfg.out_open_m and goal_open)
+        ):
             self.finished += 1
             self.mode = "idle"
             self._events.clear()

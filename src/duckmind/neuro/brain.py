@@ -342,6 +342,11 @@ ERRAND_NEAR_FACE_RAD = 0.4  # … a smaller miss is faced on the spot too (an ar
 ERRAND_VX = 0.40  # the straight walk at it (the gait's arc speed: a steer within it needs no other speed)
 ERRAND_STEER_GAIN = 1.5  # rad/s of turn asked per rad of the place off the heading, walking at it
 ERRAND_VYAW_MAX = 0.6  # … at most (a straight walk with a small correction, not an arc)
+# (GOTHERE-CONTACT-2026-11-07) a turn on the spot to face the place asks the walk's slowest arc speed (the link turns it in
+# place), so the unstick sense read it as a walk that gets nowhere with a wall in sight: 27 of 59 escapes on v8 errands fired
+# while the duck was turning to face the place. While the errand pivots and the body is turning at least this fast (rad/s, its
+# own gyro) it is not asking to walk; a pivot that does not turn is still pressing.
+ERRAND_PIVOT_TURNING = 0.3
 # Getting unstuck (owner 2026-10-04: pressing into things, stuck in corners; unstick.py): the
 # ToF looks over a low box and the camera is blind below ~0.2 m, so what tells it it is pressing
 # is its own request against its own progress. These are only the cues that something is there.
@@ -2288,7 +2293,7 @@ class NeuroBrain:
             # (GOTHERE-V8) the walk to a place: it faces the place on the spot, then walks straight at it, with no pause of the
             # rhythm's own (a reflex, a look ahead, a corner still hold it: ``halt``)
             vx, vyaw, search_pivot = self._errand_drive(
-                loco_in.bearing, loco_in.range_m, loco_in.vx_cap, loco_in.vyaw_bias
+                loco_in.bearing, loco_in.range_m, loco_in.vx_cap, loco_in.vyaw_bias, away=committed
             )
         else:
             self._errand_facing = False
@@ -2368,6 +2373,7 @@ class NeuroBrain:
             bound=self.bound,
             lmap=self.lastmap,
             goal=(goal, goal_range) if goal is not None else None,
+            errand=errand_walk,
             held=rx.halt
             or (
                 frame.tof.present
@@ -2802,19 +2808,24 @@ class NeuroBrain:
         return cmd
 
     def _errand_drive(
-        self, bearing: float, range_m: float | None, cap: float | None, bias: float
+        self, bearing: float, range_m: float | None, cap: float | None, bias: float, away: float = 0.0
     ) -> tuple[float, float, float]:
         """The walk to a place this tick (GOTHERE-V8): ``(vx, vyaw, pivot side)``. The place well off the heading
         (:data:`ERRAND_FACE_RAD`, near it :data:`ERRAND_NEAR_FACE_RAD`) and a body that turns on the spot (``can_pivot``): it
         turns there to face it until it is within :data:`ERRAND_FACE_DONE_RAD`; else it walks at it, the place's bearing and
-        the reflexes' and the walls' bend (``bias``) steering, at most the cap they set."""
+        the reflexes' and the walls' bend (``bias``) steering, at most the cap they set. ``away``: the side an escape is
+        still turning away to (+1 left, −1 right, 0 none) — while it does, it does not turn on the spot back the other way,
+        toward the place and the thing it backed off (GOTHERE-CONTACT-2026-11-07: on v8 errands 36 % of the escapes' turning
+        away was the facing turn going back against it)."""
         near = range_m is not None and range_m < ERRAND_NEAR_M
         if self._errand_facing:
             self._errand_facing = abs(bearing) > ERRAND_FACE_DONE_RAD and self.can_pivot
         elif self.can_pivot:
             self._errand_facing = abs(bearing) >= (ERRAND_NEAR_FACE_RAD if near else ERRAND_FACE_RAD)
+        side = 1.0 if bearing > 0.0 else -1.0
+        if self._errand_facing and side * away < 0.0:
+            self._errand_facing = False
         if self._errand_facing:
-            side = 1.0 if bearing > 0.0 else -1.0
             vx, vyaw = legal_walk(SEEK_ARC[0], SEEK_ARC[1] * side)
             return vx, vyaw, side
         speed = ERRAND_VX if cap is None else min(ERRAND_VX, cap)
@@ -2919,13 +2930,16 @@ class NeuroBrain:
         )
         if contact:
             self.clutter.note(t_ms, odom[0], odom[1], "bump")
+        # what it asks of its legs (a skill's own walk too: the integrated brain sets this to the final command) or what the body
+        # is being given — but a turn on the spot to face the place it is sent to is no walk (see ERRAND_PIVOT_TURNING)
+        want_vx = max(self._req_vx, frame.body.vx)
+        if self._pivot and self.errand.active and abs(frame.body.gyro[2]) >= ERRAND_PIVOT_TURNING:
+            want_vx = 0.0
         esc = self._unstick.step(
             t_ms,
             odom,
             active=active and not self.clutter.active,
-            # what it asks of its legs (a skill's own walk too: the integrated brain sets this to
-            # the final command) or what the body is being given
-            want_vx=max(self._req_vx, frame.body.vx),
+            want_vx=want_vx,
             cue=cue,
             contact=contact,
             held=frame.body.posture == "stand" and abs(frame.body.vx) < 0.1,
