@@ -20,6 +20,12 @@ second of a 1 s reverse arc, measured on the live robotd (2026-11-06, from stand
 second v5 turns ≈ 24° left / 38° right and v8 sent the same twist ≈ 60° either way. proprio judges a graze by the heading
 swing its v5 own-turn model does not explain (``brushed``), and v8 backs off fast enough to count as progress, so a v8 back
 arc that lasted past proprio's 1 s spin-up was read as a graze (live wall check: 15 of v8's 63 brushes, 0 of v5's 48).
+
+proprio's own-turn model (``brushed``: the heading swing the commands do not explain) reads the brain's twists, so it takes
+the reference walk's measured turning, and each walk's ``turn_lag``: how late it answers a turn-command change (the command
+``dead_s`` ago through a first-order lag of ``lag_s``, fitted on live roam tick logs, 2026-11-06: v5 0.20 + 0.05 s, v8
+0.10 + 0.05 s). With the latest command times the window instead, a brain that re-steers every 100–300 ms read most
+forward 'brushed' right after a turn-command change (BRUSH-MODEL-2026-11-06).
 """
 
 from __future__ import annotations
@@ -27,14 +33,19 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+
+from duckmind.duckbody.proprio import ProprioConfig
 
 DATA = Path(__file__).with_name("walk_response.json")
 WALK_FILE = "velstand.onnx"
-FIX_ROUNDS = (
-    4  # alternate turning-rate and speed solves this many times (the speed barely moves the rate)
-)
+# alternate turning-rate and speed solves this many times (the speed barely moves the rate)
+FIX_ROUNDS = 4
+# A walk turns on the spot when, asked for PIVOT_VYAW standing (vx 0), it turns at least PIVOT_SHARE_MIN of it to both sides
+# (measured: v8 1.18-1.20 rad/s at 1.0; v5 0.00). A pivot the brain asks for is then the walk's own turn in place.
+PIVOT_VYAW = 1.0
+PIVOT_SHARE_MIN = 0.8
 
 
 @dataclass(frozen=True)
@@ -52,6 +63,10 @@ class WalkResponse:
     yaw: tuple[tuple[float, ...], ...]
     # curiosity's 1 s back arc (vx −0.40…−0.30): turn and path speed over its first second (None: not measured)
     back_arc: WalkResponse | None = None
+    # (vyaw, turning rate) standing (vx 0); empty: not measured
+    in_place: tuple[tuple[float, float], ...] = ()
+    # how late it answers a turn-command change (dead time, first-order lag; s); None: not measured
+    turn_lag: tuple[float, float] | None = None
 
     @staticmethod
     def of(entry: Mapping[str, object]) -> WalkResponse:
@@ -63,6 +78,7 @@ class WalkResponse:
         vxs = tuple(float(v) for v in entry["vx"])  # type: ignore[union-attr]
         vyaws = tuple(float(v) for v in entry["vyaw"])  # type: ignore[union-attr]
         back = entry.get("back_arc")
+        lag = entry.get("turn_lag")
         out = WalkResponse(
             walk_sha256=str(entry["walk_sha256"]),
             name=str(entry["name"]),
@@ -77,6 +93,17 @@ class WalkResponse:
             else WalkResponse.of(
                 {**{k: entry[k] for k in ("walk_sha256", "name", "body", "delay_ms")}, **back}  # type: ignore[dict-item]
             ),
+            in_place=tuple(
+                (float(w), float(r))
+                for w, r in zip(
+                    entry.get("in_place_vyaw") or (),  # type: ignore[call-overload]
+                    entry.get("in_place_yaw_rate") or (),  # type: ignore[call-overload]
+                    strict=True,
+                )
+            ),
+            turn_lag=None
+            if not isinstance(lag, Mapping)
+            else (float(lag["dead_s"]), float(lag["lag_s"])),
         )
         if list(vxs) != sorted(set(vxs)) or list(vyaws) != sorted(set(vyaws)):
             raise ValueError(f"walk response {out.name}: the grid is not increasing")
@@ -89,6 +116,18 @@ class WalkResponse:
 
     def covers(self, vx: float) -> bool:
         return self.vxs[0] <= vx <= self.vxs[-1]
+
+    @property
+    def pivots(self) -> bool:
+        """Whether this walk turns on the spot (see :data:`PIVOT_SHARE_MIN`)."""
+        at = {round(w, 3): r for w, r in self.in_place}
+        left, right = at.get(PIVOT_VYAW), at.get(-PIVOT_VYAW)
+        return (
+            left is not None
+            and right is not None
+            and left >= PIVOT_SHARE_MIN * PIVOT_VYAW
+            and -right >= PIVOT_SHARE_MIN * PIVOT_VYAW
+        )
 
     def _row_at(self, table: tuple[tuple[float, ...], ...], vx: float) -> list[float]:
         """``table`` along vyaw at forward command ``vx`` (linear between the grid's rows, held at its ends)."""
@@ -230,6 +269,23 @@ class WalkTable:
         if abs(loaded.delay_ms - delay_ms) > 1e-6 or abs(ref.delay_ms - delay_ms) > 1e-6:
             return None
         return WalkMap(ref, loaded)
+
+    def proprio_for(
+        self, cfg: ProprioConfig, walk_sha256: str | None, body: str | None, delay_ms: float
+    ) -> ProprioConfig:
+        """``cfg`` with its own-turn model for a body running the walk ``walk_sha256`` (module doc): the reference walk's
+        measured turning and the loaded walk's measured lag; ``cfg`` itself for an unmeasured walk, a walk measured on
+        another body or with another delay."""
+        loaded = None if walk_sha256 is None else self.walks.get(walk_sha256)
+        ref = self.walks.get(self.reference)
+        if loaded is None or ref is None or (body is not None and loaded.body != body):
+            return cfg
+        if abs(loaded.delay_ms - delay_ms) > 1e-6 or abs(ref.delay_ms - delay_ms) > 1e-6:
+            return cfg
+        out = replace(cfg, forward_turn=ref)
+        if loaded.turn_lag is not None:
+            out = replace(out, turn_dead_s=loaded.turn_lag[0], turn_lag_s=loaded.turn_lag[1])
+        return out
 
 
 def load(path: Path = DATA) -> WalkTable:

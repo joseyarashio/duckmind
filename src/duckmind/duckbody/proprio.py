@@ -44,7 +44,11 @@ keeps *levels* (:class:`~duckmind.duckbody.protocol.ProprioView`) and reports *e
     spot counts); *brushed* (grazed) = a 15–60° heading swing the command does not explain while
     still progressing — "explain" by the gait's measured turn (bias + gain × vyaw, the
     motion model walkexec's look_veto uses: a straight walk drifts ~10°/s right and an arc turns
-    at ~60 % of its command), not by the command itself; *stumbled* (tripped) = trunk rate over 3 rad/s with doubled leg load, a
+    at ~60 % of its command; the brain's walk's measured table when the link gives one), not by the command itself, and
+    by the commands of the whole window, each answered late (``turn_dead_s`` + ``turn_lag_s``: robotd ramps the twist and
+    the gait turns its stride over a step), not by the latest command times the window — the brain re-steers every
+    100–300 ms, and the latest command alone read 82 of 111 forward 'brushed' in the wall check within 1 s of a turn-command
+    change (BRUSH-MODEL-2026-11-06); *stumbled* (tripped) = trunk rate over 3 rad/s with doubled leg load, a
     fall flag or a tilt over 20°. Odometry that never moves (the headless path) disables blocked.
 
 Pure: no clock, no I/O; integers where they leave the module (:class:`ProprioView`).
@@ -55,6 +59,7 @@ from __future__ import annotations
 import math
 from collections import deque
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from duckmind.duckbody.footfalls import Footfalls
 from duckmind.duckbody.protocol import ProprioView
@@ -63,6 +68,13 @@ from duckmind.duckbody.robotd_client import RobotState
 NS = 1_000_000_000
 UP_POLICIES = frozenset({"walk", "stand"})
 POSTURE_POLICIES = frozenset({"walk", "stand", "sit"})
+
+
+class TurnTable(Protocol):
+    """A walk's measured answer to a forward twist (:class:`duckmind.neuro.walkcal.WalkResponse`): ``at(vx, vyaw)`` →
+    (path speed m/s, turning rate rad/s)."""
+
+    def at(self, vx: float, vyaw: float) -> tuple[float, float]: ...
 
 
 @dataclass(frozen=True)
@@ -130,11 +142,20 @@ class ProprioConfig:
     # turn itself for this long after it (live 2026-10-24: 22 of 29 'stumbled' edges at a turn's end); only
     # a trunk that tips (or a fall) is a trip then
     own_turn_s: float = 0.6
+    # when a turn command changes, the heading follows late: the command ``turn_dead_s`` ago through a first-order lag of
+    # ``turn_lag_s`` (fitted on the roam tick logs of 2 × 30 min per walk, BRUSH-MODEL-2026-11-06: v5 0.20 + 0.05 s;
+    # the link sets the loaded walk's numbers from walkcal)
+    turn_dead_s: float = 0.20
+    turn_lag_s: float = 0.05
+    # the brain's walk's measured turning (walkcal's reference table, set by the link); None: bias + gain × vyaw
+    forward_turn: TurnTable | None = None
 
     def expected_yaw_rate(self, vx: float, vyaw: float) -> float:
-        """How fast the walk turns at this command (rad/s): the gait's measured model."""
+        """How fast the walk turns at this command once it answers it (rad/s): the gait's measured model."""
         if vx == 0.0:
             return vyaw
+        if vx > 0.0 and self.forward_turn is not None:
+            return self.forward_turn.at(vx, vyaw)[1]
         return (self.yaw_bias if vx > 0 else self.yaw_bias_reverse) + self.yaw_gain * vyaw
 
     def expected_speed(self, vx: float) -> float:
@@ -228,6 +249,13 @@ class Proprio:
         self.load_win = _Window(2.0)
         self.load_short = _Window(c.quiet_window_s)
         self.odom_win: deque[tuple[int, float, float, float]] = deque()
+        # the own-turn model: the commands' turning rates (t_ns, rad/s) still to be answered, the modelled rate now, and the
+        # heading it has turned through (rad, since the start) at each odom_win sample
+        self._turn_cmds: deque[tuple[int, float]] = deque()
+        self._turn_rate = 0.0
+        self._turn_heading = 0.0
+        self._turn_t: int | None = None
+        self.turn_win: deque[float] = deque()
         self._quiet = _Held()
         self._light = _Held()
         self._lift = _Held()
@@ -270,6 +298,26 @@ class Proprio:
             return True
         self._last_edge[name] = t_ns
         return False
+
+    def _own_turn(self, t_ns: int, rate: float) -> float:
+        """The heading (rad) the walk has turned through by ``t_ns`` by itself: ``rate`` is the turning the command of this
+        tick asks for (0 when not walking); the body answers each command ``turn_dead_s`` later, through a first-order lag
+        of ``turn_lag_s``."""
+        c = self.cfg
+        self._turn_cmds.append((t_ns, rate))
+        due = t_ns - int(c.turn_dead_s * NS)
+        while len(self._turn_cmds) >= 2 and self._turn_cmds[1][0] <= due:
+            self._turn_cmds.popleft()
+        first_t, first_rate = self._turn_cmds[0]
+        target = first_rate if first_t <= due else 0.0  # (nothing answered yet: the duck stood)
+        if self._turn_t is not None and t_ns > self._turn_t:
+            dt = (t_ns - self._turn_t) / NS
+            before = self._turn_rate
+            follow = 1.0 - math.exp(-dt / c.turn_lag_s) if c.turn_lag_s > 0.0 else 1.0
+            self._turn_rate = before + follow * (target - before)
+            self._turn_heading += 0.5 * (before + self._turn_rate) * dt
+        self._turn_t = t_ns
+        return self._turn_heading
 
     # ── the step ──
 
@@ -447,10 +495,13 @@ class Proprio:
         if (x, y, yaw) != (0.0, 0.0, 0.0):
             self.odom_seen_moving = True
         self.odom_win.append((t, x, y, yaw))
+        own = c.expected_yaw_rate(vx, vyaw) if walking_cmd else 0.0
+        self.turn_win.append(self._own_turn(t, own))
         while self.odom_win and t - self.odom_win[0][0] > int(
             max(c.blocked_window_s, c.brush_window_s) * NS
         ):
             self.odom_win.popleft()
+            self.turn_win.popleft()
         on_floor = self.lift == "ground" and not self.fall_open
         if state.policy.startswith("quick_turn"):
             self._turn_ns = t
@@ -486,7 +537,7 @@ class Proprio:
                 slow = path < c.blocked_ratio * want
                 slow_s = self._slow.update(slow, t)
                 dyaw = _wrap(yaw - yaw0)
-                expect_yaw = c.expected_yaw_rate(vx, vyaw) * span
+                expect_yaw = self.turn_win[-1] - self.turn_win[0]
                 jerk = abs(_wrap(dyaw - expect_yaw)) > c.jerk_rad
                 heavy = (
                     load is not None

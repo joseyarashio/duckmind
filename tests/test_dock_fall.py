@@ -29,7 +29,8 @@ def test_no_whole_body_skill_starts_from_a_reverse() -> None:
     # the docking request ends (the brain's startle) while the last reverse is still the last twist sent
     out = link.tick(state(t + DT, policy="walk"), BodyRequest(skill=STARTLE, posture="stand"))
     assert not [i for i in out.intents if i.method == "robot.do"]
-    assert any(e["kind"] == "skill.refused" and e["why"] == "docked" for e in out.events)
+    # (a reverse the docking walk has left behind is reported as what it is: backing up, not "in the nest")
+    assert any(e["kind"] == "skill.refused" and e["why"] == "backing" for e in out.events)
     # standing still for two seconds later the same scare gets its startle
     t += DT
     for _ in range(100):
@@ -37,6 +38,33 @@ def test_no_whole_body_skill_starts_from_a_reverse() -> None:
         link.tick(state(t, policy="stand"), BodyRequest(posture="stand"))
     out = link.tick(state(t + DT, policy="stand"), BodyRequest(skill=STARTLE, posture="stand"))
     assert [i.params["skill"] for i in out.intents if i.method == "robot.do"] == [STARTLE]
+
+
+def test_on_the_dock_the_reason_is_docked_and_backing_away_elsewhere_it_is_backing() -> None:
+    names = [STARTLE, G.ABORT]
+    link, t = _reversing_link(names)
+    # still docking (the docking walk's own reverse): the dock is the reason
+    out = link.tick(
+        state(t + DT, policy="walk"),
+        BodyRequest(vx=-0.4, docking=True, posture="stand", skill=STARTLE),
+    )
+    assert any(e["kind"] == "skill.refused" and e["why"] == "docked" for e in out.events)
+    # backing away from a thing in a reverse arc (curiosity's back arc), nowhere near the dock: refused all the same, and said so
+    away = BodyLink()
+    away.skills = G.SkillGuard(names)
+    t = 0.0
+    for _ in range(40):
+        t += DT
+        away.tick(
+            state(t, policy="walk"), BodyRequest(vx=-0.4, vyaw=1.0, back_arc=True, posture="stand")
+        )
+    assert away.streamer.last[0] < 0.0
+    out = away.tick(
+        state(t + DT, policy="walk"),
+        BodyRequest(vx=-0.4, vyaw=1.0, back_arc=True, posture="stand", skill=STARTLE),
+    )
+    assert not [i for i in out.intents if i.method == "robot.do"]
+    assert any(e["kind"] == "skill.refused" and e["why"] == "backing" for e in out.events)
 
 
 def test_a_running_skill_is_not_a_reverse_to_the_guard() -> None:

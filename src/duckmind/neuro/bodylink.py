@@ -575,8 +575,10 @@ class BodyLink:
         # twist it was made from), so proprio's own-turn model reads the twist it was tuned with.
         self.walk: walkcal.WalkMap | None = None
         self.walk_sent: tuple[tuple[float, float], tuple[float, float]] | None = None
-        # the loaded seat's name when proprio's seated lift levels follow it (use_proprio; None: proprio's own numbers)
+        # the loaded seat's and stance's names when proprio's lift levels follow them (use_proprio; None: its own numbers)
         self.seat: str | None = None
+        # this tick's pivot is the walk's own turn on the spot (walkcal)
+        self.pivot_in_place = False
 
     def planned_state(self, state: RobotState) -> RobotState:
         """``state`` as the brain reads it: robotd's requested and applied twists in the units the brain plans in (the
@@ -600,9 +602,14 @@ class BodyLink:
 
     def use_proprio(self, cfg: ProprioConfig, *, seat: str | None = None) -> None:
         """proprio's numbers for this body (the loaded seat's lift levels, :mod:`duckmind.neuro.seatcal`, named
-        ``seat``): thresholds only, so the windows the senses keep are unchanged."""
+        ``seat``; the loaded walk's own-turn model, :mod:`duckmind.neuro.walkcal`): thresholds and models only, so the
+        windows the senses keep are unchanged."""
         self.proprio.cfg = cfg
         self.seat = seat
+
+    def _walk_pivots(self) -> bool:
+        """The loaded walk turns on the spot (walkcal: measured), so pivots are its own turn in place."""
+        return self.walk is not None and self.walk.loaded.pivots
 
     # ── helpers ──
 
@@ -943,7 +950,10 @@ class BodyLink:
         refused: list[tuple[str, str]],
         t_ns: int,
     ) -> bool:
-        why = check_intent(intent, guard, self.cfg.limits)
+        limits = self.cfg.limits
+        if self.pivot_in_place:
+            limits = replace(limits, turn_in_place=True)
+        why = check_intent(intent, guard, limits)
         if why is None:
             out.append(intent)
             return True
@@ -1171,7 +1181,8 @@ class BodyLink:
             or posture_now != "stand"
             or transitioning,
             goal=request.docking or request.approach or request.toward is not None,
-            qturning=qturning,
+            # (a walk that turns on the spot runs the wall pivot itself: never "lost" for want of the skill)
+            qturning=qturning or self._walk_pivots(),
         )
         if wall_side:
             stop = True
@@ -1256,6 +1267,23 @@ class BodyLink:
             elif twist[0] < 0.0 and backing_arc:
                 twist = self.walk.back_arc(*twist)
                 self.walk_sent = (twist, planned)
+        # (the loaded walk turns on the spot — walkcal: v8 — so a pivot the brain asks for, and the wall pivot, are the walk's own turn
+        # in place, not robotd's quick-turn skill: on robotd 0.16+ a skill cannot be cut short, a quick turn runs its whole window)
+        brain_pivot = (
+            request.pivot != 0.0
+            and wants_walk
+            and not stop
+            and not righting
+            and not request.panic
+            and not request.docking
+        )
+        turn_side = request.pivot if brain_pivot else float(wall_side)
+        self.pivot_in_place = (
+            self._walk_pivots() and turn_side != 0.0 and not held_flight and not coasting
+        )
+        if self.pivot_in_place:
+            twist = (0.0, math.copysign(walkcal.PIVOT_VYAW, turn_side))
+            self.walk_sent = None
 
         # ── posture (sit_toggle until robotd's policy says it) ──
         # A stand-up or sit-down is a balance manoeuvre (spec §10.3: 4.7–6.3 % of sit–stand
@@ -1374,7 +1402,8 @@ class BodyLink:
                 righting=self.righting.active,
                 held=view.lifted,
                 # (a wall pivot is no skill on the dock: the docking choreography's forward legs, held at a door jamb, are turned away from too)
-                docked=(request.docking and not wall_side) or backing,
+                docked=request.docking and not wall_side,
+                backing=backing,
                 # (s1b:fix) how fast it walks (the guard's per-skill speed limit) and whether
                 # the trunk is still (its settle rule after a rise, a stop or another skill)
                 vx=float(state.applied[0]),
@@ -1401,9 +1430,9 @@ class BodyLink:
             if SG.quick_turn_names(self.skills.names) and not flying:
                 pivoting = (
                     request.pivot != 0.0 and wants_walk and not stop and not righting
-                    and not request.panic and not request.docking
+                    and not request.panic and not request.docking and not self.pivot_in_place
                 )  # fmt: skip
-                if wall_side and ask is None:
+                if wall_side and ask is None and not self.pivot_in_place:
                     ask = SG.quick_turn_entry(float(wall_side), self.skills.names)
                 elif pivoting and ask is None:
                     ask = SG.quick_turn_entry(request.pivot, self.skills.names)

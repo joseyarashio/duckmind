@@ -30,7 +30,8 @@ from typing import Any, Protocol
 from duckmind.duckbody.protocol import Intent
 
 API_VERSION = 37
-# robotd runs one move at a time from this daemon on: no skill cuts into another (RobotdClient.skills_interrupt)
+# robotd runs one move at a time from this daemon on: no skill cuts into another (RobotdClient.skills_interrupt) — and
+# none starts from the seat (RobotdClient.moves_from_seat; the same release, pollen-robotics/microduck f93ecf7)
 SKILLS_ONE_AT_A_TIME_SINCE = (0, 16, 0)
 
 
@@ -374,6 +375,13 @@ class RobotdClient:
         0.16.0 let it (``skill_abort``, the releases); 0.16.0 made it one move at a time
         (pollen-robotics/microduck f93ecf7), and a daemon that does not say its version is taken
         as the newer kind (relying on a cut-in that never comes is the failure to avoid)."""
+        return daemon_before(self.hello.get("daemon_version"), SKILLS_ONE_AT_A_TIME_SINCE)
+
+    @property
+    def moves_from_seat(self) -> bool:
+        """Whether this robotd starts a skill on a seated robot: daemons before 0.16.0 do; 0.16.0 refuses every move from
+        the seat but standing up ("none from the seat": a network started from a pose it was not trained from), in its log
+        only. A daemon that does not say its version is taken as the newer kind, as for :attr:`skills_interrupt`."""
         return daemon_before(self.hello.get("daemon_version"), SKILLS_ONE_AT_A_TIME_SINCE)
 
     def read_state(self, timeout_s: float) -> RobotState | None:

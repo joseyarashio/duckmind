@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from pathlib import Path
 
+from duckmind.bodyhost import scene_for
 from duckmind.world import homelayout, layoutcheck, objlib
 
 HOME = Path(homelayout.HOMES_DIR) / "real_home.json"
@@ -135,3 +137,44 @@ def test_a_hop_over_a_sill_is_a_way_in_but_a_curb_is_not() -> None:
 
     assert reach("threshold_30")["rooms"]["bedroom"] > 90  # 30 mm: a hop
     assert objlib.library().item("curb_80").passability == "block"
+
+
+def test_a_duck_on_its_side_rests_on_real_homes_floor_as_on_the_official_one() -> None:
+    """FloorFix 2026-11-06: the stuck-on-its-side duck in real_home is held by what its legs lie against (walls,
+    the sofa, chair legs) or is v5's own dead-end pose — not by the floor. real_home's floor is the official plane
+    with the official contact properties, so a duck dropped on its side on open floor settles the same in both."""
+    import os
+
+    import pytest
+
+    np = pytest.importorskip("numpy")
+    mujoco = pytest.importorskip("mujoco")
+    folder = os.environ.get(homelayout.MJCF_ENV)
+    if not folder or not (Path(folder) / "scene_allcollisions.xml").is_file():
+        pytest.skip("DUCKMIND_MICRODUCK_MJCF (official microduck MJCF folder) is not set")
+
+    def lie_down(model) -> np.ndarray:
+        model.opt.timestep = homelayout.BODY_TIMESTEP_S
+        data = mujoco.MjData(model)
+        free = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, homelayout.ROBOT_FREEJOINT)
+        a = model.jnt_qposadr[free]
+        # open floor, on its side
+        data.qpos[a : a + 7] = [2.4, -0.9, 0.12, math.cos(0.78), math.sin(0.78), 0.0, 0.0]
+        mujoco.mj_forward(model, data)
+        for k in range(model.nu):  # the motors hold the joints where they are
+            data.ctrl[k] = data.qpos[model.jnt_qposadr[model.actuator_trnid[k, 0]]]
+        for _ in range(600):
+            mujoco.mj_step(model, data)
+        return np.array(data.qpos[a : a + 7])
+
+    home = homelayout.compose(
+        homelayout.load("real_home,no_nest"), "allcollisions", mjcf_dir=folder
+    )
+    for key in list(home.keys):
+        home.delete(key)
+    flat = mujoco.MjSpec.from_file(str(scene_for(Path(folder), "allcollisions")))
+    for key in list(flat.keys):
+        flat.delete(key)
+    in_home, on_flat = lie_down(home.compile()), lie_down(flat.compile())
+    assert np.allclose(in_home, on_flat, atol=1e-6)
+    assert in_home[2] < 0.09  # it did lie down (trunk ~65 mm up)

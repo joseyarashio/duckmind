@@ -200,6 +200,22 @@
       0.4965
      ]
     ]
+   },
+   "in_place_vyaw": [
+    -1.0,
+    -0.6,
+    0.6,
+    1.0
+   ],
+   "in_place_yaw_rate": [
+    -0.0008,
+    -0.001,
+    0.002,
+    0.001
+   ],
+   "turn_lag": {
+    "dead_s": 0.2,
+    "lag_s": 0.05
    }
   },
   {
@@ -430,8 +446,25 @@
       1.0062
      ]
     ]
+   },
+   "in_place_vyaw": [
+    -1.0,
+    -0.6,
+    0.6,
+    1.0
+   ],
+   "in_place_yaw_rate": [
+    -1.1883,
+    -0.8124,
+    0.7741,
+    1.2011
+   ],
+   "turn_lag": {
+    "dead_s": 0.1,
+    "lag_s": 0.05
    }
   }
  ],
- "about_back_arc": "back_arc (V8Brush 2026-11-06): curiosity's 1 s reverse arc — the turn (rad/s) and the distance moved (m/s) over the first second of a 1 s command on the real robotd in the simulator (flat floor, 20 ms servo command delay), median of 3 runs from standing and 3 from walking at 0.35 m/s per command."
+ "about_back_arc": "back_arc (V8Brush 2026-11-06): curiosity's 1 s reverse arc \u2014 the turn (rad/s) and the distance moved (m/s) over the first second of a 1 s command on the real robotd in the simulator (flat floor, 20 ms servo command delay), median of 3 runs from standing and 3 from walking at 0.35 m/s per command.",
+ "about_turn_lag": "turn_lag (BrushModel 2026-11-06): how late the walk answers a turn-command change \u2014 the command dead_s ago through a first-order lag of lag_s, in the brain's units (the twist proprio reads); fitted on the live roam tick logs (2 \u00d7 30 min per walk, real robotd + world server, real_home, 20 ms servo command delay) as the pair that best explains the 1 s heading changes of forward walking with no ToF return within 300 mm (rms of the unexplained swing)."
 }

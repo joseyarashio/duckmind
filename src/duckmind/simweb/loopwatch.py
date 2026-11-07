@@ -3,7 +3,8 @@
 The sighting it exists for: a long-lived duck, a bang, a flee that ends against something, and then ``turn_around`` ↔ ``bump_stop`` four times in a
 row. That could not be reproduced on fresh boots (0 loops in about 150 flights on two trees), so the live server keeps the last
 :data:`KEEP_S` seconds of what the driver saw and, when the loop happens (at least :data:`LOOP_BUMPS` ``bump_stop`` onsets within
-:data:`LOOP_WINDOW_S` seconds and :data:`LOOP_RADIUS_M` metres of each other), writes them to ``<folder>/<time>.jsonl.gz``: the neuro samples
+:data:`LOOP_WINDOW_S` seconds and :data:`LOOP_RADIUS_M` metres of each other), writes them to ``<folder>/<time>.jsonl.gz`` (the server's own folder,
+:func:`duckmind.paths.loops_dir`: the live launch names the live folder, any other server writes under its life or a temporary folder): the neuro samples
 (behaviour, reflex, wanted / applied twist, policy), the link's decisions (gates, refusals, the twist sent, its events: the robotd skill
 starts and refusals, the proprio edges), the request the brain made (walk, panic, pivot, skill) and the truth pose. At most one file per
 :data:`MIN_GAP_S`; one log line when it writes. The write is done by a daemon thread on a copy, so a tick never waits for the disk.
@@ -32,25 +33,30 @@ BUMP = "bump_stop"
 
 
 def default_folder() -> Path:
-    return paths.data_dir() / "live" / "loops"
+    """The folder of a server that lives no life (:func:`duckmind.paths.loops_dir`)."""
+    return paths.loops_dir()
 
 
 class LoopWatch:
     """Feed it one record per driver tick; it keeps :data:`KEEP_S` of them and watches the ``bump_stop`` onsets.
 
-    ``clock`` (monotonic seconds) is for the gap between files, ``stamp`` for the file's name, ``log`` for the one line; all three are
-    injectable for the tests, ``sync`` writes in the caller's thread (the tests) instead of a daemon thread."""
+    ``folder``: where the captures go, or a function that names it when a capture is written (the driver's life may attach
+    after the watch starts); None: :func:`default_folder`. ``clock`` (monotonic seconds) is for the gap between files,
+    ``stamp`` for the file's name, ``log`` for the one line; all three are injectable for the tests, ``sync`` writes in the
+    caller's thread (the tests) instead of a daemon thread."""
 
     def __init__(
         self,
-        folder: Path | str | None = None,
+        folder: Path | str | Callable[[], Path] | None = None,
         *,
         clock: Callable[[], float] = time.monotonic,
         stamp: Callable[[], str] | None = None,
         log: Callable[[str], None] | None = None,
         sync: bool = False,
     ) -> None:
-        self.folder = Path(folder) if folder is not None else default_folder()
+        self._folder: Path | Callable[[], Path] = (
+            default_folder() if folder is None else folder if callable(folder) else Path(folder)
+        )
         self.clock = clock
         self.stamp = stamp or (lambda: time.strftime("%Y%m%d-%H%M%S"))
         self.log = log or (lambda line: print(line, flush=True))
@@ -61,6 +67,11 @@ class LoopWatch:
         self.last_write: float | None = None
         self.hits = 0  # loops seen (written or not)
         self.written: list[Path] = []
+
+    @property
+    def folder(self) -> Path:
+        """Where a capture written now goes."""
+        return self._folder() if callable(self._folder) else self._folder
 
     def feed(self, record: Mapping[str, Any]) -> Path | None:
         """One tick. ``record`` has ``t_ms``, ``reflex`` and ``pose`` (x, y, heading in metres / rad, or None) at least; the rest is kept as it is.

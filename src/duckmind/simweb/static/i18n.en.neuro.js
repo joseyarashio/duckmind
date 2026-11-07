@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "neuro", {
 "neuro.act.body_shake.body": "stamps its feet in place, wiggles its body, head shaking along",
 "neuro.act.body_shake.name": "Shake it off",
@@ -855,6 +855,7 @@ DuckI18n.load("en", "neuro", {
 "neuro.skill.posture.sit": "sitting",
 "neuro.skill.posture.stand": "standing",
 "neuro.skill.posture.walk": "walking",
+"neuro.skill.reason.backing": "It is backing up: no whole-body moves while it reverses",
 "neuro.skill.reason.busy": "Another move is still running",
 "neuro.skill.reason.continue": "Staying crouched after the startle (no standing up first)",
 "neuro.skill.reason.docked": "It is in its nest: no whole-body moves",
@@ -867,6 +868,7 @@ DuckI18n.load("en", "neuro", {
 "neuro.skill.reason.ok": "OK to do",
 "neuro.skill.reason.posture": "Right now it is {now}; this move is only done when {need} (only those postures were tested)",
 "neuro.skill.reason.posture_any": "This move cannot be done in the current posture (it was not tested in this posture)",
+"neuro.skill.reason.seat": "Sitting: this body does no moves while seated; it has to stand up first",
 "neuro.skill.reason.settle": "It just stood up, stopped, or finished another move: let it steady itself first",
 "neuro.skill.reason.speed": "Walking too fast: this move was only tested at slower walking speeds",
 "neuro.skill.reason.tilt": "The body is tilted: steady it first",

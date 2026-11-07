@@ -194,3 +194,33 @@ def test_at_the_tof_stop_a_straight_walk_pivots_but_an_arc_is_let_through() -> N
         link, t, STRAIGHT, lambda y: _depth(250) if abs(y) < 0.8 else _depth(None)
     )
     assert link.wall_pivots == 1 and [a for o in outs for a in _do(o)][0] in G.QUICK_TURN_ENTRIES
+
+
+def test_a_walk_that_turns_on_the_spot_pivots_away_from_the_wall_itself() -> None:
+    """(2026-11-05, walkcal) On a walk that turns standing (v8), the wall pivot is the walk's own turn in place: no quick-turn
+    skill (robotd 0.16+ cannot cut one short), the twist (0, ±1.0) until the heading is away, then the walk goes on."""
+    from duckmind.neuro import walkcal
+
+    table = walkcal.load()
+    v8 = next(w for w in table.walks.values() if w.pivots)
+    link = _link()
+    link.walk = table.map_for(v8.walk_sha256, v8.body, link.delay_ms) or walkcal.WalkMap(
+        table.walks[table.reference], v8
+    )
+    t = _settle(link)
+    yaw, outs = 0.0, []
+    # (the stub body does not move on: much longer and proprio reads the legs as unsure)
+    for _ in range(100):
+        t += DT
+        wall = _depth(250, touch=True) if abs(yaw) < 0.8 else _depth(None)
+        out = link.tick(state(t, policy="walk", yaw=yaw), ARC, depth=wall)
+        outs.append(out)
+        for vx, vyaw in moves(out.intents):
+            if vx == 0.0:
+                yaw += 1.2 * vyaw * DT  # (v8 standing: 1.2 rad/s at 1.0 asked)
+    assert all(not _do(o) for o in outs)  # no skill asked
+    assert all(not o.refused for o in outs), [o.refused for o in outs if o.refused][:3]
+    turning = [m for o in outs for m in moves(o.intents) if m[0] == 0.0 and m[1] != 0.0]
+    assert turning and all(m == (0.0, -1.0) for m in turning)  # to the side of the brain's arc
+    assert link.wall_pivots == 1 and 1.0 <= abs(yaw) <= 2.3
+    assert any(m[0] > 0.3 for m in moves(outs[-1].intents))  # walking on after it

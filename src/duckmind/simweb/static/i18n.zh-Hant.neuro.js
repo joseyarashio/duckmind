@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hant / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hant / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hant", "neuro", {
 "neuro.act.body_shake.body": "原地小步踩一踩、身體晃一晃，頭跟著甩",
 "neuro.act.body_shake.name": "抖抖身體",
@@ -855,6 +855,7 @@ DuckI18n.load("zh-Hant", "neuro", {
 "neuro.skill.posture.sit": "坐著",
 "neuro.skill.posture.stand": "站著",
 "neuro.skill.posture.walk": "走路中",
+"neuro.skill.reason.backing": "正在往後退：退的時候不做全身動作",
 "neuro.skill.reason.busy": "另一個動作還在做",
 "neuro.skill.reason.continue": "接著剛才的驚嚇繼續蹲著（不先站起來）",
 "neuro.skill.reason.docked": "在窩裡：不做全身動作",
@@ -867,6 +868,7 @@ DuckI18n.load("zh-Hant", "neuro", {
 "neuro.skill.reason.ok": "可以做",
 "neuro.skill.reason.posture": "現在{now}，這個動作只在{need}時才做（只有這些姿勢測過）",
 "neuro.skill.reason.posture_any": "現在的姿勢不能做這個動作（沒有在這個姿勢測過）",
+"neuro.skill.reason.seat": "坐著：這個身體坐著不做動作，要先站起來",
 "neuro.skill.reason.settle": "剛站起來、剛停下來或剛做完別的動作：先站穩一下",
 "neuro.skill.reason.speed": "走得太快：這個動作只在比較慢的走路速度測過",
 "neuro.skill.reason.tilt": "身體歪了：先站穩",

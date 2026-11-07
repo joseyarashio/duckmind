@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "neuro", {
 "neuro.act.body_shake.body": "제자리에서 종종 발을 구르고 몸을 흔들흔들, 머리도 같이 털어요",
 "neuro.act.body_shake.name": "몸 털기",
@@ -855,6 +855,7 @@ DuckI18n.load("ko", "neuro", {
 "neuro.skill.posture.sit": "앉아 있을",
 "neuro.skill.posture.stand": "서 있을",
 "neuro.skill.posture.walk": "걷는 중일",
+"neuro.skill.reason.backing": "뒤로 물러나는 중이에요. 물러나는 동안에는 온몸 동작을 하지 않아요",
 "neuro.skill.reason.busy": "다른 동작이 아직 진행 중이에요",
 "neuro.skill.reason.continue": "방금 놀란 뒤에 그대로 웅크려요 (먼저 일어서지 않아요)",
 "neuro.skill.reason.docked": "둥지 안에 있어요. 온몸 동작은 하지 않아요",
@@ -867,6 +868,7 @@ DuckI18n.load("ko", "neuro", {
 "neuro.skill.reason.ok": "해도 돼요",
 "neuro.skill.reason.posture": "지금은 {now} 상태예요. 이 동작은 {need}일 때만 해요 (그 자세에서만 시험했어요)",
 "neuro.skill.reason.posture_any": "지금 자세에서는 이 동작을 할 수 없어요 (이 자세에서는 시험하지 않았어요)",
+"neuro.skill.reason.seat": "앉아 있어요. 이 몸은 앉은 채로는 동작을 하지 않아서 먼저 일어나야 해요",
 "neuro.skill.reason.settle": "방금 일어났거나, 멈췄거나, 다른 동작을 끝냈어요. 먼저 자세를 잡게 해요",
 "neuro.skill.reason.speed": "너무 빨리 걷고 있어요. 이 동작은 더 느린 걸음에서만 시험했어요",
 "neuro.skill.reason.tilt": "몸이 기울어졌어요. 먼저 자세를 잡아요",

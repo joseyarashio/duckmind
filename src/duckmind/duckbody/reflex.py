@@ -100,6 +100,9 @@ class Limits:
     approach_vx_mm: int = APPROACH_VX_MM
     min_step_vx_mm: int = MIN_STEP_VX_MM
     vyaw_max_mrad: int = VYAW_MAX_MRAD
+    # a walk policy that turns on the spot (measured: neuro/walkcal, v8 turns 1.2 rad/s in place at 1.0 asked); off, a
+    # turn in place is refused (v5 turned 0-11 degrees in 6 s)
+    turn_in_place: bool = False
 
 
 # ── reflexes ──────────────────────────────────────────────────────────────────
@@ -281,7 +284,7 @@ def check_intent(intent: Intent, ctx: GuardContext, limits: Limits = Limits()) -
         return "no walking while lifted, unsure, fallen or righting"
     if ctx.capturing:
         return "no walking while a frame is being captured"
-    if vx == 0:
+    if vx == 0 and not limits.turn_in_place:
         return "turning in place (vx 0, vyaw ≠ 0) is forbidden"
     if abs(vyaw) > limits.vyaw_max_mrad:
         return f"|vyaw| {abs(vyaw)} mrad/s over {limits.vyaw_max_mrad}"

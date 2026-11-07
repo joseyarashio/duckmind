@@ -37,6 +37,7 @@ the page's last), the voice route serves the neural duck on screen, and the flag
 from __future__ import annotations
 
 import argparse
+import gc
 import itertools
 import json
 import math
@@ -133,6 +134,9 @@ SAVE_EVERY_S = 30.0  # real time saves the duck at most this often (and on every
 # speed) is time the duck was switched off (the server was down, the computer slept): it counts
 # the way the family's absence does (half growth days, never full ones), not as awake time.
 OFFLINE_GAP_S = 300
+# What start-up loaded (a grown duck's replayed life is hundreds of thousands of objects) is kept out
+# of the garbage collector's full passes; this often the heap is settled again (settle_heap).
+HEAP_SETTLE_S = 600.0
 # The code this process runs, watched so the page can say a restart is due.
 WATCHED = ("duckcore", "simweb", "livebody.py", "bodyhost.py", "world", "eye")
 
@@ -1990,6 +1994,11 @@ def main(argv: list[str] | None = None) -> None:
     # (the packs build in the background in about 2 s; docs/i18n.md).
     packs.warm()
     i18nwire.literal_index()
+    # (the life, Duck Core and the brain are loaded now: set them aside from the collector's full passes)
+    settle_heap()
+    threading.Thread(
+        target=_settle_heap_every, args=(HEAP_SETTLE_S,), name="heap-settle", daemon=True
+    ).start()
     try:
         serve_until_stopped(server, state, life, life_host)
     finally:
@@ -1999,6 +2008,30 @@ def main(argv: list[str] | None = None) -> None:
         if bridge is not None:
             bridge.stop()
         hub.stop()
+
+
+def settle_heap() -> int:
+    """Take everything alive now out of the garbage collector's full passes (``gc.freeze``), after
+    collecting what is already garbage — including anything an earlier settle had set aside that has
+    since been dropped (``gc.unfreeze`` first: a duck switched away, a re-hatched Duck Core).
+
+    Why (docs/design/neural-duck/MAP-STALL-2026-11-07.md): a grown duck's Duck Core replays its whole
+    life into memory (蛋黃: ~350,000 objects, mostly its event log). Every full collection walked all
+    of them — ~110 ms, every ~45 s, on whichever thread allocated next, usually the brain's tick.
+    Settled, a full pass walks only what was made since. Nothing the duck decides reads the collector.
+    Returns how many objects are set aside."""
+    gc.unfreeze()
+    gc.collect()
+    gc.freeze()
+    return gc.get_freeze_count()
+
+
+def _settle_heap_every(period_s: float) -> None:
+    """Settle again now and then: what the duck built since (and anything dropped since) is not left
+    to the full passes for long, and nothing set aside outlives being dropped by more than a period."""
+    while True:
+        time.sleep(period_s)
+        settle_heap()
 
 
 def content_mismatch_words(error: SaveContentMismatch, path: Path | None) -> str:

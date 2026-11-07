@@ -56,6 +56,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from duckmind import paths
 from duckmind.duckbody import protocol as P
 from duckmind.duckbody.proprio import ProprioConfig
 from duckmind.duckbody.robotd_client import RobotdClient, RobotdError, RobotState
@@ -795,8 +796,9 @@ class NeuroDriver:
         self.lanes = lanes or load_lanes(spec)
         self.telemetry_store = Telemetry()
         self.stats = _Stats()
-        # round 5: watches for a bump_stop loop and writes the last minute to a file (it never touches the body)
-        self.loopwatch = LoopWatch(os.environ.get("DUCKMIND_LOOP_DIR") or None)
+        # round 5: watches for a bump_stop loop and writes the last minute to a file (it never touches the body); the file
+        # goes to this server's own folder (paths.loops_dir: the life it lives, named when a capture is written)
+        self.loopwatch = LoopWatch(self._loop_folder)
         # the duck's time of day: its own day clock (a daytime start, the page's choice); a
         # ``clock`` set from outside (a test, Duck Core's clock) is used instead when given
         self.clock: Callable[[], datetime] | None = None
@@ -1235,11 +1237,14 @@ class NeuroDriver:
             if names:
                 # the installed table's rules (the postures that passed its gates, the hourly caps
                 # from its strain numbers); the provisional defaults otherwise; and whether this
-                # robotd lets a skill cut into another (before daemon 0.16.0 only)
-                link.skills = SW.skill_guard(names, interrupt=client.skills_interrupt)
+                # robotd lets a skill cut into another / start from the seat (before daemon 0.16.0 only)
+                seated_moves = client.moves_from_seat
+                link.skills = SW.skill_guard(
+                    names, interrupt=client.skills_interrupt, seated_moves=seated_moves
+                )
                 seed = int(getattr(self.spec, "seed", 7) or 7)
                 self._skill_picker = SG.SkillPicker(
-                    seed=seed * 7919 + 17, available=link.skills.names
+                    seed=seed * 7919 + 17, available=link.skills.names, seated_moves=seated_moves
                 )
         if link.skills is None:
             self._answer_play(refused="missing")
@@ -1303,6 +1308,27 @@ class NeuroDriver:
         )
         if picker.hold_still:  # a person's press waits for the back-steps: the walk stops first, as a scared duck's does
             request = replace(request, vx=0.0, vyaw=0.0, panic=False, pivot=0.0)
+        if picker.wants_stand and picker.script is not None:
+            # (V8Seat) a seated act's standing move on a robotd that starts nothing from the seat: it stands up first —
+            # unless that move could not come anyway (in a hand, on the dock, down, its wear caps): then it stays seated.
+            # (the guard keeps robotd's clock, as the link calls it)
+            link_s = state.t_ns / 1_000_000_000
+            view = SG.BodyView(
+                state.policy,
+                twist,
+                fallen=bool(state.fallen),
+                righting=link.righting.active,
+                held=link.proprio.lift == "lifted",
+                docked=request.docking,
+            )
+            entry = picker.script.entry
+            if picker.script.asked or link.skills.may_come(entry, view, link_s):
+                request = replace(request, posture="stand")
+                rule = link.skills.rules.get(entry)
+                if skill == entry and rule is not None and not link.skills.settled(rule, view, link_s):
+                    skill = None  # standing, not steady yet: asked once the guard's settle time is over
+            else:
+                picker.cancel()
         if skill:
             return replace(request, skill=skill, skill_manual=manual, skill_chain=chain)
         return request
@@ -1673,10 +1699,19 @@ class NeuroDriver:
         cfg = self.lanes.link
         link = BodyLink(cfg) if cfg is not None else BodyLink()
         link.walk = _walk_map(self._body, link.delay_ms)
-        seated = _seat_proprio(self._body, link.proprio.cfg, link.delay_ms)
-        if seated is not None:
-            link.use_proprio(seated[0], seat=seated[1])
+        # proprio's own-turn model follows the loaded walk (walkcal), its seated lift levels the loaded seat (seatcal)
+        turned = _walk_proprio(self._body, link.proprio.cfg, link.delay_ms)
+        seated = _seat_proprio(self._body, turned, link.delay_ms)
+        sense, seat = seated if seated is not None else (turned, None)
+        link.use_proprio(sense, seat=seat)
         return link
+
+    def _loop_folder(self) -> Path:
+        """Where the loop watch writes now (:func:`duckmind.paths.loops_dir`): under the folder of the life this driver
+        lives, else a folder of this server's own — never the live duck's unless the launch names it."""
+        record = getattr(self.life, "record", None)
+        folder = getattr(record, "folder", None)
+        return paths.loops_dir(None if folder is None else Path(folder))
 
     # ── lifecycle ──
 
@@ -2525,7 +2560,7 @@ class NeuroDriver:
             "walk_map": None
             if self._link is None or self._link.walk is None
             else self._link.walk.loaded.name,
-            # the loaded seat (seatcal): the measured seat proprio's seated lift levels follow, or None (its own numbers)
+            # the loaded seat and stance (seatcal): what proprio's seated / standing lift levels follow, or None (its own)
             "seat_cal": None if self._link is None else self._link.seat,
             "errand": self.errand_view(),  # go there: idle | waiting | walking | arrived | gave_up (+ reason)
             **self.telemetry_store.since(int(since)),
@@ -2589,15 +2624,34 @@ def _walk_map(body: Any, delay_ms: float) -> walkcal.WalkMap | None:
     )
 
 
+def _walk_proprio(body: Any, cfg: ProprioConfig, delay_ms: float) -> ProprioConfig:
+    """proprio's own-turn model for ``body``'s walk policy (walkcal: the reference walk's measured turning and the loaded
+    walk's measured lag); ``cfg`` itself without a body or for a walk not measured on that body with that delay."""
+    global _WALK_TABLE
+    paths = getattr(body, "paths", None) if body is not None else None
+    policies = getattr(paths, "policies", None)
+    if policies is None:
+        return cfg
+    if _WALK_TABLE is None:
+        _WALK_TABLE = walkcal.load()
+    collision = getattr(body, "collision", None)
+    return _WALK_TABLE.proprio_for(
+        cfg,
+        walkcal.walk_sha256(Path(policies)),
+        None if collision is None else str(collision),
+        delay_ms,
+    )
+
+
 _SEAT_TABLE: seatcal.SeatTable | None = None
 
 
 def _seat_proprio(
     body: Any, cfg: ProprioConfig, delay_ms: float
 ) -> tuple[ProprioConfig, str] | None:
-    """proprio's numbers for ``body``'s seat (seatcal: its sit-stand file's sha256 in its policy folder, its collision
-    model, the link's servo command delay) and the seat's name. None without a body, for the seat the numbers were set
-    on, or for a seat not measured on that body with that delay."""
+    """proprio's numbers for ``body``'s seat and standing stance (seatcal: its sit-stand and walk files' sha256 in its
+    policy folder, its collision model, the link's servo command delay) and their names. None without a body, for the
+    seat and walk the numbers were set on, or for a seat and walk not measured on that body with that delay."""
     global _SEAT_TABLE
     paths = getattr(body, "paths", None) if body is not None else None
     policies = getattr(paths, "policies", None)
@@ -2608,10 +2662,14 @@ def _seat_proprio(
     collision = getattr(body, "collision", None)
     body_name = None if collision is None else str(collision)
     sha = seatcal.seat_sha256(Path(policies))
+    walk_sha = walkcal.walk_sha256(Path(policies))
     seat = _SEAT_TABLE.seat_for(sha, body_name, delay_ms)
-    if seat is None:
+    stance = _SEAT_TABLE.stance_for(walk_sha, body_name, delay_ms)
+    if seat is None and stance is None:
         return None
-    return _SEAT_TABLE.proprio_for(cfg, sha, body_name, delay_ms), seat.name
+    out = _SEAT_TABLE.proprio_for(cfg, sha, body_name, delay_ms)
+    out = _SEAT_TABLE.stand_proprio_for(out, walk_sha, body_name, delay_ms)
+    return out, " + ".join(x.name for x in (seat, stance) if x is not None)
 
 
 def _sync_head_alpha(lanes: Lanes, body: Any) -> None:

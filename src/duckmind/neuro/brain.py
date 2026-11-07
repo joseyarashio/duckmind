@@ -331,6 +331,17 @@ NOVELTY_RANGE_M = 1.6
 NOVELTY_YIELDS_TO = ("name", "voice", "person_new", "hand_hover", "beat", *S.URGENT_FEATURES)
 NOVELTY_YIELD_AT = 0.2
 ERRAND_GO = 0.9  # a walk to a place somebody pointed at: how much of the time it walks (0..1; the rhythm's own `go`)
+# (GOTHERE-V8-2026-11-06) the walk to a place faces it on the spot, then walks straight at it, without the rhythm's pauses. The
+# fair clicks lost their time to arcs that carried the duck away while it turned (26 % of the time, the place getting farther) and
+# to pauses (30 %): it closed on the place only ~10 % of the time. With the quick turn (``can_pivot``; on a walk that turns on the
+# spot, the walk's own turn in place) a turn is made where it stands and ends where the place is ahead.
+ERRAND_FACE_RAD = 0.6  # the place this far off the heading: it turns on the spot to face it …
+ERRAND_FACE_DONE_RAD = 0.25  # … until it is this near the heading
+ERRAND_NEAR_M = 0.5  # nearer than this to the place …
+ERRAND_NEAR_FACE_RAD = 0.4  # … a smaller miss is faced on the spot too (an arc there circles the place)
+ERRAND_VX = 0.40  # the straight walk at it (the gait's arc speed: a steer within it needs no other speed)
+ERRAND_STEER_GAIN = 1.5  # rad/s of turn asked per rad of the place off the heading, walking at it
+ERRAND_VYAW_MAX = 0.6  # … at most (a straight walk with a small correction, not an arc)
 # Getting unstuck (owner 2026-10-04: pressing into things, stuck in corners; unstick.py): the
 # ToF looks over a low box and the camera is blind below ~0.2 m, so what tells it it is pressing
 # is its own request against its own progress. These are only the cues that something is there.
@@ -735,6 +746,7 @@ class NeuroBrain:
         self._walk_recent = 0.0  # recent measured walking (a leaky integral, s)
         self._odom_prev: tuple[float, float] | None = None
         self._odom_now: tuple[float, float, float] = (0.0, 0.0, 0.0)  # its own latest odometry pose (errands)
+        self._errand_facing = False  # the walk to a place turns on the spot to face it (GOTHERE-V8)
         self._odom_t_prev: int | None = None
         self._stepping = False
         self._last_step_s = -1e9  # when it last asked for a walk (s)
@@ -2272,6 +2284,14 @@ class NeuroBrain:
         self._loco, lo = M.loco_step(self._loco_p, self._loco, loco_in, t_ms)
         vx, vyaw = lo.vx, lo.vyaw
         search_pivot = 0.0
+        if errand_walk and loco_in.bearing is not None and not loco_in.halt:
+            # (GOTHERE-V8) the walk to a place: it faces the place on the spot, then walks straight at it, with no pause of the
+            # rhythm's own (a reflex, a look ahead, a corner still hold it: ``halt``)
+            vx, vyaw, search_pivot = self._errand_drive(
+                loco_in.bearing, loco_in.range_m, loco_in.vx_cap, loco_in.vyaw_bias
+            )
+        else:
+            self._errand_facing = False
         if seek_arc and not rx.halt:
             # (dock:build) looking for its nest: it turns round in a tight arc between the sweeps —
             # on a side that has room for it (2026-10-04: the blind arc ignored the ToF, the wall
@@ -2780,6 +2800,27 @@ class NeuroBrain:
             vx, vyaw = legal_walk(max(cmd.vx, ARC_VX_MIN), side * R.TURN_AWAY_VYAW)
             return replace(cmd, vx=vx, vyaw=vyaw, approach=False)
         return cmd
+
+    def _errand_drive(
+        self, bearing: float, range_m: float | None, cap: float | None, bias: float
+    ) -> tuple[float, float, float]:
+        """The walk to a place this tick (GOTHERE-V8): ``(vx, vyaw, pivot side)``. The place well off the heading
+        (:data:`ERRAND_FACE_RAD`, near it :data:`ERRAND_NEAR_FACE_RAD`) and a body that turns on the spot (``can_pivot``): it
+        turns there to face it until it is within :data:`ERRAND_FACE_DONE_RAD`; else it walks at it, the place's bearing and
+        the reflexes' and the walls' bend (``bias``) steering, at most the cap they set."""
+        near = range_m is not None and range_m < ERRAND_NEAR_M
+        if self._errand_facing:
+            self._errand_facing = abs(bearing) > ERRAND_FACE_DONE_RAD and self.can_pivot
+        elif self.can_pivot:
+            self._errand_facing = abs(bearing) >= (ERRAND_NEAR_FACE_RAD if near else ERRAND_FACE_RAD)
+        if self._errand_facing:
+            side = 1.0 if bearing > 0.0 else -1.0
+            vx, vyaw = legal_walk(SEEK_ARC[0], SEEK_ARC[1] * side)
+            return vx, vyaw, side
+        speed = ERRAND_VX if cap is None else min(ERRAND_VX, cap)
+        turn = _clip(ERRAND_STEER_GAIN * bearing, -ERRAND_VYAW_MAX, ERRAND_VYAW_MAX) + bias
+        vx, vyaw = legal_walk(speed, _clip(turn, -1.0, 1.0), approach=True)
+        return vx, vyaw, 0.0
 
     def _search_pivot(self, t_ms: int, odom: tuple[float, float, float], side: float) -> float:
         """The side to pivot to this tick in a command's search (0: it stands and looks): a quick turn of

@@ -5,9 +5,11 @@ Each folder is chosen in this order: its environment variable, else the machine'
 
 * ``duckmind_home()`` — ``$DUCKMIND_HOME``, else ``~/.duckmind`` (the ducks' lives and saves
   are here too).
-* ``data_dir()`` — caches, live records and measurement records (the voice banks, the live
-  loops, the motion table, the voice-stream helper build): ``$DUCKMIND_DATA_DIR``, else
-  ``data`` in ``paths.toml``, else ``<home>/data``.
+* ``data_dir()`` — caches, live records and measurement records (the voice banks, the motion
+  table, the voice-stream helper build): ``$DUCKMIND_DATA_DIR``, else ``data`` in
+  ``paths.toml``, else ``<home>/data``.
+* ``loops_dir(life)`` — a server's loop-watcher captures: ``$DUCKMIND_LOOP_DIR``, else
+  ``<life>/loops``, else a temporary folder of the process's own (never the live duck's).
 * ``policy_root()`` — the ONNX policy sets: ``$DUCKMIND_POLICY_ROOT``, else ``policies`` in
   ``paths.toml``, else ``<home>/policies``. Inside it, ``policy_dir()`` (the shipped set:
   ``$DUCKMIND_POLICY_DIR``, else ``<policy root>/current``) and ``v5_policy_dir()`` (the v5
@@ -31,6 +33,7 @@ the variables at any time.
 from __future__ import annotations
 
 import os
+import tempfile
 import tomllib
 from pathlib import Path
 
@@ -42,6 +45,7 @@ POLICY_ENV = "DUCKMIND_POLICY_DIR"
 V5_ENV = "DUCKMIND_V5_DIR"
 UPSTREAM_ENV = "DUCKMIND_UPSTREAM"
 MJCF_ENV = "DUCKMIND_MICRODUCK_MJCF"
+LOOP_ENV = "DUCKMIND_LOOP_DIR"
 KEYS = ("data", "policies", "upstream")
 MJCF_IN_UPSTREAM = Path("microduck_rl/src/mjlab_microduck/robot/microduck")
 
@@ -108,6 +112,20 @@ def v5_policy_dir() -> Path:
     """The v5 release set: ``$DUCKMIND_V5_DIR``, else ``<policy root>/releases/seed-v5``."""
     raw = os.environ.get(V5_ENV)
     return Path(raw).expanduser() if raw else policy_root() / "releases" / "seed-v5"
+
+
+def loops_dir(life: Path | None = None) -> Path:
+    """Where a server writes its loop-watcher captures (:mod:`duckmind.simweb.loopwatch`): ``$DUCKMIND_LOOP_DIR``
+    (the live launch names its own folder this way: ``<data>/live/loops``), else ``<life>/loops`` for a server that
+    lives the duck in the folder ``life``, else a folder of this process's own in the system's temporary folder
+    (``duckmind-loops-<pid>``). By default a server never writes into another server's folder, the live one's
+    included."""
+    raw = os.environ.get(LOOP_ENV)
+    if raw:
+        return Path(raw).expanduser()
+    if life is not None:
+        return Path(life).expanduser() / "loops"
+    return Path(tempfile.gettempdir()) / f"duckmind-loops-{os.getpid()}"
 
 
 def upstream_root() -> Path:

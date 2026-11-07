@@ -200,13 +200,19 @@ def skill_guard(
     environ: Mapping[str, str] | None = None,
     *,
     interrupt: bool = True,
+    seated_moves: bool = True,
 ) -> G.SkillGuard:
     """A :class:`guard.SkillGuard` for the skills robotd loaded, with the installed table's
     rules (the provisional defaults when the table carries none); ``interrupt``: robotd lets a
-    skill cut into a running one (``RobotdClient.skills_interrupt``)."""
+    skill cut into a running one (``RobotdClient.skills_interrupt``); ``seated_moves``: robotd
+    starts a skill on a seated robot (``RobotdClient.moves_from_seat``)."""
     doc = table_doc(environ)
     return G.SkillGuard(
-        available, guard_rules(doc), global_per_hour=global_per_hour(doc), interrupt=interrupt
+        available,
+        guard_rules(doc),
+        global_per_hour=global_per_hour(doc),
+        interrupt=interrupt,
+        seated_moves=seated_moves,
     )
 
 

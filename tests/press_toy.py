@@ -78,6 +78,13 @@ class PressToy:
         self.x, self.y, self.yaw = x, y, yaw
         self.x0, self.y0, self.yaw0 = x, y, yaw
         self.link = BodyLink()
+        # proprio's own-turn model for THIS body (as the driver gives a real walk its measured one, walkcal): the toy turns
+        # at 0.6 × vyaw − 0.05 the moment it is told; a real walk answers 0.1–0.25 s late (BRUSH-MODEL-2026-11-06)
+        self.link.use_proprio(
+            dataclasses.replace(
+                self.link.proprio.cfg, yaw_bias=-0.05, yaw_gain=0.6, turn_dead_s=0.0, turn_lag_s=0.0
+            )
+        )
         self.t = 0.0
         self.last: Any = None
         self.applied = (0.0, 0.0)

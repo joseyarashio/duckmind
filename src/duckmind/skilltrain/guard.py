@@ -261,7 +261,9 @@ REASONS_ZH = {
     "tilt": msg("neuro.skill.reason.tilt"),
     "held": msg("neuro.skill.reason.held"),
     "docked": msg("neuro.skill.reason.docked"),
+    "backing": msg("neuro.skill.reason.backing"),
     "fallen": msg("neuro.skill.reason.fallen"),
+    "seat": msg("neuro.skill.reason.seat"),
     "busy": msg("neuro.skill.reason.busy"),
     "gap": msg("neuro.skill.reason.gap"),
     "hourly": msg("neuro.skill.reason.hourly"),
@@ -303,6 +305,8 @@ class BodyView:
     righting: bool = False
     held: bool = False
     docked: bool = False
+    # walking backwards (not a skill that steps back by design): no whole-body skill starts from a reverse (DOCK-FALL-2026-10-11)
+    backing: bool = False
     vx: float | None = None
     speed_mps: float | None = None
     gyro_rad_s: float | None = None
@@ -352,8 +356,12 @@ class SkillGuard:
         abort_tilt_deg: float = ABORT_TILT_DEG,
         window_s: float = WINDOW_S,
         interrupt: bool = True,
+        seated_moves: bool = True,
     ) -> None:
         self.interrupt = bool(interrupt)
+        # this robotd starts a skill on a seated robot (daemons before 0.16.0); a newer one refuses every move from the
+        # seat but standing up (in its log only): a seated entry is then refused here (``seat``), never sent
+        self.seated_moves = bool(seated_moves)
         base = dict(rules if rules is not None else DEFAULT_RULES)
         self.names = frozenset(n for n in available if n in base)
         self.rules = {n: base[n] for n in self.names}
@@ -440,23 +448,38 @@ class SkillGuard:
             speeds.append(float(view.speed_mps))
         return max(speeds)
 
-    def _count(self, skill: str, rule: Rule, now_s: float) -> Decision | None:
-        """The wear budget (None: within it). The runs that followed a scare count CHAIN_WEIGHT."""
+    def _capped(self, skill: str, rule: Rule, now_s: float) -> str | None:
+        """Which wear cap a run of ``skill`` now would break (``gap`` / ``hourly`` / ``total``), or None. The runs that
+        followed a scare count CHAIN_WEIGHT."""
         if not rule.counted:
             return None
         self._trim(now_s)
         runs = self.history[skill]
         if runs and now_s - runs[-1] < rule.min_gap_s:
-            return self._no(skill, "gap")
+            return "gap"
         used = len(runs) - (1.0 - CHAIN_WEIGHT) * len(self.chained[skill])
         if rule.per_hour is not None and used >= rule.per_hour - 1e-9:
-            return self._no(skill, "hourly")
+            return "hourly"
         if (
             len(self.all) - (1.0 - CHAIN_WEIGHT) * len(self.all_chained)
             >= self.global_per_hour - 1e-9
         ):
-            return self._no(skill, "total")
+            return "total"
         return None
+
+    def _count(self, skill: str, rule: Rule, now_s: float) -> Decision | None:
+        """The wear budget (None: within it)."""
+        code = self._capped(skill, rule, now_s)
+        return None if code is None else self._no(skill, code)
+
+    def may_come(self, skill: str, view: BodyView, now_s: float) -> bool:
+        """Whether ``skill`` could start once the body stands, as far as anything but the posture and its settle time
+        says: loaded, not held, docked, fallen or righting, and within its wear caps. Nothing is counted or refused (the
+        stand-up before a seated act's standing move asks it first)."""
+        rule = self.rules.get(skill)
+        if rule is None or view.held or view.docked or view.backing or view.fallen or view.righting:
+            return False
+        return self._capped(skill, rule, now_s) is None
 
     def _record(self, skill: str, now_s: float, chain: bool) -> None:
         self.history[skill].append(now_s)
@@ -489,6 +512,8 @@ class SkillGuard:
             return self._no(skill, "held")
         if view.docked:
             return self._no(skill, "docked")
+        if view.backing:
+            return self._no(skill, "backing")
         if view.fallen or view.righting:
             return self._no(skill, "fallen")
         if posture == "skill":
@@ -514,6 +539,8 @@ class SkillGuard:
             return Decision(True, skill, "continue", REASONS_ZH["continue"])
         if posture not in rule.postures:
             return self._no(skill, "posture", posture_reason(rule.postures, posture))
+        if posture == "sit" and not self.seated_moves:
+            return self._no(skill, "seat")  # (robotd 0.16+ would refuse it in its own log)
         if (
             posture == "walk"
             and rule.max_walk_mps is not None
@@ -747,6 +774,7 @@ class Script:
     patience_s: float = (
         0.0  # keep asking this long while the guard says wait (a settle after a rise)
     )
+    stand_first: bool = False  # a seated act's standing move: the body stands up first (SkillPicker.wants_stand)
 
 
 # the brain's acts that start a short held run of a B skill (standing only; the guard decides)
@@ -770,6 +798,11 @@ BRAIN_AFTER: dict[str, tuple[str, float, float]] = {
 CORNER_TURN_S = (1.2, 1.8)  # an on-the-spot turn out of a corner: ~60–90° at 52 °/s
 CORNER_QUICK_TURN_S = (0.5, 0.8)  # … the quick turn (2.0 rad/s command, ~2.3 turned): ~65–105°
 SCRIPT_CONFIRM_S = 0.4
+# (V8Seat 2026-11-06) robotd 0.16+ starts no move from the seat (SkillGuard.seated_moves): a seated act that v5 shows with
+# its seated move (the stretch: ``stretch_sit``, a half-rise) stands up and does its standing move instead (``stretch_tall``,
+# trained from standing); the duck sits back down when it is over. It must have started this long after the act began
+# (the rise ≈ 1 s, robotd's 2 s sit ramp if it has just sat, the 1.5 s settle after the rise), else it is given up.
+STAND_FIRST_S = 8.0
 
 # ── (startle-hop, 2026-10-10) a startle includes two small steps back ──────────────────────────────────────────────────────────────
 # robotd's ``hop_back`` is "the largest startle plus 2–3 quick back-steps" (the table's note): the crouch with the neck pulled
@@ -784,7 +817,8 @@ HOP_DIP_FIRST = False  # standing: the startle dip at its level first, then the 
 HOP_GIVE_UP_DIP_S = 1.5  # the back-steps did not happen: the plain startle follows, if the scare is no older than this
 # refusals that end the wait (the others — the trunk not slow enough yet, something still running — are waited out)
 HOP_HARD_REFUSALS = frozenset(
-    {"unknown", "posture", "speed", "tilt", "held", "docked", "fallen", "gap", "hourly", "total"}
+    {"unknown", "posture", "speed", "tilt", "held", "docked", "backing", "fallen"}
+    | {"gap", "hourly", "total"}
 )
 
 
@@ -812,7 +846,9 @@ class SkillPicker:
       held crouch of its own;
     * ``flee`` (≥ 0.8, room behind) → ``hop_back``; ``body_shake`` → ``shake_1`` (``shake_2`` at
       ≥ 0.75); ``stretch_yawn`` / ``wake_ritual`` → ``stretch_tall`` standing, ``stretch_sit``
-      seated (:attr:`mapping`).
+      seated (:attr:`mapping`). On a robotd that starts no move from the seat (``seated_moves``
+      False: 0.16+) a seated one stands up first and stretches standing (:data:`STAND_FIRST_S`,
+      :attr:`wants_stand`).
 
     Without ``now_s`` it behaves as the Stage-1 picker did (one name per onset, the four-level
     grid, fixed freezes)."""
@@ -829,6 +865,7 @@ class SkillPicker:
     last_reflex_seq: int | None = None
     seed: int = 0
     available: frozenset[str] | None = None  # the entries robotd loaded (None: every live one)
+    seated_moves: bool = True  # robotd starts a skill on a seated robot (SkillGuard.seated_moves)
     episode: Episode | None = None
     one_shot: tuple[str, float, float] | None = None  # (entry, level, t) of the last one-shot
     last_release: float | None = None
@@ -852,6 +889,12 @@ class SkillPicker:
 
     def __post_init__(self) -> None:
         self.rng = random.Random(self.seed)
+
+    @property
+    def wants_stand(self) -> bool:
+        """A seated act's standing move is under way: the body must stand (the caller asks robotd's stand) until it
+        has run or been given up; then the brain's own posture again."""
+        return self.script is not None and self.script.stand_first
 
     # ── helpers ──
     def _names(self, order: Iterable[str]) -> list[str]:
@@ -995,7 +1038,7 @@ class SkillPicker:
         self.script = None
 
     def _script_step(
-        self, now_s: float, base: str, label: str, fear_onset: bool
+        self, now_s: float, base: str, label: str, fear_onset: bool, posture: str = "stand"
     ) -> str | None | bool:
         """The script's request this tick: an entry name, ``None`` (nothing: it is over), or
         ``False`` (no script: the picker goes on)."""
@@ -1016,6 +1059,13 @@ class SkillPicker:
             return s.end if s.end in names and base == s.entry else None
         if running:
             s.confirmed = True
+        if s.stand_first and not s.asked:
+            # a seated act's standing move: nothing is asked until the body stands (wants_stand)
+            if now_s - s.t0 > s.patience_s:
+                self.script, self.script_over = None, now_s
+                return None
+            if posture != "stand":
+                return None
         if s.hold_s <= 0.0:
             # a one-shot: asked once (again while the guard says wait, up to ``patience_s``); over
             # when it ran and its window ended, or was not taken
@@ -1164,7 +1214,7 @@ class SkillPicker:
 
         # a timed run (the page's button, a greeting bow, a lie-low, a turn out of a corner)
         fear_onset = reflex in FEAR_REFLEXES and onset
-        stepped = self._script_step(now_s, base, label or "", fear_onset)
+        stepped = self._script_step(now_s, base, label or "", fear_onset, posture)
         if stepped is not False:
             if stepped is not None:
                 return stepped
@@ -1255,7 +1305,14 @@ class SkillPicker:
             ok = upright and room_behind and s_in >= 0.8
             return "hop_back" if ok and (self.available is None or "hop_back" in self.available) \
                 else None  # fmt: skip
-        pick = self.mapping.get(behaviour, {}).get(posture)
+        acts = self.mapping.get(behaviour, {})
+        if posture == "sit" and not self.seated_moves:
+            # robotd starts nothing from the seat: an act v5 shows with a seated move stands up for its standing one
+            standing = acts.get("stand")
+            if "sit" in acts and standing is not None and standing in set(self._names((standing,))):
+                self.script = Script(standing, now_s, patience_s=STAND_FIRST_S, stand_first=True)
+            return None
+        pick = acts.get(posture)
         if pick == "shake_1" and s_in >= 0.75:
             pick = "shake_2"
         return pick
@@ -1286,6 +1343,8 @@ class SkillPicker:
             return startle_entry(intensity, lasting=True) if upright and intensity >= 0.6 else None
         if behaviour == "flee":
             return "hop_back" if upright and room_behind and intensity >= 0.8 else None
+        if posture == "sit" and not self.seated_moves:
+            return None  # (robotd starts nothing from the seat)
         pick = self.mapping.get(behaviour, {}).get(posture)
         if pick == "shake_1" and intensity >= 0.75:
             pick = "shake_2"

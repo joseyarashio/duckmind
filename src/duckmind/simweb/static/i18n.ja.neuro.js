@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "neuro", {
 "neuro.act.body_shake.body": "その場で小さく足ぶみして体をゆすり、頭もぷるぷる",
 "neuro.act.body_shake.name": "体をぷるぷる",
@@ -855,6 +855,7 @@ DuckI18n.load("ja", "neuro", {
 "neuro.skill.posture.sit": "座っている",
 "neuro.skill.posture.stand": "立っている",
 "neuro.skill.posture.walk": "歩いている",
+"neuro.skill.reason.backing": "後ろに下がっているところです。下がっている間は全身の動きはしません",
 "neuro.skill.reason.busy": "別の動きがまだ続いています",
 "neuro.skill.reason.continue": "さっきのびっくりからそのまましゃがみ続けます（先に立ち上がりません）",
 "neuro.skill.reason.docked": "巣の中です。全身の動きはしません",
@@ -867,6 +868,7 @@ DuckI18n.load("ja", "neuro", {
 "neuro.skill.reason.ok": "やってよい",
 "neuro.skill.reason.posture": "今は{now}です。この動きは{need}のときだけ行います（その姿勢でしか検証していません）",
 "neuro.skill.reason.posture_any": "今の姿勢ではこの動きはできません（この姿勢では検証していません）",
+"neuro.skill.reason.seat": "座っています。この体は座ったままでは動きをしないので、先に立ち上がります",
 "neuro.skill.reason.settle": "立ち上がった・止まった・別の動きを終えたばかりです。まず体勢を整えます",
 "neuro.skill.reason.speed": "歩くのが速すぎます。この動きはゆっくり歩いているときしか検証していません",
 "neuro.skill.reason.tilt": "体が傾いています。まず立て直します",

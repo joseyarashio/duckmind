@@ -255,3 +255,88 @@ def test_the_brain_reads_a_v8_back_arc_as_the_arc_it_asked_for_and_a_docking_rev
     link.tick(_state(9.0), BodyRequest(vx=-0.4, vyaw=0.3, posture="stand", docking=True))
     state = _state(9.02, (-0.4, 0.0, 0.3))
     assert link.planned_state(state).applied == state.applied
+
+
+def test_a_walk_that_turns_on_the_spot_pivots_by_itself() -> None:
+    from duckmind.duckbody import protocol as P
+    from duckmind.duckbody.reflex import GuardContext, Limits, check_intent
+
+    assert V8.pivots and not V5.pivots  # (measured standing: v8 1.2 rad/s at 1.0 asked, v5 none)
+    v8, today = _link(_v8_map()), _link(None)
+    for side in (1.0, -1.0):
+        ask = BodyRequest(vx=0.37, vyaw=0.9 * side, pivot=side, posture="stand")
+        outs = [v8.tick(_state(10.0 + k * DT), ask) for k in range(10)]
+        assert all(not o.refused for o in outs)
+        assert [i.twist for i in outs[-1].intents if i.method == "robot.move"] == [(0.0, side)]
+        assert v8.pivot_in_place
+        # v5 does not turn standing: its pivot stays an arc (robotd's quick-turn skill when installed)
+        sent = _sent(today, 0.37, 0.9 * side, t0=20.0)
+        assert sent[0] > 0.3 and not today.pivot_in_place
+    # the guard lets a turn in place through only for such a walk
+    ctx = GuardContext(head_home_ms=1000, moving=True)
+    turn = P.Intent("robot.move", {"vx": 0.0, "vy": 0.0, "vyaw": 1.0})
+    assert check_intent(turn, ctx, Limits()) is not None
+    assert check_intent(turn, ctx, Limits(turn_in_place=True)) is None
+
+
+# the brain re-steers every few hundred ms while it walks (go-there, avoidance, the drift trim)
+STEERING = (-0.48, 0.30, -0.20, 0.50, -0.60, 0.10)
+CONTACTS = ("brushed", "blocked")
+
+
+def _driven_link(walk: walkcal.WalkResponse, monkeypatch: pytest.MonkeyPatch) -> BodyLink:
+    """A link as the driver sets it up for a body running ``walk`` on its own body with the simulator's delay."""
+    body = SimpleNamespace(paths=SimpleNamespace(policies="policies"), collision=walk.body)
+    monkeypatch.setattr(walkcal, "walk_sha256", lambda _p: walk.walk_sha256)
+    link = _link(neuro_live._walk_map(body, 20.0))
+    link.use_proprio(neuro_live._walk_proprio(body, link.proprio.cfg, 20.0))
+    return link
+
+
+def _steered(
+    link: BodyLink, walk: walkcal.WalkResponse, graze_at: float | None = None, seconds: float = 8.0
+) -> list[tuple[float, str, str]]:
+    """``link`` walks at 0.40 while the brain re-steers every 0.6 s, on a body that answers each streamed twist as
+    ``walk``'s table says, as late as that walk was measured to (its turn_lag). ``graze_at``: a wall on its right pushes
+    it 25° further left over 0.3 s from then. proprio's contact edges (t, edge, side)."""
+    assert walk.turn_lag is not None
+    dead, lag = walk.turn_lag
+    x = y = yaw = rate = 0.0
+    sent: tuple[float, float] = (0.0, 0.0)
+    streamed: list[tuple[float, tuple[float, float]]] = []
+    edges = []
+    for k in range(int(seconds / DT)):
+        t = k * DT
+        rocking = (0.6, 0.4, 0.3)  # (a trunk that steps rocks)
+        out = link.tick(
+            replace(_back_state(t, x, y, yaw, sent), gyro=rocking),
+            BodyRequest(vx=0.40, vyaw=STEERING[int(t / 0.6) % len(STEERING)], posture="stand"),
+        )
+        moves = [i.twist for i in out.intents if i.method == "robot.move"]
+        if moves:
+            sent = moves[-1]
+        streamed.append((t, sent))
+        edges += [(round(t, 2), e, out.prox.contact_side) for e in out.prox.edges if e in CONTACTS]
+        due = [s for at, s in streamed if at <= t - dead]
+        speed, target = walk.at(*due[-1]) if due and due[-1][0] > 0.0 else (0.0, 0.0)
+        rate += (1.0 - math.exp(-DT / lag)) * (target - rate)
+        yaw += rate * DT
+        if graze_at is not None and graze_at <= t < graze_at + 0.3:
+            yaw += math.radians(25.0) / 0.3 * DT
+        x += speed * DT * math.cos(yaw)
+        y += speed * DT * math.sin(yaw)
+    return edges
+
+
+@pytest.mark.parametrize("name", ["v5", "v8"])
+def test_a_re_steered_walk_on_either_walk_is_not_read_as_a_graze_but_a_graze_is(
+    name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    walk = V5 if name == "v5" else V8
+    # the latest command times the window: 'brushed' after the big turn-command changes, at no wall (live, both walks:
+    # 12-14 forward brushes per walking minute)
+    assert _steered(_driven_link(walk, monkeypatch), walk) == []
+    for graze_at in (3.1, 3.5, 4.3):
+        hits = _steered(_driven_link(walk, monkeypatch), walk, graze_at)
+        assert [e[1:] for e in hits] == [("brushed", "right")], (graze_at, hits)
+        assert graze_at < hits[0][0] <= graze_at + 1.0

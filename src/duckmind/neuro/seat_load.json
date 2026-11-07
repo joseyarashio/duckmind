@@ -18,5 +18,18 @@
    "load": 22.75,
    "settle_s": 2.0
   }
+ ],
+ "about_stances": "The walk networks' standing stance (neuro/seatcal.py), proprio's raw units, 50 Hz neuro records of the live robotd in the simulator (real_home, 20 ms servo command delay): floor_low = the lowest load the legs stayed under for 0.3 s standing stopped on the floor (v8: 9.9 h of V8Fix, V8Brush and BrushModel roam / wall / righting / trick records, 2026-11-05/06; v5: 8.1 h of the same rigs: 19.3); held = the median load standing in the world's hand (V8Fix lift rig, 16 lifts, 480 in-hand ticks before the claim; ≤ 12.5 once the lift's swing is over); lift_load = the standing claim's level between them. The reference walk keeps proprio's own level (20.0).",
+ "stance_reference": "1c659be55da94bc5753b707de5c6a3e7c49931e05ca3b6991615cef1a8ba9a45",
+ "stances": [
+  {
+   "walk_sha256": "2fc7f8ee6acd7d0d3f66a99927b5d5a56589aeed02ec714de329b252d5ccf492",
+   "name": "v8 velstand (microduck-policies v8)",
+   "body": "allcollisions_backlash",
+   "delay_ms": 20.0,
+   "floor_low": 15.6,
+   "held": 10.0,
+   "lift_load": 14.0
+  }
  ]
 }

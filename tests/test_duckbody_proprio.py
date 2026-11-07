@@ -226,6 +226,53 @@ def test_a_long_quick_turn_on_the_spot_is_not_blocked_but_a_walk_that_stops_stil
     assert "blocked" in walk_ticks(p, 3.0, 0.0, t0=6.0, x0=0.4)
 
 
+# the brain re-steers every few hundred ms (wall check, 2026-11-06: 82 of 111 forward 'brushed' came within 1 s of a turn-command
+# change, at no wall); the walk answers each command 0.2 s later (v5, fitted on the live roam tick logs)
+STEERING = (-0.48, 0.30, -0.20, 0.50, -0.60, 0.10)
+
+
+def _steer(t: float) -> float:
+    return STEERING[int(t / 0.6) % len(STEERING)]
+
+
+def _steered_walk(graze_at: float | None = None, seconds: float = 8.0) -> list[tuple]:
+    """A duck walking at 0.4 while the brain re-steers every 0.6 s; its heading answers each command as the gait does
+    (bias + gain × vyaw) 0.2 s later. ``graze_at``: a wall on its right pushes it 25° further left over 0.3 s from then
+    while it keeps walking. The edges (t, edge, side)."""
+    p = Proprio()
+    gait = p.cfg
+    x = y = yaw = 0.0
+    edges = []
+    for k in range(int(seconds / 0.02)):
+        t = k * 0.02
+        yaw += gait.expected_yaw_rate(0.4, _steer(max(0.0, t - 0.2))) * 0.02
+        if graze_at is not None and graze_at <= t < graze_at + 0.3:
+            yaw += math.radians(25.0) / 0.3 * 0.02
+        x += 0.15 * 0.02 * math.cos(yaw)
+        y += 0.15 * 0.02 * math.sin(yaw)
+        state = tick(
+            t, cmd=(0.4, _steer(t)), load=(50.0, 50.0), gyro=(0.6, 0.4, 0.3), odom=(x, y, yaw)
+        )
+        out = p.step(state)
+        edges += [(round(t, 2), e, out.contact_side) for e in out.edges]
+    return edges
+
+
+def test_a_walk_the_brain_re_steers_is_not_read_as_a_graze() -> None:
+    # the latest command times the whole 1 s window read the heading the last commands turned as a swing the command
+    # does not explain: 'brushed' after every big change of the turn command
+    assert [e for e in _steered_walk() if e[1] in ("brushed", "blocked")] == []
+
+
+@pytest.mark.parametrize("graze_at", [3.1, 3.5, 4.3])
+def test_a_graze_while_the_brain_re_steers_is_still_caught(graze_at: float) -> None:
+    # 0.1 s after a turn-command change, mid-command, and 0.1 s after another change
+    hits = [e for e in _steered_walk(graze_at) if e[1] == "brushed"]
+    assert hits and graze_at < hits[0][0] <= graze_at + 1.0, hits
+    assert hits[0][2] == "right"  # pushed left: the touch was on its right
+    assert len(hits) == 1
+
+
 def _reverse_start(dip_load: float, dip_at: float, dip_s: float, cmd_vx: float = -0.40) -> list:
     """A duck standing, then a reverse commanded at t = 1 s whose leg load dips to ``dip_load``
     for ``dip_s`` starting ``dip_at`` s into the reverse (the 2026-09-28 rig traces: the load

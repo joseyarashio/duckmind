@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / neuro (1271 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "neuro", {
 "neuro.act.body_shake.body": "Da pasitos en el sitio, sacude el cuerpo y la cabeza lo sigue",
 "neuro.act.body_shake.name": "Sacudirse",
@@ -855,6 +855,7 @@ DuckI18n.load("es", "neuro", {
 "neuro.skill.posture.sit": "sentado",
 "neuro.skill.posture.stand": "de pie",
 "neuro.skill.posture.walk": "caminando",
+"neuro.skill.reason.backing": "Está retrocediendo: mientras va hacia atrás no hace movimientos de cuerpo entero",
 "neuro.skill.reason.busy": "Otro movimiento sigue en curso",
 "neuro.skill.reason.continue": "Sigue agachado tras el susto (sin levantarse antes)",
 "neuro.skill.reason.docked": "Está en su nido: no hace movimientos de cuerpo entero",
@@ -867,6 +868,7 @@ DuckI18n.load("es", "neuro", {
 "neuro.skill.reason.ok": "Se puede hacer",
 "neuro.skill.reason.posture": "Ahora está {now}; este movimiento solo se hace cuando está {need} (solo se probó en esas posturas)",
 "neuro.skill.reason.posture_any": "Este movimiento no se puede hacer en la postura actual (no se probó en esta postura)",
+"neuro.skill.reason.seat": "Está sentado: este cuerpo no hace movimientos sentado; primero tiene que levantarse",
 "neuro.skill.reason.settle": "Acaba de levantarse, de parar o de terminar otro movimiento: primero que se asiente",
 "neuro.skill.reason.speed": "Camina demasiado rápido: este movimiento solo se probó a velocidades de marcha más lentas",
 "neuro.skill.reason.tilt": "El cuerpo está inclinado: primero que se estabilice",

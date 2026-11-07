@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import tempfile
 from pathlib import Path
 
 from test_neuro_live import drive, robot_state, stub_driver
@@ -97,8 +98,51 @@ def test_a_folder_that_cannot_be_written_only_logs(tmp_path: Path) -> None:
     assert len(lines) == 1 and "失敗" in lines[0]
 
 
-def test_the_default_folder_is_the_live_loops_folder() -> None:
-    assert LW.default_folder() == paths.data_dir() / "live" / "loops"
+def _loop_through(driver, at_s: float = 70.0) -> Path | None:
+    """Three bump_stop onsets within 4 s at one place, fed to the driver's own loop watch (written in this thread)."""
+    driver.loopwatch.sync = True
+    driver.loopwatch.log = lambda line: None
+    _bump(driver.loopwatch, at_s)
+    _bump(driver.loopwatch, at_s + 2.0)
+    return _bump(driver.loopwatch, at_s + 4.0)
+
+
+def test_a_server_living_a_tmp_life_writes_its_captures_there_and_nothing_into_the_live_folder(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # (V8Seat 2026-11-06: a soak server started from a copy of the live duck's life wrote its captures into the live
+    # duck's <data>/live/loops, the default folder then)
+    from duckmind.duckcore.api import Config
+    from duckmind.life.clock import DuckClock
+    from duckmind.life.record import LifeRecord
+    from duckmind.simweb.life_host import LifeHost
+    from duckmind.simweb.server import SimState
+
+    monkeypatch.setenv(paths.DATA_ENV, str(tmp_path / "data"))
+    monkeypatch.delenv(paths.LOOP_ENV, raising=False)
+    live = tmp_path / "data" / "live" / "loops"
+    record = LifeRecord.create(tmp_path / "life", name="測試", seed=7)
+    driver = stub_driver()
+    LifeHost(record, SimState(Config(seed=7)), DuckClock()).attach(driver)
+    path = _loop_through(driver)
+    assert path is not None and path.parent == tmp_path / "life" / "loops" and path.exists()
+    assert not live.exists()
+
+
+def test_a_server_without_a_life_writes_into_a_folder_of_its_own_and_the_live_launch_names_the_live_one(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv(paths.DATA_ENV, str(tmp_path / "data"))
+    monkeypatch.delenv(paths.LOOP_ENV, raising=False)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
+    live = tmp_path / "data" / "live" / "loops"
+    path = _loop_through(stub_driver())
+    assert path is not None and path.exists() and not live.exists()
+    assert path.parent == paths.loops_dir() and path.parent.name.startswith("duckmind-loops-")
+    # the live launch names its folder (launch-8791.sh: DUCKMIND_LOOP_DIR=<data>/live/loops), life or not
+    monkeypatch.setenv(paths.LOOP_ENV, str(live))
+    path = _loop_through(stub_driver())
+    assert path is not None and path.parent == live and path.exists()
 
 
 def test_the_driver_feeds_the_detector_and_the_body_commands_are_the_same_with_it_broken() -> None:
