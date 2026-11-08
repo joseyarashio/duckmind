@@ -34,14 +34,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from duckmind.eye.camera import ALPHA, CameraFamily
+from duckmind.world.camera_model import sim_family, upright_axes
 from duckmind.world.people import PERSONAS, Persona, hip_height
 
 VERSION = "neuro-social-senses-1"
 
-# The camera numbers below were set for the alpha camera (the simulator's: an upright picture
-# 37.4° wide × 62.2° tall); shirt_from_m() and roof_rows() give them for another board's camera
-# (eye.camera.camera_family: the production GC2093 is 85.2° × 54.7°). The simulated duck keeps
-# the alpha camera: switching it is the owner's decision.
+# The camera numbers below were set for the alpha camera (an upright picture 37.4° wide × 62.2°
+# tall); shirt_from_m() and roof_rows() give them for another board's camera
+# (eye.camera.camera_family: the production GC2093 is 85.2° × 54.7°), the one the simulated duck
+# carries (camera_model.sim_family, the simulator's --board).
 _ALPHA_SHIRT_M = 1.2  # the shirt is in the alpha picture from about this far
 _ALPHA_ROOF_DEG = (22.0, 29.0)  # rows above the optical axis in the alpha picture
 
@@ -81,8 +82,8 @@ VOICE_SIGMA = (0.025, 0.2)  # a + b × how far under VOICE_CLEAR_DB of SNR the s
 VOICE_CLEAR_DB = 20.0
 ROOM_DB = 30.0
 SPEECH = frozenset({"voice", "name", "hello"})
-# the roof: rays through the top of the delivered frame (the alpha's upright frame is 62.2° tall)
-ROOF_ROWS = roof_rows()  # 22° and 29° above the optical axis, in the picture
+# the roof: rays through the top of the delivered frame (roof_rows: the alpha's upright frame is
+# 62.2° tall, its rows 22° and 29° above the optical axis)
 ROOF_RANGE_M = 1.2  # a surface within this along the ray can be read
 ROOF_UP_MIN = 0.25  # a ray must climb at least this (sin of its elevation) to look "up"
 ROOF_SIGMA = 0.15  # the height's scatter (× itself)
@@ -112,9 +113,15 @@ LOOKS = {p.id: persona_look(p) for p in PERSONAS}
 
 
 def observe_look(
-    who: str, band: str, range_m: float | None, rng: random.Random
+    who: str,
+    band: str,
+    range_m: float | None,
+    rng: random.Random,
+    *,
+    shirt_m: float = SHIRT_FROM_M,
 ) -> tuple[float, ...] | None:
-    """One look at ``who`` as the eye would give it (None: too dark, or no look this pass)."""
+    """One look at ``who`` as the eye would give it (None: too dark, or no look this pass); the
+    shirt is in the picture from ``shirt_m`` (:func:`shirt_from_m` of the duck's camera)."""
     true = LOOKS.get(who)
     if true is None or band not in LOOK_SIGMA:
         return None
@@ -125,7 +132,7 @@ def observe_look(
     lg = true[1] + rng.gauss(0.0, sigma)
     luma = true[2] * (1.0 + rng.gauss(0.0, LUMA_LIGHT)) + rng.gauss(0.0, LUMA_SIGMA)
     legs = true[3] * (1.0 + rng.gauss(0.0, RANGE_SIGMA)) if range_m is not None else math.nan
-    if range_m is not None and range_m >= SHIRT_FROM_M:
+    if range_m is not None and range_m >= shirt_m:
         sr = true[4] + rng.gauss(0.0, sigma * 1.3)
         sg = true[5] + rng.gauss(0.0, sigma * 1.3)
     else:
@@ -165,6 +172,7 @@ def roof_truth(
     cam: Sequence[float],
     axes: Sequence[Sequence[float]],
     *,
+    camera: CameraFamily,
     exclude_body: int = -1,
     groups: Sequence[int] = (1, 1, 0, 0, 0, 0),
 ) -> tuple[float | None, bool]:
@@ -172,19 +180,18 @@ def roof_truth(
     the picture looks —, None when none within ROOF_RANGE_M; whether the top of the picture climbs
     enough to look up at all). A wall or a sofa's face ahead is not a roof: only what is over the
     head counts (a:social's physics check: rays through the top rows alone took the sofa's front
-    and arms for a roof). ``axes``: the camera's sensor axes (right, down, forward) in the world,
-    as neuro_world.camera gives them (the picture is delivered turned upright: its up is −right);
+    and arms for a roof). ``axes``: ``camera``'s sensor axes (right, down, forward) in the world,
+    as neuro_world.camera gives them (the picture is delivered turned upright by the mount);
     ``groups``: the geom groups a ray may hit (the home and the people; not the duck itself)."""
     import mujoco
     import numpy as np
 
-    right, down, forward = (np.asarray(a, dtype=float) for a in axes)
-    # the delivered picture is the sensor turned upright (neuro_world.sample's cx/cy): the
-    # picture's up is the sensor's −right, the picture's right is the sensor's −down
-    up = -right
+    _, picture_down, forward_axis = upright_axes(axes, camera.rotate)
+    up = -np.asarray(picture_down, dtype=float)
+    forward = np.asarray(forward_axis, dtype=float)
     origin = np.asarray(cam, dtype=float)
     looked_up = False
-    for e in ROOF_ROWS:
+    for e in roof_rows(camera):
         d = math.cos(e) * forward + math.sin(e) * up
         d = d / max(1e-9, float(np.linalg.norm(d)))
         if float(d[2]) >= ROOF_UP_MIN:
@@ -214,6 +221,7 @@ class SocialSenses:
     is talking, how loud) and, for the roof, the physics (``roof_from``)."""
 
     seed: int = 7
+    camera: CameraFamily = field(default_factory=sim_family)  # the duck's head camera
     rng: random.Random = field(init=False)
     looks: dict[int, tuple[float, ...]] = field(default_factory=dict)
     voice: tuple[float, float] | None = None
@@ -255,6 +263,7 @@ class SocialSenses:
                 band,
                 None if rng_m is None else float(rng_m),
                 self.rng,
+                shirt_m=shirt_from_m(self.camera),
             )
             if look is not None:
                 looks[int(track.tid)] = look
@@ -299,7 +308,9 @@ class SocialSenses:
             self.roof = None
             return
         self._roof_t = sim_s
-        truth, looked_up = roof_truth(model, data, cam, axes, exclude_body=exclude_body)
+        truth, looked_up = roof_truth(
+            model, data, cam, axes, camera=self.camera, exclude_body=exclude_body
+        )
         self.roof = read_roof(truth, band, stepping, looked_up, self.rng)
 
     def reading(self) -> dict[str, Any]:

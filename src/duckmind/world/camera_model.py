@@ -63,6 +63,8 @@ tested) without either.
 
 from __future__ import annotations
 
+import contextlib
+import functools
 import math
 import os
 import platform
@@ -73,6 +75,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from duckmind.eye.camera import ALPHA, BOARD_CAMERAS, CameraFamily, camera_family
 from duckmind.world import lights as world_lights
 
 if TYPE_CHECKING:
@@ -160,6 +163,69 @@ METER_SIZE = (160, 90)  # the auto-exposure's metering render
 NEAR_CLIP_M = 0.005
 FAR_CLIP_M = 5000.0  # far enough that the endless floor meets the ceiling at the horizon
 CEILING_M = world_lights.DEFAULT_CEILING_M
+# Which board's head camera the simulated duck carries: the simulator's own ``--board`` option
+# (robotd.toml's ``[board] version`` names: zero3 → the alpha IMX219 a quarter turn off, beta /
+# face-board-v1 → the production GC2093 upright), handed to every simulator process through this
+# variable. Only the camera follows it: the simulator's robotd keeps its default board, whose other
+# effects (the body IMU's mount, a head IMU robotd reads itself) the simulator does not model.
+BOARD_ENV = "DUCKMIND_BOARD"
+DEFAULT_SIM_BOARD = "zero3"
+# robotd's camera frame (kinematics ``SITE_TO_CV2``: the head_camera site → OpenCV axes) is the
+# upright picture's on every board (duck-eye turns it by the frame's ``rotate`` into the sensor:
+# eye.frames.PairedPose.camera_pose); the Zero 3W's sensor is it turned a quarter turn about the
+# optical axis. MuJoCo's camera looks down its −z with +y up, OpenCV's down +z with +y down: a
+# half turn about x between them.
+SITE_TO_CV2 = (0.5, -0.5, 0.5, -0.5)
+QUARTER_TURN_Z = (math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5))  # upright → the Zero 3W's sensor
+HALF_TURN_X = (0.0, 1.0, 0.0, 0.0)
+
+
+def sim_board(board: str | None = None) -> str:
+    """The simulated duck's board: ``board``, else ``$DUCKMIND_BOARD``, else zero3."""
+    if board is None:
+        board = os.environ.get(BOARD_ENV, "").strip() or DEFAULT_SIM_BOARD
+    if board not in BOARD_CAMERAS:
+        raise ValueError(f"no camera known for board {board!r} (known: {sorted(BOARD_CAMERAS)})")
+    return board
+
+
+def sim_family(board: str | None = None) -> CameraFamily:
+    """The head camera the simulated duck carries (:func:`sim_board`'s board)."""
+    return camera_family(sim_board(board))
+
+
+def family_intrinsics(family: CameraFamily) -> Intrinsics:
+    """A family's K on the unrotated frame it was solved on."""
+    fx, fy, cx, cy = family.k
+    return Intrinsics(family.size[0], family.size[1], fx, fy, cx, cy)
+
+
+def mount_roll(rotate: int) -> tuple[float, float, float, float] | None:
+    """How a sensor mounted ``rotate`` degrees clockwise from upright sits against the Zero 3W's
+    (a quarter turn off; each is robotd's upright camera frame turned ``rotate`` about the optical
+    axis): a roll about the optical axis, scalar-first; None for the Zero 3W's own mount. A GC2093
+    (0°): its right is the Zero 3W sensor's −down, its down the Zero 3W sensor's right."""
+    if rotate not in (0, 90, 180, 270):
+        raise ValueError(f"rotate {rotate} is not a quarter turn")
+    if rotate == ROTATE_DEG:
+        return None
+    half = math.radians(rotate - ROTATE_DEG) / 2.0
+    return (math.cos(half), 0.0, 0.0, math.sin(half))
+
+
+def upright_axes(axes: Sequence[Sequence[float]], rotate: int) -> tuple[tuple[float, ...], ...]:
+    """The upright picture's (right, down, forward) from the sensor's OpenCV axes (right, down,
+    forward) of a frame delivered ``rotate`` degrees clockwise off upright (``uyvy::Turn``)."""
+    right, down, forward = (tuple(float(v) for v in a) for a in axes)
+    if rotate == 0:
+        return right, down, forward
+    if rotate == 90:
+        return tuple(-v for v in down), right, forward
+    if rotate == 180:
+        return tuple(-v for v in right), tuple(-v for v in down), forward
+    if rotate == 270:
+        return down, tuple(-v for v in right), forward
+    raise ValueError(f"rotate {rotate} is not a quarter turn")
 
 
 def mujoco_principal_pixel(k: Intrinsics) -> tuple[float, float]:
@@ -173,11 +239,14 @@ def mujoco_principal_pixel(k: Intrinsics) -> tuple[float, float]:
     return k.width / 2 - (k.cx + 0.5), k.height / 2 - (k.cy + 0.5)
 
 
-def upright(image: Any) -> Any:
-    """A frame as the duck sees it: a quarter turn clockwise (``np.rot90(k=-1)``)."""
+def upright(image: Any, rotate: int = ROTATE_DEG) -> Any:
+    """A frame as the duck sees it: turned ``rotate`` degrees clockwise (the alpha's quarter
+    turn: ``np.rot90(k=-1)``; the beta's frame is already upright)."""
     import numpy as np
 
-    return np.ascontiguousarray(np.rot90(image, k=-1))
+    if rotate not in (0, 90, 180, 270):
+        raise ValueError(f"rotate {rotate} is not a quarter turn")
+    return np.ascontiguousarray(np.rot90(image, k=-(rotate // 90)))
 
 
 # ── [media] quality: the frame sizes a duck can deliver ──────────────────────
@@ -203,8 +272,9 @@ class Quality:
 
     @property
     def k(self) -> Intrinsics:
-        """The family K scaled to this frame, as mediad scales a solve."""
-        return FAMILY.scaled(self.width, self.height)
+        """The simulated camera's K (:func:`sim_family`) scaled to this frame, as mediad scales
+        a solve."""
+        return family_intrinsics(sim_family()).scaled(self.width, self.height)
 
     @property
     def frame_bytes(self) -> int:
@@ -244,13 +314,62 @@ def quality_from_config(config: str | Mapping[str, Any] | None) -> Quality:
 # ── the lens: OpenCV's distortion model with the family coefficients ─────────
 
 
+# OpenCV's radial polynomial turns back on itself not far past the views a calibration had: the
+# beta's GC2093 solve (k1 −0.37) peaks at a distorted radius of 0.917 while its frame's edges sit
+# at 0.90–0.94 and its corners at 1.07, so its outer columns and corners have no ray at all.
+# Past the KNEE — where the polynomial's slope has fallen to KNEE_SLOPE — the lens goes on
+# straight with that slope (monotone: every pixel has one ray). The alpha's frame stays well
+# inside its knee (its corners at 0.68), so nothing of it changes.
+KNEE_SLOPE = 0.25
+
+
+@functools.lru_cache(maxsize=16)
+def radial_knee(dist: tuple[float, ...]) -> tuple[float, float, float] | None:
+    """(ideal radius, distorted radius, slope) where ``dist``'s radial polynomial
+    r·(1 + k1 r² + k2 r⁴ + k3 r⁶) first slopes only KNEE_SLOPE; None if it never does (r < 4)."""
+    k1, k2, _, _, k3 = (float(v) for v in dist)
+
+    def slope(r: float) -> float:
+        r2 = r * r
+        return 1 + r2 * (3 * k1 + r2 * (5 * k2 + r2 * 7 * k3))
+
+    step = 0.001
+    r = step
+    while r < 4.0 and slope(r) > KNEE_SLOPE:
+        r += step
+    if r >= 4.0:
+        return None
+    lo, hi = r - step, r
+    for _ in range(50):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if slope(mid) > KNEE_SLOPE else (lo, mid)
+    r = (lo + hi) / 2
+    r2 = r * r
+    return r, r * (1 + r2 * (k1 + r2 * (k2 + r2 * k3))), slope(r)
+
+
 def distort(x: Any, y: Any, dist: Sequence[float] = FAMILY_DISTORTION) -> tuple[Any, Any]:
-    """Ideal (pinhole) normalised coordinates → where the lens puts them (OpenCV's model).
+    """Ideal (pinhole) normalised coordinates → where the lens puts them (OpenCV's model; past
+    its :func:`radial_knee`, straight on).
 
     Works on floats and on numpy arrays alike."""
     k1, k2, p1, p2, k3 = (float(v) for v in dist)
     r2 = x * x + y * y
     radial = 1 + r2 * (k1 + r2 * (k2 + r2 * k3))
+    knee = radial_knee(tuple(float(v) for v in dist))
+    if knee is not None:
+        rk, rdk, sk = knee
+        if isinstance(r2, float):
+            if r2 > rk * rk:
+                r = math.sqrt(r2)
+                radial = (rdk + sk * (r - rk)) / r
+        else:
+            import numpy as np
+
+            past = r2 > rk * rk
+            if np.any(past):
+                r = np.sqrt(np.where(past, r2, 1.0))
+                radial = np.where(past, (rdk + sk * (r - rk)) / r, radial)
     xd = x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x)
     yd = y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y
     return xd, yd
@@ -260,22 +379,51 @@ def undistort(
     xd: Any, yd: Any, dist: Sequence[float] = FAMILY_DISTORTION, iterations: int = 8
 ) -> tuple[Any, Any]:
     """Distorted normalised coordinates → ideal ones: Newton's method on :func:`distort`
-    (converges to 1e-12 in a few steps over the whole frame; floats or numpy arrays)."""
+    (converges to 1e-12 in a few steps inside the knee; floats or numpy arrays). Past the
+    :func:`radial_knee` the straight-on lens is inverted along the radius."""
     k1, k2, p1, p2, k3 = (float(v) for v in dist)
+    knee = radial_knee(tuple(float(v) for v in dist))
+    beyond: Any = None
+    if knee is not None:
+        rk, rdk, sk = knee
+        rd2 = xd * xd + yd * yd
+        if isinstance(rd2, float):
+            if rd2 >= rdk * rdk:
+                rd = math.sqrt(rd2)
+                scale = (rk + (rd - rdk) / sk) / rd
+                return xd * scale, yd * scale
+        else:
+            import numpy as np
+
+            if np.any(rd2 >= rdk * rdk):
+                beyond = rd2 >= rdk * rdk
+                rd = np.sqrt(np.where(beyond, rd2, 1.0))
+                scale = (rk + (rd - rdk) / sk) / rd
     x, y = xd, yd
-    for _ in range(iterations):
-        r2 = x * x + y * y
-        radial = 1 + r2 * (k1 + r2 * (k2 + r2 * k3))
-        slope = k1 + r2 * (2 * k2 + r2 * 3 * k3)  # d(radial)/d(r²)
-        ex = x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x) - xd
-        ey = y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y - yd
-        a = radial + 2 * x * x * slope + 2 * p1 * y + 6 * p2 * x
-        b = 2 * x * y * slope + 2 * p1 * x + 2 * p2 * y
-        c = 2 * x * y * slope + 2 * p1 * x + 2 * p2 * y
-        d = radial + 2 * y * y * slope + 6 * p1 * y + 2 * p2 * x
-        det = a * d - b * c
-        x = x - (d * ex - b * ey) / det
-        y = y - (a * ey - c * ex) / det
+    errstate: Any = contextlib.nullcontext()
+    if beyond is not None:
+        import numpy as np
+
+        errstate = np.errstate(all="ignore")  # the masked part's Newton is thrown away
+    with errstate:
+        for _ in range(iterations):
+            r2 = x * x + y * y
+            radial = 1 + r2 * (k1 + r2 * (k2 + r2 * k3))
+            slope = k1 + r2 * (2 * k2 + r2 * 3 * k3)  # d(radial)/d(r²)
+            ex = x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x) - xd
+            ey = y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y - yd
+            a = radial + 2 * x * x * slope + 2 * p1 * y + 6 * p2 * x
+            b = 2 * x * y * slope + 2 * p1 * x + 2 * p2 * y
+            c = 2 * x * y * slope + 2 * p1 * x + 2 * p2 * y
+            d = radial + 2 * y * y * slope + 6 * p1 * y + 2 * p2 * x
+            det = a * d - b * c
+            x = x - (d * ex - b * ey) / det
+            y = y - (a * ey - c * ex) / det
+    if beyond is not None:
+        import numpy as np
+
+        x = np.where(beyond, xd * scale, x)
+        y = np.where(beyond, yd * scale, y)
     return x, y
 
 
@@ -935,10 +1083,16 @@ class EyeScene:
     quality: Quality | None = None
     emitters: dict[str, int] = field(default_factory=dict)  # geom name → its own material id
     emission: dict[str, tuple[tuple[float, float, float], float]] = field(default_factory=dict)
+    family: CameraFamily = ALPHA  # the head camera: its lens and mount
 
     @property
     def frame_size(self) -> tuple[int, int]:
         return (self.k.width, self.k.height)
+
+    @property
+    def rotate(self) -> int:
+        """The frame's clockwise turn to upright (media.frame's ``rotate``): the mount."""
+        return self.family.rotate
 
 
 def _quat_mul(a: list[float], b: list[float]) -> list[float]:
@@ -966,6 +1120,50 @@ def _has_ceiling(spec: Any) -> bool:
     return any("ceiling" in (geom.name or "") for geom in spec.geoms)
 
 
+def _same_rotation(a: Sequence[float], b: Sequence[float]) -> bool:
+    na = math.sqrt(sum(float(v) * float(v) for v in a)) or 1.0
+    nb = math.sqrt(sum(float(v) * float(v) for v in b)) or 1.0
+    return abs(sum(float(x) * float(y) for x, y in zip(a, b, strict=True))) / (na * nb) > 0.9999
+
+
+def sensor_offset(
+    cam_quat: Sequence[float], site_quat: Sequence[float] | None, rotate: int
+) -> list[float] | None:
+    """The turn (scalar-first, in the camera's own axes) from the model's ``head_camera`` frame
+    to the OpenCV frame of a sensor mounted ``rotate`` degrees off upright; None: none.
+
+    The official model's camera faces backwards with its axes those of the Zero 3W's sensor
+    (robotd's upright camera frame ``site · SITE_TO_CV2`` turned a quarter turn); microduck_rl #85
+    (open) writes the forward-facing quaternion into the model instead (the same frame turned
+    half a turn about x). Which one a model carries is read off its ``head_camera`` site, so a
+    model with the fix is not turned a second time; a camera matching neither is refused."""
+    offset: list[float] | None = None
+    if site_quat is not None:
+        upright = _quat_mul([float(v) for v in site_quat], list(SITE_TO_CV2))
+        cv2 = _quat_mul(upright, list(QUARTER_TURN_Z))
+        if _same_rotation(cam_quat, _quat_mul(cv2, list(HALF_TURN_X))):
+            offset = list(HALF_TURN_X)
+        elif not _same_rotation(cam_quat, cv2):
+            raise ValueError(
+                f"the head camera's quat {list(cam_quat)} is neither robotd's camera frame nor "
+                "it turned to face forward"
+            )
+    roll = mount_roll(rotate)
+    if roll is not None:
+        offset = list(roll) if offset is None else _quat_mul(offset, list(roll))
+    return offset
+
+
+def _camera_quat(spec: Any, camera: str, quat: list[float], rotate: int) -> list[float]:
+    """The render camera's quaternion (MuJoCo's axes: −z along the view, +y up) for the sensor
+    mounted ``rotate`` degrees off upright: the sensor's OpenCV frame turned half a turn about
+    x (sim/camera.py's fix on the official model)."""
+    site = spec.site(camera)
+    offset = sensor_offset(quat, None if site is None else list(site.quat), rotate)
+    sensor = quat if offset is None else _quat_mul(quat, offset)
+    return _quat_mul(sensor, list(HALF_TURN_X))
+
+
 def apply_to_spec(
     spec: Any,
     *,
@@ -975,13 +1173,15 @@ def apply_to_spec(
     camera: str = CAMERA,
     lens: Lens | None = None,
     emitters: Iterable[str] = (),
+    rotate: int = ROTATE_DEG,
 ) -> None:
     """Everything the camera model changes, done on an ``MjSpec`` before compiling.
 
     With a ``lens`` the camera carries the lens's pinhole canvas (for ``frame_size``) instead of
     K. ``emitters``: geoms that can glow (the nest's backlight) get a material of their own.
     A ceiling plane at ``ceiling_m`` is added unless the scene already has a geom named
-    "…ceiling…" (a home layout's own ceilings)."""
+    "…ceiling…" (a home layout's own ceilings). ``rotate``: the sensor's mount (the frame's
+    clockwise turn to upright: 90 the alpha's, 0 the beta's), the render's frame is the sensor's."""
     mujoco = import_mujoco()
     width, height = frame_size
     canvas = lens.canvas_size(width, height) if lens is not None else (width, height)
@@ -997,9 +1197,7 @@ def apply_to_spec(
     cam = spec.camera(camera)
     if cam is None:
         raise ValueError(f"the scene has no camera {camera!r}")
-    # sim/camera.py's fix: the model's head camera faces backwards; a turn of 180° about the
-    # camera's own right axis faces it forward and leaves the frame on its side like the mount.
-    cam.quat = _quat_mul(list(cam.quat), [0.0, 1.0, 0.0, 0.0])
+    cam.quat = _camera_quat(spec, camera, [float(v) for v in cam.quat], rotate)
     if lens is not None:
         set_intrinsics(cam, lens.canvas, (lens.canvas.width, lens.canvas.height))
     else:
@@ -1063,7 +1261,7 @@ def load_spec(
     spec: Any,
     *,
     path: Path | str = "<spec>",
-    k: Intrinsics = FAMILY,
+    k: Intrinsics | None = None,
     frame_size: tuple[int, int] | None = None,
     quality: str | None = None,
     distortion: bool = True,
@@ -1071,20 +1269,26 @@ def load_spec(
     camera: str = CAMERA,
     emitters: Iterable[str] = (),
     edit: Callable[[Any], None] | None = None,
+    family: CameraFamily | None = None,
 ) -> EyeScene:
     """Our own compiled copy of an ``MjSpec`` (a home layout's render spec, or an official
     scene read by :func:`load_scene`) with the camera model applied.
 
-    The frame is ``frame_size``, else ``quality``'s rung (default 720p30); ``distortion``
-    (owner decision F1: on) renders through the family lens. ``edit`` gets the ``MjSpec`` after
-    the camera model is applied (test markers, say). The duck starts at its STAND keyframe;
-    everything else stays where the model puts it (official keyframes carry the free objects at
-    the origin, so they are not used for them)."""
+    ``family`` is the head camera (default :func:`sim_family`: the simulator's ``--board``): its
+    calibration (``k`` overrides the K), lens and mount. The frame is ``frame_size``, else
+    ``quality``'s rung (default 720p30); ``distortion`` (owner decision F1: on) renders through
+    the family lens. ``edit`` gets the ``MjSpec`` after the camera model is applied (test
+    markers, say). The duck starts at its STAND keyframe; everything else stays where the model
+    puts it (official keyframes carry the free objects at the origin, so they are not used for
+    them)."""
     mujoco = import_mujoco()
+    fam = family if family is not None else sim_family()
+    if k is None:
+        k = family_intrinsics(fam)
     rung = quality_rung(quality)
     size = tuple(frame_size) if frame_size is not None else rung.size
     frame_k = k.scaled(size[0], size[1])
-    lens = Lens(frame_k) if distortion else None
+    lens = Lens(frame_k, fam.distortion) if distortion else None
     emitter_names = list(emitters)
     apply_to_spec(
         spec,
@@ -1094,6 +1298,7 @@ def load_spec(
         camera=camera,
         lens=lens,
         emitters=emitter_names,
+        rotate=fam.rotate,
     )
     if edit is not None:
         edit(spec)
@@ -1130,6 +1335,7 @@ def load_spec(
         lens=lens,
         quality=rung if frame_size is None or tuple(frame_size) == rung.size else None,
         emitters=emitter_ids,
+        family=fam,
     )
     stand = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, "STAND")
     if stand >= 0 and free >= 0:
@@ -1145,7 +1351,7 @@ def load_spec(
 def load_scene(
     scene: Path | str,
     *,
-    k: Intrinsics = FAMILY,
+    k: Intrinsics | None = None,
     frame_size: tuple[int, int] | None = None,
     quality: str | None = None,
     distortion: bool = True,
@@ -1153,6 +1359,7 @@ def load_scene(
     camera: str = CAMERA,
     emitters: Iterable[str] = (),
     edit: Callable[[Any], None] | None = None,
+    family: CameraFamily | None = None,
 ) -> EyeScene:
     """Our own compiled copy of ``scene`` (an official scene file, read where it lies); see
     :func:`load_spec` for the options."""
@@ -1170,6 +1377,7 @@ def load_scene(
         camera=camera,
         emitters=emitters,
         edit=edit,
+        family=family,
     )
 
 
@@ -1653,7 +1861,7 @@ class Capture:
         return to_uyvy(self.rgb)
 
     def upright(self) -> Any:
-        return upright(self.rgb)
+        return upright(self.rgb, self.rotate)
 
 
 class HeadCamera:
@@ -1782,6 +1990,7 @@ class HeadCamera:
             wb=self.awb.gains,
             lux_per_unit=lux_per_unit,
             glow=glowed,
+            rotate=self.eye.rotate,
             timings={
                 "render_ms": round(render_ms, 3),
                 "frame_ms": round((time.perf_counter() - t0) * 1000, 3),

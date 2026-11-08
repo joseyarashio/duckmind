@@ -69,7 +69,7 @@ from typing import TYPE_CHECKING, Any
 from duckmind.duckcore.api import _motion
 from duckmind.i18n import lst, msg
 from duckmind.livebody import FRAME_JOINTS, LiveBody, LivePaths, RemoteBodySpec
-from duckmind.simweb.eyecam import EyeCam, taipei_now
+from duckmind.simweb.eyecam import EyeCam, page_size, taipei_now
 
 if TYPE_CHECKING:
     from duckmind.duckcore.api import AnySession
@@ -376,6 +376,8 @@ class WindowEye:
                 "wall": wall,
                 "frames": count,
                 "t": None,
+                "width": int(rgb.shape[1]),
+                "height": int(rgb.shape[0]),
                 "light": result.get("light"),
                 "render_ms": result.get("latency_ms"),
             }
@@ -411,6 +413,8 @@ class WindowEye:
             "lux": room.get("lux"),
             "render_ms": latest.get("render_ms"),
             "frames": int(latest.get("frames") or 0),
+            "width": latest.get("width"),
+            "height": latest.get("height"),
             "frozen": frozen,
             "error": None,
             "error_detail": state.get("error_detail") if state.get("error") else None,
@@ -745,10 +749,13 @@ class LiveBridge:
         the physics time where known, ``age_s`` seconds ago), the light level its meter read
         (``level``, ``level_zh``; ``adapting`` while the exposure catches up), the room's light
         (``label``, ``lux``), the fetch or render cost, ``frozen`` while the physics stands
-        still, ``window`` when frames come only while the page's window is open (F4) and, when
+        still, ``window`` when frames come only while the page's window is open (F4), the
+        picture's ``width`` × ``height`` (the latest picture's own, else what this head camera
+        gives: portrait for the alpha board, landscape for the production camera) and, when
         there is no picture to be had, why (``error`` in plain words, ``error_detail`` the
         program's own; ``note`` while waiting)."""
         eye = self.eye
+        width, height = page_size()
         out: dict[str, Any] = {
             "t": None,
             "age_s": None,
@@ -759,6 +766,8 @@ class LiveBridge:
             "lux": None,
             "render_ms": None,
             "frames": 0,
+            "width": width,
+            "height": height,
             "running": False,
             "window": False,
             "frozen": False,
@@ -787,6 +796,8 @@ class LiveBridge:
             lux=status.get("lux"),
             render_ms=status.get("render_ms"),
             frames=int(status.get("frames") or 0),
+            width=int(status.get("width") or width),
+            height=int(status.get("height") or height),
             running=bool(status.get("running")),
             window=bool(status.get("window")),
             frozen=bool(status.get("frozen")),

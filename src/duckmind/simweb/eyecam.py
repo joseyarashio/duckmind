@@ -39,7 +39,7 @@ from duckmind.world.lights import LightState
 
 PERIOD_S = 2.0
 METER_S = 0.5
-JPEG_SCALE = 2  # the page's picture is half size: 360×640 upright
+JPEG_SCALE = 2  # the page's picture is half size: 360×640 upright (alpha), 640×360 (beta)
 JPEG_QUALITY = 75
 TAIPEI = timezone(timedelta(hours=8))
 # The body frame's physics time has not moved for this long: the world stopped (robotd or the
@@ -66,6 +66,22 @@ def resolve_scene(
         return Path(scene).expanduser()
     folder = mjcf_dir or os.environ.get("DUCKMIND_MICRODUCK_MJCF")
     return camera_model.default_scene(folder) if folder else None
+
+
+def page_size(family: Any = None, scale: int = JPEG_SCALE) -> tuple[int, int]:
+    """The page's picture ``(width, height)`` for a head camera (``family``: a
+    :class:`duckmind.eye.camera.CameraFamily`, default the one the simulated duck carries): its
+    upright frame, ``scale`` times smaller — 360×640 (portrait) for the alpha board's quarter-turned
+    IMX219, 640×360 (landscape) for the production GC2093. What the page shapes the eye window by
+    until the first picture says its own size."""
+    from duckmind.world import camera_model as cm
+
+    fam = family if family is not None else cm.sim_family()
+    width, height = fam.size
+    if fam.rotate % 180:
+        width, height = height, width
+    step = max(1, int(scale))
+    return width // step, height // step
 
 
 def _half(image: Any, factor: int) -> Any:
@@ -150,7 +166,7 @@ class EyeRenderer:
         sensor = self.ae.sensor
         rgb = cm.expose(cm.scene_lux(raw, lux_per_unit), sensor, self._rng(1, self.frames))
         self.frames += 1
-        picture = cm.upright(rgb)
+        picture = cm.upright(rgb, self.eye.rotate)
         exposure = eye_light.Exposure.from_registers(
             sensor.exposure, sensor.analogue_gain, sensor.gain
         )

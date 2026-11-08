@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from duckmind.eye.camera import ALPHA, CameraFamily
 from duckmind.neuro import contract as C
 from duckmind.world import lights as L
 
@@ -572,22 +573,31 @@ METER_ROWS_RAD = (
     0.0,
     math.radians(15.5),
     math.radians(31.0),
-)  # the picture's centre, 1/4 down, bottom
+)  # the alpha picture's centre, 1/4 down, bottom (its upright half height is 31.1°)
 METER_FAR_M = 1.5
 
 
-def meter_points(cam: Sequence[float], forward: Sequence[float]) -> list[tuple[float, float]]:
+def meter_rows(camera: CameraFamily) -> tuple[float, ...]:
+    """The meter's rows (rad below the axis) in ``camera``'s upright picture: the alpha's at the
+    same share of the picture's half height."""
+    share = camera.half_view_rad[1] / ALPHA.half_view_rad[1]
+    return tuple(row * share for row in METER_ROWS_RAD)
+
+
+def meter_points(
+    cam: Sequence[float], forward: Sequence[float], rows: Sequence[float] = METER_ROWS_RAD
+) -> list[tuple[float, float]]:
     """Where the camera's light meter reads the floor: the lower half of the picture (where the
     meter's weight is) — the floor where its centre row, the row a quarter down and its bottom row
-    meet the floor (≤ 1.5 m) along the lens's level heading. At HOME (the axis 8–15° down) that is
-    ~0.22, 0.4 and 1.2 m ahead; with the head pitched right down, ~0.1–0.35 m: the floor right in
-    front of its chest."""
+    (``rows``: :func:`meter_rows` of the camera) meet the floor (≤ 1.5 m) along the lens's level
+    heading. At HOME (the axis 8–15° down) that is ~0.22, 0.4 and 1.2 m ahead (the alpha); with
+    the head pitched right down, ~0.1–0.35 m: the floor right in front of its chest."""
     fx, fy, fz = float(forward[0]), float(forward[1]), float(forward[2])
     flat = math.hypot(fx, fy) or 1.0
     ux, uy = fx / flat, fy / flat
     down = math.atan2(-fz, flat)  # the axis's depression below level
     out: list[tuple[float, float]] = []
-    for row in METER_ROWS_RAD:
+    for row in rows:
         dep = down + row
         d = (
             METER_FAR_M

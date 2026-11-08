@@ -550,11 +550,11 @@ def play_world(seed: int, sunfield: Any, clock: Any) -> Any:
                 return self._floor_seen(data, cam, p)
 
             out["sun"] = NS.view_entries(
-                self.sunfield, data, cam, axes, yaw, NW.in_frame, clear, room_lux
+                self.sunfield, data, cam, axes, yaw, self.view.in_frame, clear, room_lux
             )
             readings = [
                 room_lux((mx, my, 0.0)) + self.sunfield.extra_lux(mx, my)
-                for mx, my in NS.meter_points(cam, axes[2])
+                for mx, my in NS.meter_points(cam, axes[2], NS.meter_rows(self.view.family))
             ]
             out["cam"]["lux_meter"] = round(NS.log_mean(readings), 2)
             return out

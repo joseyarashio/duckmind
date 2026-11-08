@@ -688,3 +688,80 @@ def test_vignetting_is_a_knob_and_off_by_default():
     k = eye.k
     assert gain[round(k.cy), round(k.cx)] == pytest.approx(1.0, abs=1e-3)
     assert 0.5 < gain[0, 0] < gain[round(k.cy), 0] < 1.0
+
+
+# ── the board's camera (production beta GC2093, 2026-11-09) ────────────────────
+
+
+def test_the_simulator_carries_the_camera_of_its_board(monkeypatch):
+    from duckmind.eye.camera import ALPHA, BETA
+
+    monkeypatch.delenv(cm.BOARD_ENV, raising=False)
+    assert cm.sim_board() == cm.DEFAULT_SIM_BOARD
+    assert cm.sim_family("zero3") is ALPHA and cm.sim_family("beta") is BETA
+    monkeypatch.setenv(cm.BOARD_ENV, "face-board-v1")
+    assert cm.sim_family() is BETA
+    assert cm.quality_rung("360p30").k.fx == pytest.approx(BETA.k[0] / 2)
+    monkeypatch.setenv(cm.BOARD_ENV, "rock5")
+    with pytest.raises(ValueError, match="rock5"):
+        cm.sim_family()
+    # the GC2093's K is the solve, unrotated and upright: 85° wide
+    k = cm.family_intrinsics(BETA)
+    assert (k.width, k.height, k.fx) == (1280, 720, BETA.k[0])
+    assert k.fov_deg()["horizontal"] == pytest.approx(85.2, abs=0.2)
+
+
+def test_upright_turns_only_a_quarter_turned_frame():
+    np = pytest.importorskip("numpy")
+    frame = np.arange(2 * 3 * 3).reshape(2, 3, 3)
+    assert np.array_equal(cm.upright(frame), np.rot90(frame, k=-1))
+    assert np.array_equal(cm.upright(frame, 0), frame)
+    assert cm.upright(frame, 0).flags["C_CONTIGUOUS"]
+    right, down, fwd = (0.0, 0.0, -1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)
+    assert cm.upright_axes((right, down, fwd), 90) == ((-0.0, -1.0, -0.0), right, fwd)
+    assert cm.upright_axes((right, down, fwd), 0) == (right, down, fwd)
+    with pytest.raises(ValueError):
+        cm.upright(frame, 45)
+
+
+def test_the_head_camera_is_turned_once_whichever_model_file_carries_it():
+    """The official model's camera faces backwards (sim/camera.py turns it at load); microduck_rl
+    #85 writes the turned quaternion into the file. Both end on the same render camera, and the
+    alpha's is exactly the old turn (byte-for-byte the same frames)."""
+    site = (0.707107, -0.0, 0.707107, 0.0)  # robot_allcollisions.xml's head_camera site
+    old, new = [0.0, 0.0, -1.0, 0.0], [0.0, 0.0, 0.0, 1.0]  # before and after #85
+    assert cm.sensor_offset(old, site, 90) is None
+    assert cm.sensor_offset(new, site, 90) == list(cm.HALF_TURN_X)
+    with pytest.raises(ValueError, match="neither"):
+        cm.sensor_offset([1.0, 0.0, 0.0, 0.0], site, 90)
+
+    class Spec:  # just what _camera_quat reads
+        def site(self, name):
+            return type("S", (), {"quat": list(site)})()
+
+    alpha_old = cm._camera_quat(Spec(), cm.CAMERA, old, 90)
+    assert alpha_old == cm._quat_mul(old, [0.0, 1.0, 0.0, 0.0])  # the turn it always had
+    assert cm._same_rotation(cm._camera_quat(Spec(), cm.CAMERA, new, 90), alpha_old)
+    beta_old = cm._camera_quat(Spec(), cm.CAMERA, old, 0)
+    assert cm._same_rotation(cm._camera_quat(Spec(), cm.CAMERA, new, 0), beta_old)
+    assert not cm._same_rotation(beta_old, alpha_old)
+
+
+@pytest.mark.parametrize("board", ["zero3", "beta"])
+def test_the_rendered_frame_of_each_board_is_mounted_like_its_sensor(board):
+    """At STAND the alpha's frame comes on its side (its rows run up the world: rotate 90), the
+    beta's upright and landscape (its rows run level, its up is the world's up: rotate 0)."""
+    folder = os.environ.get("DUCKMIND_MICRODUCK_MJCF")
+    if not folder or importlib.util.find_spec("mujoco") is None:
+        pytest.skip("official checkout (DUCKMIND_MICRODUCK_MJCF) and MuJoCo needed")
+    family = cm.sim_family(board)
+    eye = cm.load_scene(Path(folder) / "scene_allcollisions.xml", family=family)
+    assert eye.rotate == family.rotate and eye.frame_size == (1280, 720)
+    assert eye.k.fx == pytest.approx(family.k[0])
+    m = eye.data.cam_xmat[eye.camera].reshape(3, 3)  # columns: MuJoCo's right, up, back
+    right, up, back = m[:, 0], m[:, 1], m[:, 2]
+    assert back[0] < -0.9  # it looks ahead (+x), not backwards
+    if family.rotate == 90:
+        assert right[2] < -0.9  # the sensor's rows run down the world: the picture on its side
+    else:
+        assert up[2] > 0.9 and abs(right[2]) < 0.1  # upright: the picture's up is the world's

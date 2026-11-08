@@ -133,6 +133,40 @@ def test_a_level_camera_sees_the_floor_where_the_geometry_says():
     assert 0.30 < cam.nearest_floor_m(pose) < 0.36
 
 
+@pytest.mark.parametrize("family", [ec.ALPHA, ec.BETA], ids=lambda f: f.name)
+def test_robotd_s_upright_camera_frame_reads_the_floor_on_either_board(family):
+    # robotd's frames.camera is the upright picture's cv2 frame on every board (kinematics
+    # SITE_TO_CV2); the eye turns it by the frame's rotate into the sensor (90 on the alpha,
+    # none on the upright GC2093): the floor straight ahead is straight ahead on both
+    from duckmind.eye.frames import PairedPose
+
+    upright = _quat_from_matrix([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])  # right −y, down −z, +x
+    paired = PairedPose(
+        t_ns=0,
+        trunk_height_mm=245,
+        cam_pos_m=(0.0, 0.0, 0.0),
+        cam_quat=upright,
+        imu_quat=ec.IDENTITY,
+        head=(0.0, 0.0, 0.0, 0.0),
+        moved_mdeg=0,
+        interp="hold",
+        seqs=(0, 0),
+        cam_frame="cv2_upright",
+    )
+    cam = ec.EyeCamera.for_frame(1280, 720, family=family)
+    pose = paired.camera_pose(cam.rotate)
+    w, h = cam.upright_size
+    _, _, cxu, cyu = cam.upright_k()
+    assert cam.bearing_mrad(cxu, cyu, pose) == (0, 0)
+    g = cam.ground_m(cxu, h - 0.5, pose)
+    assert g is not None and g[0] > 0.3 and abs(g[1]) < 0.01
+    assert cam.pixel_of_ground(g[0], g[1], pose) == pytest.approx((cxu, h - 0.5), abs=1e-6)
+    b, _ = cam.bearing_mrad(w - 1, cyu, pose)
+    assert b < -300  # the picture's right edge is to the duck's right (~19° / ~42°)
+    _, e = cam.bearing_mrad(cxu, 0.0, pose)
+    assert e > 300  # the top of the picture looks up
+
+
 def test_tipping_the_head_and_the_trunk_moves_the_floor_closer():
     cam = ec.EyeCamera.for_frame(1280, 720)
     level = cam.nearest_floor_m(_level_camera(0.245))
@@ -171,9 +205,10 @@ def test_quaternion_helpers():
 
 
 def _pose_from_render(eye_scene):
-    """What duck-body would send for this instant: robotd's ``frames.camera`` (the OpenCV
-    sensor frame in the trunk frame), the trunk IMU quat and the trunk height — read here from
-    our copy of the scene (MuJoCo's camera looks along −z with y up: OpenCV's is (x, −y, −z))."""
+    """What duck-body would send for this instant: the camera's OpenCV sensor frame in the trunk
+    frame (robotd's upright ``frames.camera`` turned by the frame's rotate), the trunk IMU quat
+    and the trunk height — read here from our copy of the scene (MuJoCo's camera looks along −z
+    with y up: OpenCV's is (x, −y, −z))."""
     import numpy as np
 
     d = eye_scene.data
@@ -201,11 +236,13 @@ def _pose_from_render(eye_scene):
     )
 
 
-def test_the_eye_s_ground_points_land_on_the_rendered_floor():
+@pytest.mark.parametrize("board", ["zero3", "beta"])
+def test_the_eye_s_ground_points_land_on_the_rendered_floor(board, monkeypatch):
     """Cards on the official floor, the duck standing (head HOME, then half down): each card's
     centre seen in the delivered (lens-distorted) frame, taken through eye.camera with the pose
     duck-body would send, lands within 2 cm (level head) / 3 cm (half down) of where the card
-    is; and the eye's projection of the card's centre falls on the card."""
+    is; and the eye's projection of the card's centre falls on the card. For the simulator's
+    alpha IMX219 and the production beta GC2093 (``--board``)."""
     import os
     from pathlib import Path
 
@@ -238,6 +275,8 @@ def test_the_eye_s_ground_points_land_on_the_rendered_floor():
             g.contype = 0
             g.conaffinity = 0
 
+    monkeypatch.setenv("DUCKMIND_BOARD", board)
+    family = ec.camera_family(board)
     try:
         eye = rs.HomeEye.open(
             Path(folder) / "scene_allcollisions.xml", home=lights.DEFAULT_HOME, edit=edit
@@ -246,7 +285,8 @@ def test_the_eye_s_ground_points_land_on_the_rendered_floor():
         pytest.skip(f"no offscreen GL context here: {type(error).__name__}: {error}")
     try:
         width, height = eye.frame_size
-        cam = ec.EyeCamera.for_frame(width, height, 90)
+        cam = ec.EyeCamera.for_frame(width, height, family.rotate, family)
+        assert eye.eye.rotate == family.rotate
         # offsets from STAND's head (robotd's HOME): HOME, and duck-body's half-down look
         # (lookplan.HALF_DOWN: Δneck −0.125, Δhead +0.175 → camera 0.231 m, −17.2°; spec §4.1
         # says 0.228 m, −17°). On this MJCF the camera pitch is (Δneck − Δhead) × 57.3°.

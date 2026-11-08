@@ -31,6 +31,7 @@ Pure standard library: works on floats, no numpy.
 
 from __future__ import annotations
 
+import functools
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -99,6 +100,7 @@ BETA = CameraFamily(
 # robotd's [board] version → its camera (robotd-params board.rs: zero3 → IMX219 at 90°, beta →
 # GC2093 at 0°; face-board-v1, pollen-robotics/microduck #533, is the beta main board)
 BOARD_CAMERAS = {"zero3": ALPHA, "beta": BETA, "face-board-v1": BETA}
+FAMILIES = {family.name: family for family in (ALPHA, BETA)}  # by CameraFamily.name
 
 
 def camera_family(board: str | None = None) -> CameraFamily:
@@ -195,11 +197,49 @@ def level_quat(imu_quat: Quat) -> Quat:
 # ── the lens: OpenCV's model ───────────────────────────────────────────────
 
 
+# The radial polynomial turns back past the views a calibration had (the GC2093's peaks at a
+# distorted radius of 0.917, its frame's edges reach 0.94 and its corners 1.07): past the knee,
+# where its slope has fallen to KNEE_SLOPE, the lens goes on straight with that slope. The same
+# rule as the simulator's lens (duckmind.world.camera_model.radial_knee); the alpha's frame stays
+# inside its knee.
+KNEE_SLOPE = 0.25
+
+
+@functools.lru_cache(maxsize=16)
+def radial_knee(dist: tuple[float, ...]) -> tuple[float, float, float] | None:
+    """(ideal radius, distorted radius, slope) where the radial polynomial first slopes only
+    KNEE_SLOPE; None if it never does (r < 4)."""
+    k1, k2, _, _, k3 = (float(v) for v in dist)
+
+    def slope(r: float) -> float:
+        r2 = r * r
+        return 1 + r2 * (3 * k1 + r2 * (5 * k2 + r2 * 7 * k3))
+
+    step = 0.001
+    r = step
+    while r < 4.0 and slope(r) > KNEE_SLOPE:
+        r += step
+    if r >= 4.0:
+        return None
+    lo, hi = r - step, r
+    for _ in range(50):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if slope(mid) > KNEE_SLOPE else (lo, mid)
+    r = (lo + hi) / 2
+    r2 = r * r
+    return r, r * (1 + r2 * (k1 + r2 * (k2 + r2 * k3))), slope(r)
+
+
 def distort(x: float, y: float, dist: Sequence[float] = FAMILY_DISTORTION) -> tuple[float, float]:
-    """Ideal normalised coordinates → where the lens puts them (OpenCV's model)."""
+    """Ideal normalised coordinates → where the lens puts them (OpenCV's model; past its
+    :func:`radial_knee`, straight on)."""
     k1, k2, p1, p2, k3 = (float(v) for v in dist)
     r2 = x * x + y * y
     radial = 1 + r2 * (k1 + r2 * (k2 + r2 * k3))
+    knee = radial_knee(tuple(float(v) for v in dist))
+    if knee is not None and r2 > knee[0] * knee[0]:
+        r = math.sqrt(r2)
+        radial = (knee[1] + knee[2] * (r - knee[0])) / r
     return (
         x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x),
         y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y,
@@ -209,8 +249,15 @@ def distort(x: float, y: float, dist: Sequence[float] = FAMILY_DISTORTION) -> tu
 def undistort(
     xd: float, yd: float, dist: Sequence[float] = FAMILY_DISTORTION, iterations: int = 10
 ) -> tuple[float, float]:
-    """Distorted normalised coordinates → ideal ones (Newton on :func:`distort`)."""
+    """Distorted normalised coordinates → ideal ones (Newton on :func:`distort`; past the
+    :func:`radial_knee`, the straight-on lens inverted along the radius)."""
     k1, k2, p1, p2, k3 = (float(v) for v in dist)
+    knee = radial_knee(tuple(float(v) for v in dist))
+    rd2 = xd * xd + yd * yd
+    if knee is not None and rd2 >= knee[1] * knee[1]:
+        rd = math.sqrt(rd2)
+        scale = (knee[0] + (rd - knee[1]) / knee[2]) / rd
+        return xd * scale, yd * scale
     x, y = xd, yd
     for _ in range(iterations):
         r2 = x * x + y * y

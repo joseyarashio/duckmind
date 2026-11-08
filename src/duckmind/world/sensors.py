@@ -322,7 +322,9 @@ class SensorSuite:
             return render_scene.HomeEye.open(spec, home=home, config=config, seed=seed)
 
         assert self.folder is not None
-        self.shim = media_shim.MediaShim(self.folder / "mediad" / "media.sock", self.frames)
+        self.shim = media_shim.MediaShim(
+            self.folder / "mediad" / "media.sock", self.frames, rotate=cm.sim_family().rotate
+        )
         self.shim.start()
         self.eye = eye_render.EyeRender(
             open_eye=open_eye,

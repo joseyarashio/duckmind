@@ -6,9 +6,13 @@ Rendering needs MuJoCo, numpy, an offscreen GL context and the official checkout
 
 import importlib.util
 import io
+import json
 import os
+import shutil
+import subprocess
 import time
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -361,3 +365,124 @@ def test_a_stopped_world_is_not_painted_again():
     assert still["frames"] == stopped["frames"] and still["wall"] == stopped["wall"]
     assert time.time() - still["wall"] >= FROZEN_S  # its age grows: no fresh stamp
     assert moving["frames"] > still["frames"] and not moving["frozen"] and moving["t"] == 124.0
+
+
+# ── camera beta (2026-11-09): the page's eye window takes the picture's own shape ──────────
+
+
+def test_the_pages_picture_is_portrait_for_the_alpha_and_landscape_for_the_production_camera(
+    monkeypatch,
+):
+    from duckmind.eye.camera import ALPHA, BETA
+    from duckmind.simweb.eyecam import page_size
+
+    assert page_size(ALPHA) == (360, 640)
+    assert page_size(BETA) == (640, 360)
+    monkeypatch.setenv("DUCKMIND_BOARD", "beta")
+    assert page_size() == (640, 360)
+    monkeypatch.setenv("DUCKMIND_BOARD", "zero3")
+    assert page_size() == (360, 640)
+
+
+class _SizedEye:
+    """An eye answering ``status()`` like EyeCam/WindowEye, with or without a picture yet."""
+
+    def __init__(self, **picture):
+        self.picture = picture
+
+    def status(self):
+        return {"running": True, "frames": 1 if self.picture else 0, **self.picture}
+
+    def latest(self):
+        return None
+
+
+def _bridge(tmp_path, eye):
+    from duckmind.livebody import LivePaths
+    from duckmind.simweb.live import LiveBridge
+
+    paths = LivePaths(tmp_path, tmp_path, tmp_path, tmp_path / "robotd", tmp_path / "ort")
+    bridge = LiveBridge(paths)  # never started: no processes
+    bridge.eye = eye
+    return bridge
+
+
+def test_the_eye_answer_says_how_wide_and_tall_the_picture_is(tmp_path, monkeypatch):
+    monkeypatch.setenv("DUCKMIND_BOARD", "beta")
+    shot = _bridge(tmp_path, _SizedEye(width=640, height=360)).eye_status()
+    assert (shot["width"], shot["height"]) == (640, 360)
+    # before the first picture: the shape this head camera gives
+    waiting = _bridge(tmp_path, _SizedEye()).eye_status()
+    assert (waiting["width"], waiting["height"]) == (640, 360)
+    monkeypatch.setenv("DUCKMIND_BOARD", "zero3")
+    waiting = _bridge(tmp_path, _SizedEye()).eye_status()
+    assert (waiting["width"], waiting["height"]) == (360, 640)
+    off = _bridge(tmp_path, None).eye_status()
+    assert (off["width"], off["height"]) == (360, 640)
+
+
+def test_the_worlds_camera_window_keeps_each_pictures_size(tmp_path):
+    np = pytest.importorskip("numpy")
+    from duckmind.simweb.live import WindowEye
+
+    eye = WindowEye(
+        str(tmp_path / "media.sock"), room_light=lambda: {}, frozen=lambda: False
+    )  # never started: frames are handed in
+    eye._encode({"rgb": np.zeros((360, 640, 3), np.uint8), "header": {}})
+    status = eye.status()
+    assert (status["width"], status["height"]) == (640, 360)
+    assert (eye.latest()["width"], eye.latest()["height"]) == (640, 360)
+
+
+def test_a_production_camera_frame_is_landscape(monkeypatch):
+    from duckmind.world import camera_model as cm
+
+    scene = _needs_render()
+    monkeypatch.setenv("DUCKMIND_BOARD", "beta")
+    renderer = _renderer(scene)
+    try:
+        assert renderer.eye.rotate == 0
+        pose = cm.keyframe_pose(renderer.eye, "STAND")
+        state = lights.light_state(NOON)
+        renderer.converge(pose, state)
+        out = renderer.frame(pose, state)
+    finally:
+        renderer.close()
+    assert (out["width"], out["height"]) == (640, 360)
+    assert out["frame_size"] == [1280, 720]
+    data = out["jpeg"]
+    assert data[:2] == b"\xff\xd8" and data[-2:] == b"\xff\xd9"
+    if importlib.util.find_spec("PIL") is not None:
+        from PIL import Image
+
+        assert Image.open(io.BytesIO(data)).size == (640, 360)
+
+
+_EYEVIEW = (
+    Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static" / "eyeview.js"
+)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+def test_the_page_shapes_the_eye_window_by_the_pictures_size():
+    answers = {
+        "beta": {"width": 640, "height": 360},
+        "alpha": {"width": 360, "height": 640},
+        "older_server": {"label": "白天"},
+        "nothing": None,
+    }
+    script = (
+        f"const api = require({json.dumps(str(_EYEVIEW))});"
+        f"const answers = {json.dumps(answers)};"
+        "const out = {};"
+        "for (const [name, eye] of Object.entries(answers)) out[name] = api.eyeShape(eye);"
+        "console.log(JSON.stringify(out));"
+    )
+    run = subprocess.run(
+        [shutil.which("node"), "-e", script], capture_output=True, text=True, timeout=60
+    )
+    assert run.returncode == 0, run.stderr
+    said = json.loads(run.stdout)
+    assert said["beta"] == {"width": 640, "height": 360, "aspect": "640 / 360", "landscape": True}
+    assert said["alpha"] == {"width": 360, "height": 640, "aspect": "360 / 640", "landscape": False}
+    assert said["older_server"] == said["alpha"] and said["nothing"] == said["alpha"]

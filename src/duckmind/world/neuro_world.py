@@ -68,8 +68,10 @@ import threading
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
+from duckmind.eye.camera import CameraFamily
 from duckmind.i18n import join, lst, msg
 from duckmind.world import camera_model as cm
 from duckmind.world import worldkit as wk
@@ -107,41 +109,101 @@ FLOOR_ASSOCIATION_STEP_PX = 2
 FLOOR_MAX_M = 1.5
 FLOOR_RAY_HEIGHTS_M = (0.02, 0.10)
 
-# The delivered frame (family K at 1280×720, unrotated, through the family lens): a pinhole
+# The delivered frame (the family's K at 1280×720, unrotated, through its lens): a pinhole
 # direction must first fall inside the frame's undistorted extents (the barrel polynomial folds
 # back far outside the frame), then land inside it once distorted.
-_K = cm.FAMILY
-_DIST = cm.FAMILY_DISTORTION
 
 
-def _frame_extents() -> tuple[float, float, float, float]:
+@dataclass(frozen=True)
+class FrameView:
+    """One head camera's delivered frame (:func:`frame_view`): its K and lens, the sensor's
+    undistorted extents (tan, OpenCV axes of the unrotated frame) and its mount (``rotate``)."""
+
+    family: CameraFamily
+    k: cm.Intrinsics
+    dist: tuple[float, ...]
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+
+    @property
+    def rotate(self) -> int:
+        return self.family.rotate
+
+    def in_frame(self, right: float, down: float, forward: float) -> bool:
+        """Whether a point in the camera's own axes (OpenCV: right, down along the unrotated
+        sensor, forward along the optical axis) lands inside the delivered frame."""
+        if forward <= 1e-3:
+            return False
+        x, y = right / forward, down / forward
+        if not (
+            self.x_min - 0.02 <= x <= self.x_max + 0.02
+            and self.y_min - 0.02 <= y <= self.y_max + 0.02
+        ):
+            return False
+        k = self.k
+        xd, yd = cm.distort(x, y, self.dist)
+        u = k.cx + k.fx * xd
+        v = k.cy + k.fy * yd
+        return 0.0 <= u <= k.width - 1 and 0.0 <= v <= k.height - 1
+
+    def upright_span(self) -> tuple[float, float, float, float]:
+        """The upright picture's reach: (left, right) as angles (rad, + = the picture's right)
+        and (top, bottom) as tan of the angle below the axis (+ = the picture's down)."""
+        if self.rotate == 90:  # the picture's right is the sensor's −down, its down +right
+            return -math.atan(self.y_max), -math.atan(self.y_min), self.x_min, self.x_max
+        if self.rotate == 0:
+            return math.atan(self.x_min), math.atan(self.x_max), self.y_min, self.y_max
+        raise ValueError(f"no upright view for a {self.rotate}° mount")
+
+    def down_pixel(self) -> tuple[int, int]:
+        """One pixel down the upright picture, in the delivered frame's (u, v)."""
+        if self.rotate == 90:
+            return 1, 0
+        if self.rotate == 0:
+            return 0, 1
+        raise ValueError(f"no upright view for a {self.rotate}° mount")
+
+
+@lru_cache(maxsize=8)
+def frame_view(family: CameraFamily) -> FrameView:
+    """The delivered frame of ``family``'s camera (cached)."""
+    k = cm.family_intrinsics(family)
+    dist = tuple(family.distortion)
     xs: list[float] = []
     ys: list[float] = []
     n = 48
-    w, h = _K.width - 1, _K.height - 1
+    w, h = k.width - 1, k.height - 1
     for i in range(n + 1):
         for u, v in ((i * w / n, 0.0), (i * w / n, h), (0.0, i * h / n), (w, i * h / n)):
-            x, y = cm.undistort_pixel(u, v, _K, _DIST)
+            x, y = cm.undistort_pixel(u, v, k, dist)
             xs.append(x)
             ys.append(y)
-    return min(xs), max(xs), min(ys), max(ys)
+    return FrameView(family, k, dist, min(xs), max(xs), min(ys), max(ys))
 
 
-X_MIN, X_MAX, Y_MIN, Y_MAX = _frame_extents()
-
-
-def in_frame(right: float, down: float, forward: float) -> bool:
-    """Whether a point in the camera's own axes (OpenCV: right, down along the unrotated sensor,
-    forward along the optical axis) lands inside the delivered frame."""
-    if forward <= 1e-3:
-        return False
-    x, y = right / forward, down / forward
-    if not (X_MIN - 0.02 <= x <= X_MAX + 0.02 and Y_MIN - 0.02 <= y <= Y_MAX + 0.02):
-        return False
-    xd, yd = cm.distort(x, y, _DIST)
-    u = _K.cx + _K.fx * xd
-    v = _K.cy + _K.fy * yd
-    return 0.0 <= u <= _K.width - 1 and 0.0 <= v <= _K.height - 1
+def _axis_map(offset: Sequence[float] | None) -> tuple[tuple[int, int], ...] | None:
+    """A quarter-turn offset (:func:`camera_model.sensor_offset`) as, per sensor axis, which of
+    the model camera's axes it is and its sign; None for no offset (the axes as they are)."""
+    if offset is None:
+        return None
+    w, x, y, z = (float(v) for v in offset)
+    n = math.sqrt(w * w + x * x + y * y + z * z)
+    w, x, y, z = w / n, x / n, y / n, z / n
+    rows = (
+        (1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)),
+        (2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)),
+        (2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)),
+    )
+    out: list[tuple[int, int]] = []
+    for j in range(3):  # column j: sensor axis j in the model camera's axes
+        col = [rows[i][j] for i in range(3)]
+        i = max(range(3), key=lambda a: abs(col[a]))
+        if abs(abs(col[i]) - 1.0) > 1e-6:
+            raise ValueError(f"the camera offset {list(offset)} is not a quarter turn")
+        out.append((i, 1 if col[i] > 0 else -1))
+    return tuple(out)
 
 
 # ── sounds ──────────────────────────────────────────────────────────────────────
@@ -443,9 +505,12 @@ class NeuroWorld:
 
     name = "neuro"
 
-    def __init__(self, *, seed: int = 7) -> None:
+    def __init__(self, *, seed: int = 7, camera: CameraFamily | None = None) -> None:
         self.seed = int(seed)
         self.rng = random.Random(f"neuro-world:{self.seed}")
+        # the head camera (default: the simulator's --board, camera_model.sim_family)
+        self.view = frame_view(camera if camera is not None else cm.sim_family())
+        self._axis_map: tuple[tuple[int, int], ...] | None = None
         self.registry: Any = None
         self.hand: Any = None
         self.people: Any = None
@@ -554,6 +619,15 @@ class NeuroWorld:
         if self.cam < 0:
             raise ValueError("the world has no head camera")
         self.cam_body = int(model.cam_bodyid[self.cam])
+        cam_site = wk.site_id(model, CAM)
+        same_body = cam_site >= 0 and int(model.site_bodyid[cam_site]) == self.cam_body
+        self._axis_map = _axis_map(
+            cm.sensor_offset(
+                [float(v) for v in model.cam_quat[self.cam]],
+                [float(v) for v in model.site_quat[cam_site]] if same_body else None,
+                self.view.rotate,
+            )
+        )
         self.head_site = wk.site_id(model, "head_imu")
         self.beak_site = wk.site_id(model, "mouth_tip")
         robot = self.robot.bodies
@@ -686,15 +760,25 @@ class NeuroWorld:
     # ── the camera's view ──────────────────────────────────────────────────────
 
     def camera(self, data: Any) -> tuple[tuple[float, float, float], list[tuple[float, ...]]]:
-        """The lens's position and its OpenCV axes in the world (right, down, forward): the
-        official ``head_camera`` faces backwards (camera_model's 180° fix), so the physics
-        model's camera frame columns are right, down and forward as they are."""
+        """The lens's position and its sensor's OpenCV axes in the world (right, down, forward;
+        of the unrotated frame). The official ``head_camera`` faces backwards with robotd's
+        camera axes (camera_model's 180° fix), so for the alpha's sensor the physics model's
+        camera frame columns are right, down and forward as they are; another mount, or a model
+        whose camera already faces forward, is turned by :func:`camera_model.sensor_offset`."""
         pos = _vec(data.cam_xpos[self.cam])
         m = [float(v) for v in data.cam_xmat[self.cam]]
-        right = (m[0], m[3], m[6])
-        down = (m[1], m[4], m[7])
-        forward = (m[2], m[5], m[8])
-        return pos, [right, down, forward]
+        cols = ((m[0], m[3], m[6]), (m[1], m[4], m[7]), (m[2], m[5], m[8]))
+        if self._axis_map is None:
+            return pos, list(cols)
+        axes = [
+            cols[i] if sign > 0 else (-cols[i][0], -cols[i][1], -cols[i][2])
+            for i, sign in self._axis_map
+        ]
+        return pos, axes
+
+    def upright(self, axes: Sequence[Sequence[float]]) -> tuple[tuple[float, ...], ...]:
+        """The upright picture's (right, down, forward) in the world from :meth:`camera`'s."""
+        return cm.upright_axes(axes, self.view.rotate)
 
     def _kinematic_center(self, data: Any, cand: Candidate) -> tuple[float, float, float]:
         """Truth-only center for motion estimates; independent of which surface points are visible."""
@@ -856,6 +940,8 @@ class NeuroWorld:
         """The head camera's view now (see the module docstring's ``samples``)."""
         now = float(data.time)
         cam, (right, down, forward) = self.camera(data)
+        up_right, up_down, _ = self.upright((right, down, forward))  # the upright picture's
+        in_frame = self.view.in_frame
         robot = self.robot
         trunk = _vec(data.xpos[robot.trunk])
         yaw = wk.heading_of([float(v) for v in data.xquat[robot.trunk]])
@@ -930,8 +1016,8 @@ class NeuroWorld:
             entry["b"] = round(math.atan2(h[1], h[0]), 4)
             entry["e"] = round(math.atan2(h[2], math.hypot(h[0], h[1])), 4)
             fwd = _dot(rel, forward)
-            entry["cx"] = round(math.atan2(-_dot(rel, down), fwd), 4)  # upright image: + right
-            entry["cy"] = round(math.atan2(_dot(rel, right), fwd), 4)  # upright image: + down
+            entry["cx"] = round(math.atan2(_dot(rel, up_right), fwd), 4)  # upright image: + right
+            entry["cy"] = round(math.atan2(_dot(rel, up_down), fwd), 4)  # upright image: + down
             spread = 0.0
             dirs = [_sub(p, cam) for p, _ in use]
             for i in range(len(dirs)):
@@ -947,12 +1033,12 @@ class NeuroWorld:
             across = _sub(v_obj, (unit[0] * along, unit[1] * along, unit[2] * along))
             entry["om"] = round(_norm(across) / dist, 4)  # its own image motion, rad/s
             entry["lux"] = round(self._lux(state, c), 3)
-            # In this upright image +right points down. Use the lowest visible silhouette point,
-            # then a two-pixel adjacent image ray; never infer range from an occluded mesh bottom.
+            # Use the lowest visible silhouette point in the upright picture, then a two-pixel
+            # adjacent image ray; never infer range from an occluded mesh bottom.
             low = max(
                 use,
                 key=lambda item: (
-                    _dot(_sub(item[0], cam), right) / max(_dot(_sub(item[0], cam), forward), 1e-6)
+                    _dot(_sub(item[0], cam), up_down) / max(_dot(_sub(item[0], cam), forward), 1e-6)
                 ),
             )[0]
             floor_point = self._floor_under(data, low, cam, right, down, forward, cand)
@@ -983,6 +1069,7 @@ class NeuroWorld:
                 "lux": round(cam_lux, 3),
                 "backlight": backlight,
                 "height_m": round(cam[2], 3),
+                "family": self.view.family.name,  # the camera the senses' models read for
             },
             "duck": {"yaw": round(yaw, 4), "trunk_mm": wk.mm(trunk)},
             "seen": seen,
@@ -1008,21 +1095,21 @@ class NeuroWorld:
         (a loose thing, a person's legs), ``wall`` (walls, furniture, the nest) or ``unknown``
         (nothing in range). None when the picture is not upright enough to read the floor (the
         duck fell, the head rolled). World truth for the senses' model only."""
-        right, down, forward = (_vec(a) for a in axes)
+        # the upright picture's axes: its horizontal + right, its vertical + down
+        right, down, forward = (_vec(a) for a in self.upright(axes))
         if abs(right[2]) > 0.55 and abs(down[2]) > 0.55:
             return None  # the picture's rows are far from level (rolled): no floor line
         height = float(cam[2])
         if height < 0.03 or height > 0.6:
             return None
-        # the picture's horizontal (upright) is −down; its vertical +right (camera_model's fix)
-        cx_lo, cx_hi = -math.atan(Y_MAX), -math.atan(Y_MIN)  # + = the picture's right
+        cx_lo, cx_hi, row_top, row_bottom = self.view.upright_span()  # cx: + = the picture's right
         span = (cx_hi - cx_lo) / FLOOR_SECTORS
 
         def level_bearing(cx: float, row: float) -> tuple[float, float]:
             """The level direction of a picture column at a row (tan of the vertical angle):
             its bearing in the heading frame and how far below the horizon it looks (rad)."""
-            y = -math.tan(cx)
-            d = tuple(forward[k] + y * down[k] + row * right[k] for k in range(3))
+            t = math.tan(cx)
+            d = tuple(forward[k] + t * right[k] + row * down[k] for k in range(3))
             flat = math.hypot(d[0], d[1])
             bearing = _wrap(math.atan2(d[1], d[0]) - yaw)
             return bearing, -math.atan2(d[2], max(flat, 1e-9))
@@ -1034,8 +1121,8 @@ class NeuroWorld:
         for k in range(FLOOR_SECTORS):
             cx_mid = cx_lo + (k + 0.5) * span
             b_mid, _ = level_bearing(cx_mid, 0.0)
-            _, dip_bottom = level_bearing(cx_mid, X_MAX)
-            _, dip_top = level_bearing(cx_mid, X_MIN)
+            _, dip_bottom = level_bearing(cx_mid, row_bottom)
+            _, dip_top = level_bearing(cx_mid, row_top)
             # the nearest floor the picture shows (its bottom edge) and the farthest (its top)
             near = height / math.tan(dip_bottom) + lens_ahead if dip_bottom > 0.02 else FLOOR_MAX_M
             far = height / math.tan(dip_top) + lens_ahead if dip_top > 0.02 else FLOOR_MAX_M
@@ -1155,13 +1242,16 @@ class NeuroWorld:
         fwd = _dot(vec, forward)
         if fwd <= 1e-6:
             return None
-        # The delivered upright frame maps raw camera +right to screen-down: this is raw-u,
-        # despite the source camera's unrotated axes. Invert lens distortion for every pixel.
+        # March down the upright picture (the alpha's raw +u, the beta's raw +v), inverting the
+        # lens distortion for every pixel.
+        view = self.view
+        kk = view.k
+        du, dv = view.down_pixel()
         raw_x = _dot(vec, right) / fwd
         raw_y = _dot(vec, down) / fwd
-        xd, yd = cm.distort(raw_x, raw_y, _DIST)
-        u = _K.cx + _K.fx * xd
-        v = _K.cy + _K.fy * yd
+        xd, yd = cm.distort(raw_x, raw_y, view.dist)
+        u = kk.cx + kk.fx * xd
+        v = kk.cy + kk.fy * yd
         last_surface = tuple(float(point[k]) for k in range(3))
         # P1c A2: the loop below returns on every non-carry outcome, so reaching a
         # pixel beyond FLOOR_ASSOCIATION_MAX_PX is only possible through consecutive
@@ -1170,11 +1260,11 @@ class NeuroWorld:
         for pixel in range(
             FLOOR_ASSOCIATION_STEP_PX, FLOOR_ASSOCIATION_CARRY_MAX_PX + 1, FLOOR_ASSOCIATION_STEP_PX
         ):
-            x2, y2 = cm.undistort_pixel(u + pixel, v, _K, _DIST)
+            x2, y2 = cm.undistort_pixel(u + pixel * du, v + pixel * dv, kk, view.dist)
             ray = [float(forward[k]) + x2 * float(right[k]) + y2 * float(down[k]) for k in range(3)]
             ray_norm = _norm(ray)
             ray = [component / ray_norm for component in ray]
-            if not in_frame(_dot(ray, right), _dot(ray, down), _dot(ray, forward)):
+            if not view.in_frame(_dot(ray, right), _dot(ray, down), _dot(ray, forward)):
                 return None
             self._ray_hit[0] = -1
             got = float(
@@ -2604,12 +2694,14 @@ def attach(
     seed: int = 7,
     lights: Callable[[], Any] | None = None,
     switch_lamps: Callable[[bool], Any] | None = None,
+    camera: CameraFamily | None = None,
 ) -> NeuroWorld:
     """The part on an in-process world (:class:`~duckmind.world.worldkit.Headless` or
     :class:`~duckmind.world.headless_duck.HeadlessDuck`): bound to its household, its hooks
-    appended to the host's step lists, ready at once. Call :meth:`NeuroWorld.pump` yourself."""
+    appended to the host's step lists, ready at once. Call :meth:`NeuroWorld.pump` yourself.
+    ``camera``: the head camera (default: the simulator's, :func:`camera_model.sim_family`)."""
     kit = host.kit
-    part = NeuroWorld(seed=seed).bind(
+    part = NeuroWorld(seed=seed, camera=camera).bind(
         hand=kit.hand,
         people=kit.people,
         props=kit.props,

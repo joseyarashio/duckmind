@@ -1999,6 +1999,16 @@ function renderEye(info) {
   const eye = info && info.enabled ? info.eye : null;
   box.hidden = !eye;
   if (!eye) return;
+  // (the picture's own shape: portrait from the alpha board's camera, landscape from the production one)
+  const shape = window.duckEyeView.eyeShape(eye);
+  const img = $("#eyeImg");
+  if (img.dataset.aspect !== shape.aspect) {
+    img.dataset.aspect = shape.aspect;
+    img.width = shape.width;
+    img.height = shape.height;
+    img.style.setProperty("--eye-aspect", shape.aspect);
+  }
+  $("#stageSide").classList.toggle("eye-wide", shape.landscape);
   const chip = $("#eyeLight");
   // (a phone's narrow window: the same words, shorter)
   const narrow = !!(EYE_NARROW && EYE_NARROW.matches);

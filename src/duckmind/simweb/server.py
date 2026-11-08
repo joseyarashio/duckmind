@@ -208,7 +208,9 @@ class SimState:
         # server started with (what 「回到預設」 goes back to); set by main()
         self.layouts = layouts.LayoutStore(None)
         self.layout_default: str = "default_home"
-        self.layout_pinned: str | None = None  # --home (a layout made from another home does not outlive a restart)
+        self.layout_pinned: str | None = (
+            None  # --home (a layout made from another home does not outlive a restart)
+        )
         self.caps_file = config.caps_file
         self.state_file = state_file
         self.realtime = False
@@ -326,7 +328,9 @@ class SimState:
         except Exception:
             then = None
         same = None if now is None or then is None else now == then
-        lasts = self.layouts.enabled and (raw is None or layouts.runs_at_start(raw, self.layout_pinned))
+        lasts = self.layouts.enabled and (
+            raw is None or layouts.runs_at_start(raw, self.layout_pinned)
+        )
         return {"same": same, "life": self.life_host is not None, "lasts": lasts}
 
     def layout_apply(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -1766,6 +1770,16 @@ def main(argv: list[str] | None = None) -> None:
         "robotd.toml; nothing upstream changes). --brain neuro default 1.0 (owner 2026-09-28: "
         "「加快」, A100-validated); 0.2 = robotd's own default",
     )
+    parser.add_argument(
+        "--board",
+        choices=("zero3", "beta", "face-board-v1"),
+        default=None,
+        help="whose head camera the simulated duck carries, by robotd.toml's [board] version: "
+        "zero3 = the Zero 3W prototype's IMX219 (a quarter turn off, 37.4 x 62.2 deg), beta / "
+        "face-board-v1 = the production GC2093 (upright, 85.2 x 54.7 deg). Default: "
+        "$DUCKMIND_BOARD, else zero3. Only the camera follows it (the render, the senses' "
+        "view); the simulator's robotd keeps its default board",
+    )
     voice_group = parser.add_argument_group(
         "live voice (Gemini Live)",
         "--live-voice: the neural duck listens and looks through the cloud and the page gets its "
@@ -1817,6 +1831,9 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--live-voice-cap-minutes must be above 0")
     if args.body and not args.live:
         parser.error("--body remote://host:port is the live body on another machine: add --live")
+    if args.board is not None:
+        # every simulator process (the world server, its render thread, the senses) reads it
+        os.environ["DUCKMIND_BOARD"] = args.board
     if args.robotd_head_alpha is not None:
         if not 0.0 < args.robotd_head_alpha <= 1.0:
             parser.error("--robotd-head-alpha must be in (0, 1]")

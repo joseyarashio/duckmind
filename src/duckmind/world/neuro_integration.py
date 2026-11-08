@@ -12,6 +12,7 @@ import random
 from dataclasses import replace
 from typing import Any
 
+from duckmind.eye.camera import FAMILIES, CameraFamily
 from duckmind.neuro import contract as C
 from duckmind.world import neuro_senses as NSenses
 from duckmind.world import neuro_social_senses as Social
@@ -74,8 +75,8 @@ def _width(points: list[tuple[float, float]], cam: tuple[float, ...], centre: An
 class IntegratedWorld(NW.NeuroWorld):
     """The one ``neuro`` section, extended with sun, object shape and roof truth."""
 
-    def __init__(self, *, seed: int) -> None:
-        super().__init__(seed=seed)
+    def __init__(self, *, seed: int, camera: CameraFamily | None = None) -> None:
+        super().__init__(seed=seed, camera=camera)
         self.sunfield: Any = None
         self._clock: Any = None
 
@@ -139,14 +140,17 @@ class IntegratedWorld(NW.NeuroWorld):
             return self._floor_seen(data, cam, point)
 
         out["sun"] = Sun.view_entries(
-            self.sunfield, data, cam, axes, yaw, NW.in_frame, clear, room_lux
+            self.sunfield, data, cam, axes, yaw, self.view.in_frame, clear, room_lux
         )
+        family = self.view.family
         readings = [
             room_lux((x, y, 0.0)) + self.sunfield.extra_lux(x, y)
-            for x, y in Sun.meter_points(cam, axes[2])
+            for x, y in Sun.meter_points(cam, axes[2], Sun.meter_rows(family))
         ]
         out["cam"]["lux_meter"] = round(Sun.log_mean(readings), 2)
-        roof, looked_up = Social.roof_truth(self.model, data, cam, axes, exclude_body=self.cam_body)
+        roof, looked_up = Social.roof_truth(
+            self.model, data, cam, axes, camera=family, exclude_body=self.cam_body
+        )
         out["roof_truth"] = {"height_m": roof, "looked_up": looked_up}
         return out
 
@@ -276,6 +280,7 @@ class IntegratedVision(NSenses.VisionModel):
                     band,
                     None if entry.get("rng") is None else float(entry["rng"]),
                     self.social.rng,
+                    shirt_m=Social.shirt_from_m(FAMILIES[str(camera.get("family", "alpha"))]),
                 )
                 changed["look"] = look
             output.append(replace(sighting, **changed) if changed else sighting)

@@ -17,8 +17,11 @@ from typing import Any
 
 import pytest
 
+from duckmind.eye.camera import ALPHA, BETA
 from duckmind.world import neuro_senses as ns
 from duckmind.world import neuro_world as nw
+
+ALPHA_VIEW = nw.frame_view(ALPHA)
 
 MJCF = os.environ.get("DUCKMIND_MICRODUCK_MJCF")
 HOME_HEAD = {"neck_pitch": 0.3491, "head_pitch": 0.3491, "head_yaw": 0.0, "head_roll": 0.0}
@@ -45,6 +48,7 @@ class Home:
         yaw: float = 0.0,
         when: datetime = NIGHT,
         seed: int = 7,
+        camera: Any = ALPHA,
     ) -> None:
         mjcf = _mjcf()  # skips here without MuJoCo, numpy or the official MJCF
         import mujoco
@@ -65,7 +69,7 @@ class Home:
         def switch(on: bool) -> None:
             self.clock["lamps"] = on
 
-        self.part = nw.attach(self.w, seed=seed, lights=state, switch_lamps=switch)
+        self.part = nw.attach(self.w, seed=seed, lights=state, switch_lamps=switch, camera=camera)
         q, dof = self.w.robot.qadr, self.w.robot.dof
         for name, value in HOME_HEAD.items():
             j = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, name)
@@ -210,7 +214,8 @@ def test_adjacent_floor_ray_requires_a_real_floor_geom_hit(monkeypatch):
     world._ray_group = None
     world.cam_body = -1
     world._floor_geoms = frozenset({1})
-    monkeypatch.setattr(nw, "in_frame", lambda *_args: True)
+    world.view = ALPHA_VIEW
+    monkeypatch.setattr(nw.FrameView, "in_frame", lambda *_args: True)
     rays = []
 
     def ray(_model, _data, _start, unit, _groups, _n, _exclude, hit):
@@ -237,10 +242,10 @@ def test_adjacent_floor_ray_requires_a_real_floor_geom_hit(monkeypatch):
     shifted_y = sum(rays[0][k] * down[k] for k in range(3)) / sum(
         rays[0][k] * forward[k] for k in range(3)
     )
-    xd0, yd0 = cm.distort(raw_x, raw_y, nw._DIST)
-    xd1, yd1 = cm.distort(shifted_x, shifted_y, nw._DIST)
-    assert abs(nw._K.fx * (xd1 - xd0) - 2.0) < 1e-5
-    assert abs(nw._K.fy * (yd1 - yd0)) < 1e-5
+    xd0, yd0 = cm.distort(raw_x, raw_y, ALPHA_VIEW.dist)
+    xd1, yd1 = cm.distort(shifted_x, shifted_y, ALPHA_VIEW.dist)
+    assert abs(ALPHA_VIEW.k.fx * (xd1 - xd0) - 2.0) < 1e-5
+    assert abs(ALPHA_VIEW.k.fy * (yd1 - yd0)) < 1e-5
 
     def wall_ray(_model, _data, _start, _unit, _groups, _n, _exclude, hit):
         hit[0] = 2
@@ -248,7 +253,7 @@ def test_adjacent_floor_ray_requires_a_real_floor_geom_hit(monkeypatch):
 
     mujoco.mj_ray = wall_ray
     assert world._floor_under(None, point, cam, right, down, forward) is None
-    monkeypatch.setattr(nw, "in_frame", lambda *_args: False)
+    monkeypatch.setattr(nw.FrameView, "in_frame", lambda *_args: False)
     rays.clear()
     assert world._floor_under(None, point, cam, right, down, forward) is None
     assert not rays  # never query geometry outside the delivered image
@@ -267,7 +272,8 @@ def test_floor_association_marches_across_candidate_surface_before_floor(monkeyp
     world._ray_group = None
     world.cam_body = -1
     world._floor_geoms = frozenset({0})
-    monkeypatch.setattr(nw, "in_frame", lambda *_args: True)
+    world.view = ALPHA_VIEW
+    monkeypatch.setattr(nw.FrameView, "in_frame", lambda *_args: True)
     candidate = nw.Candidate("thing:ball", "thing", (7,), (1,))
     cam = (0.0, 0.0, 1.0)
     point = (0.0, 0.0, 0.04)
@@ -288,10 +294,10 @@ def test_floor_association_marches_across_candidate_surface_before_floor(monkeyp
     assert len(calls) == 2
     cm = nw.cm
     raw0 = (point[0] - cam[0]) / (cam[2] - point[2])
-    x0, y0 = cm.distort(raw0, 0.0, nw._DIST)
-    x1, y1 = cm.distort(calls[0][0] / -calls[0][2], 0.0, nw._DIST)
-    assert abs(nw._K.fx * (x1 - x0) - nw.FLOOR_ASSOCIATION_STEP_PX) < 1e-5
-    assert abs(nw._K.fy * (y1 - y0)) < 1e-5
+    x0, y0 = cm.distort(raw0, 0.0, ALPHA_VIEW.dist)
+    x1, y1 = cm.distort(calls[0][0] / -calls[0][2], 0.0, ALPHA_VIEW.dist)
+    assert abs(ALPHA_VIEW.k.fx * (x1 - x0) - nw.FLOOR_ASSOCIATION_STEP_PX) < 1e-5
+    assert abs(ALPHA_VIEW.k.fy * (y1 - y0)) < 1e-5
 
     calls.clear()
 
@@ -319,7 +325,8 @@ def test_floor_association_extends_carry_past_16px_before_floor(monkeypatch):
     world._ray_group = None
     world.cam_body = -1
     world._floor_geoms = frozenset({0})
-    monkeypatch.setattr(nw, "in_frame", lambda *_args: True)
+    world.view = ALPHA_VIEW
+    monkeypatch.setattr(nw.FrameView, "in_frame", lambda *_args: True)
     candidate = nw.Candidate("thing:ball", "thing", (7,), (1,))
     cam = (0.0, 0.0, 1.0)
     point = (0.0, 0.0, 0.04)
@@ -354,7 +361,8 @@ def test_floor_association_carry_budget_stays_bounded(monkeypatch):
     world._ray_group = None
     world.cam_body = -1
     world._floor_geoms = frozenset({0})
-    monkeypatch.setattr(nw, "in_frame", lambda *_args: True)
+    world.view = ALPHA_VIEW
+    monkeypatch.setattr(nw.FrameView, "in_frame", lambda *_args: True)
     candidate = nw.Candidate("thing:ball", "thing", (7,), (1,))
     cam = (0.0, 0.0, 1.0)
     point = (0.0, 0.0, 0.04)
@@ -374,8 +382,11 @@ def test_floor_association_carry_budget_stays_bounded(monkeypatch):
 # ── the view geometry is the camera's ──────────────────────────────────────────
 
 
-def test_the_view_geometry_matches_a_render_of_the_head_camera():
-    home = Home()
+@pytest.mark.parametrize("family", [ALPHA, BETA], ids=lambda f: f.name)
+def test_the_view_geometry_matches_a_render_of_the_head_camera(family):
+    """The senses' view (neuro_world's sensor axes, frame and upright picture) is where the
+    render puts things, for the alpha's quarter-turned IMX219 and the beta's upright GC2093."""
+    home = Home(camera=family)
     home.put("ball_felt", 0.75, 0.3)
     home.put("tissue_box", 0.9, 0.0)
     home.run(0.3, senses=False)
@@ -387,7 +398,8 @@ def test_the_view_geometry_matches_a_render_of_the_head_camera():
     spec = homelayout.compose(home.w.layout, "allcollisions", mjcf_dir=_mjcf())
     worldkit.build().edit_spec(spec, home.w.layout)
     homelayout.fix_keyframes(spec, home.w.layout)
-    eye = cm.load_spec(spec, quality="720p30")
+    eye = cm.load_spec(spec, quality="720p30", family=family)
+    assert eye.rotate == family.rotate
     cm.set_state(eye, home.d.qpos.copy(), mocap_pos=home.d.mocap_pos, mocap_quat=home.d.mocap_quat)
     try:
         renderer = cm.HeadCameraRenderer(eye)
@@ -403,6 +415,8 @@ def test_the_view_geometry_matches_a_render_of_the_head_camera():
         if int(g.objtype) == int(home.mj.mjtObj.mjOBJ_GEOM):
             names[i + 1] = home.mj.mj_id2name(eye.model, home.mj.mjtObj.mjOBJ_GEOM, int(g.objid))
     cam, (right, down, forward) = home.part.camera(home.d)
+    view = home.part.view
+    upright_seg = cm.upright(seg, eye.rotate)
     for key in ("ball_felt", "tissue_box"):
         ids = [sid for sid, name in names.items() if name == f"thing_{key}_0"]
         ys, xs = np.nonzero(np.isin(seg, ids))
@@ -410,13 +424,19 @@ def test_the_view_geometry_matches_a_render_of_the_head_camera():
         centre = home.d.xipos[home.w.kit.props.things[key].body]
         rel = centre - np.array(cam)
         x, y, z = float(rel @ right), float(rel @ down), float(rel @ forward)
-        assert nw.in_frame(x, y, z)
-        xd, yd = cm.distort(x / z, y / z)
-        u = (cm.FAMILY.cx + cm.FAMILY.fx * xd) * width / cm.FAMILY.width
-        v = (cm.FAMILY.cy + cm.FAMILY.fy * yd) * height / cm.FAMILY.height
+        assert view.in_frame(x, y, z)
+        xd, yd = cm.distort(x / z, y / z, view.dist)
+        u = (view.k.cx + view.k.fx * xd) * width / view.k.width
+        v = (view.k.cy + view.k.fy * yd) * height / view.k.height
         assert abs(u - xs.mean()) < 12 and abs(v - ys.mean()) < 12, (key, u, v)
-    listed = {e["id"] for e in home.part.samples[-1]["seen"]}
-    assert {"thing:ball_felt", "thing:tissue_box"} <= listed
+    # the tissue box stands to the duck's right: right of the upright picture's middle, and the
+    # senses' upright column angle says so too
+    ids = [sid for sid, name in names.items() if name == "thing_tissue_box_0"]
+    _, cols = np.nonzero(np.isin(upright_seg, ids))
+    assert cols.mean() > upright_seg.shape[1] / 2
+    entries = {e["id"]: e for e in home.part.samples[-1]["seen"]}
+    assert {"thing:ball_felt", "thing:tissue_box"} <= set(entries)
+    assert entries["thing:tissue_box"]["cx"] > 0.0
 
 
 # ── no truth leaks: behind, behind a wall, in the dark ─────────────────────────

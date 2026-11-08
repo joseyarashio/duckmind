@@ -676,3 +676,102 @@ def test_the_floor_line_is_seen_only_in_good_light_and_not_every_frame() -> None
     got = [walking.look(k * 0.4, truth, "bright", stepping=True, saccade=False) for k in range(200)]
     share = sum(g is not None for g in got) / len(got)
     assert 0.2 < share < 0.5  # only the sharp frames while the legs step (pet:probe)
+
+
+def on_camera(sample: dict[str, Any], family: str | None) -> dict[str, Any]:
+    """``sample`` as ``family``'s head camera saw it (sample["cam"]["family"]; None: not named)."""
+    if family is not None:
+        sample["cam"]["family"] = family
+    return sample
+
+
+def test_a_blob_too_few_pixels_for_the_beta_camera_is_found_only_by_the_alpha():
+    """The salience pass needs a blob of some pixels: the production (beta) camera's focal length
+    is 1.53× shorter than the alpha's, so a thing just over the alpha's bright limit is under the
+    beta's (camera-beta 2026-11-09: the tag's side spans 1.52–1.56× fewer pixels on the beta's
+    renders at the same distance); a sample that names no camera is the alpha's, as before."""
+    small = thing(size=ns.MIN_SIZE_RAD["bright"] * 1.2, om=0.5)
+    found: dict[str | None, int] = {}
+    for family in ("alpha", None, "beta"):
+        found[family] = 0
+        for seed in range(40):
+            got = ns.VisionModel(seed=seed).step(
+                1000, on_camera(view(1.0, [dict(small)]), family), stepping=False, saccade=False
+            )
+            found[family] += sum(1 for s in got if s.track != 0)
+    assert found["alpha"] == found[None] >= 30
+    assert found["beta"] == 0
+    big = thing(size=ns.MIN_SIZE_RAD["bright"] * 1.6, om=0.5)
+    got = [
+        s
+        for seed in range(40)
+        for s in ns.VisionModel(seed=seed).step(
+            1000, on_camera(view(1.0, [dict(big)]), "beta"), stepping=False, saccade=False
+        )
+        if s.track != 0
+    ]
+    assert len(got) >= 30
+
+
+def dock_tag(d: float) -> dict[str, Any]:
+    """The dock's face tag square on, ``d`` metres straight ahead (the reader's truth)."""
+    return thing(
+        id="nest", kind="nest", cls="", size=0.3, dist=d, rng=None, face=0.0, tx=d, ty=0.0, tn=0.0
+    )
+
+
+def test_the_beta_reads_the_tags_facing_as_the_alpha_does_from_farther():
+    """NB-v1's facing comes from the tag's pixels: on the beta's renders (camera-beta 2026-11-09,
+    450 looks each) it was unsure ("the mirror pose fits as well") and scattered as the alpha's
+    model is that many times (1.53) farther; range and bearing stay the alpha's model (it fit the
+    beta's renders better scaled than not). A sample naming no camera is the alpha's."""
+    stats: dict[str | None, tuple[float, float, float]] = {}
+    for family in ("alpha", None, "beta"):
+        facings: list[float | None] = []
+        ranges: list[float] = []
+        for seed in range(400):
+            got = ns.VisionModel(seed=seed).step(
+                1000, on_camera(view(1.0, [dock_tag(1.5)]), family), stepping=False, saccade=False
+            )
+            for s in got:
+                if s.kind == "nest":
+                    facings.append(s.facing)
+                    assert s.range_m is not None
+                    ranges.append(s.range_m)
+        sure = [f for f in facings if f is not None]
+        unsure = 1.0 - len(sure) / len(facings)
+        spread = statistics.pstdev(C.wrap_angle(f - math.pi) for f in sure)
+        stats[family] = (unsure, spread, statistics.pstdev(ranges))
+    assert stats["alpha"] == stats[None]
+    assert stats["alpha"][0] < 0.17 and stats["beta"][0] > 0.28  # 10 % vs 38 % unsure at 1.5 m
+    assert stats["beta"][1] > 1.6 * stats["alpha"][1]  # σ 25 vs 49 mrad
+    assert stats["beta"][2] == pytest.approx(stats["alpha"][2], rel=0.25)  # range: as the alpha
+
+
+def nest_reads(d: float, family: str | None, lux: float) -> int:
+    """Looks (of 40 seeds) that read the dock's tag ``d`` metres ahead as the nest."""
+    tag = dict(dock_tag(d), lux=lux)
+    return sum(
+        1
+        for seed in range(40)
+        for s in ns.VisionModel(seed=seed).step(
+            1000, on_camera(view(1.0, [dict(tag)], lux=lux), family), stepping=False, saccade=False
+        )
+        if s.kind == "nest"
+    )
+
+
+def test_the_beta_reads_the_tag_in_bright_light_only_as_far_as_its_pixels_allow():
+    """NB-v1 in bright light reads as far as the tag has pixels: the alpha's renders read it to
+    4.5 m (the model's 4.4), the beta's fell to 40/60 at 3 m, 19/60 at 3.5, 12/60 at 4, 2/60 at
+    4.5 (camera-beta 2026-11-09) — the alpha's reach over the lens ratio (2.9 m) fits them better
+    (Brier 0.167 vs 0.190). The dim reach (2.2 m) is a guard below both cameras' dusk reads on
+    the renders (alpha to ~4 m, beta to ~2.5 m) and stays, as does everything for the alpha."""
+    bright, dim = 150.0, 10.0
+    assert ns.light_band(bright) == "bright" and ns.light_band(dim) == "dim"
+    for family in ("alpha", None):
+        assert nest_reads(3.6, family, bright) >= 35
+        assert nest_reads(2.0, family, dim) >= 35
+    assert nest_reads(3.6, "beta", bright) == 0
+    assert nest_reads(2.6, "beta", bright) >= 35
+    assert nest_reads(2.0, "beta", dim) >= 35

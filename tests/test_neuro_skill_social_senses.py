@@ -68,8 +68,12 @@ def test_the_roof_reading_limits() -> None:
     assert share == pytest.approx(NSS.P_SHARP_STEPPING, abs=0.08)  # smeared frames
 
 
-def test_the_roof_truth_under_a_box_on_the_physics_model() -> None:
+@pytest.mark.parametrize("board", ["zero3", "beta"])
+def test_the_roof_truth_under_a_box_on_the_physics_model(board: str) -> None:
     mujoco = pytest.importorskip("mujoco")
+    from duckmind.eye.camera import camera_family
+
+    camera = camera_family(board)
     xml = """
     <mujoco><worldbody>
       <geom name="floor" type="plane" size="3 3 0.1"/>
@@ -78,12 +82,17 @@ def test_the_roof_truth_under_a_box_on_the_physics_model() -> None:
     model = mujoco.MjModel.from_xml_string(xml)
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
-    # a lens 0.2 m up looking ahead (+x), level, its picture upright: the sensor is turned — its
-    # "right" points down (−z) and its "down" to the picture's left (+y) (neuro_world.camera)
-    axes = ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
-    under, up = NSS.roof_truth(model, data, (0.0, 0.0, 0.2), axes, groups=(1, 1, 1, 0, 0, 0))
+    # a lens 0.2 m up looking ahead (+x), level, its picture upright (neuro_world.camera): the
+    # alpha's sensor is turned — its "right" points down (−z), its "down" to the picture's left
+    # (+y); the beta's is upright — its right is the picture's right (−y), its down −z
+    if camera.rotate == 90:
+        axes = ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
+    else:
+        axes = ((0.0, -1.0, 0.0), (0.0, 0.0, -1.0), (1.0, 0.0, 0.0))
+    groups = (1, 1, 1, 0, 0, 0)
+    under, up = NSS.roof_truth(model, data, (0.0, 0.0, 0.2), axes, camera=camera, groups=groups)
     assert up and under == pytest.approx(0.2, abs=0.03)  # the table's underside, 0.2 m above
-    outside, up2 = NSS.roof_truth(model, data, (2.0, 0.0, 0.2), axes, groups=(1, 1, 1, 0, 0, 0))
+    outside, up2 = NSS.roof_truth(model, data, (2.0, 0.0, 0.2), axes, camera=camera, groups=groups)
     assert up2 and outside is None
 
 
@@ -92,8 +101,8 @@ def test_the_camera_numbers_follow_the_boards_camera_and_the_simulator_keeps_its
     from duckmind.eye.camera import ALPHA, BETA
 
     assert NSS.SHIRT_FROM_M == NSS.shirt_from_m(ALPHA) == pytest.approx(1.2)
-    assert NSS.ROOF_ROWS == pytest.approx((math.radians(22.0), math.radians(29.0)))
+    assert NSS.roof_rows(ALPHA) == pytest.approx((math.radians(22.0), math.radians(29.0)))
     assert 1.3 < NSS.shirt_from_m(BETA) < 1.5  # a shorter picture shows the shirt from farther
     rows = NSS.roof_rows(BETA)
     assert rows[0] < rows[1] < BETA.half_view_rad[1]  # both rows still inside the picture
-    assert NSS.ROOF_ROWS[1] > BETA.half_view_rad[1]  # alpha's 29° row would be off the GC2093's
+    assert NSS.roof_rows(ALPHA)[1] > BETA.half_view_rad[1]  # alpha's 29° row: off the GC2093's

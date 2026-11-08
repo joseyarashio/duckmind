@@ -67,6 +67,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from duckmind.eye.camera import ALPHA, FAMILIES
 from duckmind.i18n import msg
 from duckmind.neuro import contract as C
 
@@ -158,6 +159,49 @@ TAG_FACE_MAX = math.radians(60.0)
 # "not trusted" (the mirror pose fits as well) 0 / 14 / 2 / 48 / 38 % (0 below 1.2 m, rising to
 # 45 % at 2.5 m). Range and bearing are from the trunk origin in the level frame, as the reader's.
 TAG_BEARING_SIGMA = 0.003
+# The numbers above were measured on, or set for, the alpha camera (fx 1061.8 on the 1280×720
+# frame). The production (beta) camera's lens is 1.53× shorter (fx 695.6): a thing at the same
+# distance spans 1.53× fewer pixels (the dock's tag on the renders, camera-beta 2026-11-09: its side
+# 104/68, 70/46, 52/34, 42/27, 35/23 px at 1/1.5/2/2.5/3 m). What depends on pixels follows the
+# camera a sample names (sample["cam"]["family"]): the salience pass's smallest blob is that many
+# times wider an angle, and NB-v1's facing (its "not trusted" share and scatter) is read as the
+# alpha's model gives it that many times farther — on the beta's renders (450 looks, the
+# likelihood of the reads) that fit better than the alpha's numbers as they are. So does NB-v1's
+# bright reading distance (:func:`tag_read_m`). The tag's range and bearing stay the alpha's: up to
+# 3 m they fit the beta's renders better unscaled (its range |error| median 1–3 / 7–9 / 13–47 /
+# 46–85 / 61–79 mm at 1–3 m, under the alpha model's σ; read 100 % to 2.5 m within 30°).
+
+
+def lens_scale(family: Any) -> float:
+    """How many times farther the alpha camera sees a thing as few pixels across as camera
+    ``family`` (a :data:`~duckmind.eye.camera.FAMILIES` name) does: alpha's focal length over
+    this one's — 1.0 for the alpha and for a sample that names no known camera."""
+    camera = FAMILIES.get(str(family)) if family else None
+    return 1.0 if camera is None else ALPHA.k[0] / camera.k[0]
+
+
+def min_size_rad(band: str, scale: float = 1.0) -> float:
+    """The salience pass's smallest blob (rad) in light ``band`` on a camera of
+    :func:`lens_scale` ``scale`` (no light band: nothing is small enough)."""
+    return MIN_SIZE_RAD.get(band, 1.0) * scale
+
+
+def _scale_of(sample: Mapping[str, Any]) -> float:
+    return lens_scale((sample.get("cam") or {}).get("family"))
+
+
+def tag_read_m(band: str, scale: float = 1.0) -> float | None:
+    """How far NB-v1 reads the dock's tag in light ``band`` (None: not at all) on a camera of
+    :func:`lens_scale` ``scale``. Bright: the alpha's pixel reach (its renders read the tag to
+    4.5 m, camera-beta 2026-11-09) over the lens ratio — the beta's renders read it 40/60 at 3 m,
+    19/60 at 3.5, 12/60 at 4 and 2/60 at 4.5 m, nearer the alpha's 4.4 m over 1.53 (2.9 m) than
+    4.4 m (Brier 0.167 vs 0.190). Dim: 2.2 m on every camera, a guard nearer than either camera
+    reads in dusk light on the renders (the alpha to ~4 m, the beta to ~2.5 m) — scaled it fit the
+    beta's reads worse (Brier 0.349 vs 0.151)."""
+    reach = TAG_READ_M.get(band)
+    if reach is None:
+        return None
+    return reach / scale if band == "bright" else reach
 
 
 def tag_range_sigma(d: float) -> float:
@@ -398,8 +442,11 @@ class VisionModel:
         self.passes += 1
         out: list[C.Sighting] = []
         seen_now: set[str] = set()
+        scale = _scale_of(sample)
         for entry in sample.get("seen") or ():
-            sighting = self._one(t_ms, entry, stepping=stepping, saccade=saccade, ego_v=ego_v)
+            sighting = self._one(
+                t_ms, entry, stepping=stepping, saccade=saccade, ego_v=ego_v, scale=scale
+            )
             if sighting is not None:
                 out.append(sighting)
                 seen_now.add(str(entry.get("id")))
@@ -417,6 +464,7 @@ class VisionModel:
         stepping: bool,
         saccade: bool,
         ego_v: float = 0.0,
+        scale: float = 1.0,
     ) -> C.Sighting | None:
         key = str(e.get("id"))
         kind = str(e.get("kind"))
@@ -434,7 +482,7 @@ class VisionModel:
         track = self.tracks.get(key)
         if band == "black" and not (kind == "nest" and glow):
             return None
-        if band != "black" and size < MIN_SIZE_RAD.get(band, 1.0):
+        if band != "black" and size < min_size_rad(band, scale):
             return None
         threshold = MOTION_STEPPING_RAD_S if stepping else MOTION_RAD_S
         moving = not saccade and (om >= threshold or loom >= LOOM_PER_S)
@@ -442,10 +490,10 @@ class VisionModel:
         p_see = P_SEE[band] if band != "black" else 0.9
         if stepping:
             p_see *= P_SHARP_STEPPING  # most frames smear while the legs step (pet:probe)
+        reach = tag_read_m(band, scale) if kind == "nest" else None
         tag_ok = (
-            kind == "nest"
-            and band in TAG_READ_M
-            and dist <= TAG_READ_M[band]
+            reach is not None
+            and dist <= reach
             and float(e.get("face", 0.0)) <= TAG_FACE_MAX
             and e.get("tx") is not None
         )
@@ -498,7 +546,9 @@ class VisionModel:
                 max(0.0, loom + gate.gauss(0.0, 0.05)),
             ):
                 loom_read = 0.0
-        label = self._label(kind, e, band, moving=moving, loom=loom_read, size=size, dist=dist)
+        label = self._label(
+            kind, e, band, moving=moving, loom=loom_read, size=size, dist=dist, scale=scale
+        )
         if label is None:
             return None
         called = kind == "person" and bool(track is not None and track.person)
@@ -525,14 +575,15 @@ class VisionModel:
         if label == "nest" and band in TAG_READ_M:
             if e.get("tx") is not None and e.get("tn") is not None:
                 # read as a tag (dock:build): the reader's range, bearing and facing, from the
-                # trunk origin in the level frame, with its measured errors
+                # trunk origin in the level frame, with its measured errors (the facing as the
+                # alpha's at the distance that gives the tag as few pixels: see lens_scale)
                 tx, ty = float(e["tx"]), float(e.get("ty", 0.0))
                 d = math.hypot(tx, ty)
                 rng_range = d + rng.gauss(0.0, tag_range_sigma(d))
                 tag_bearing = C.wrap_angle(math.atan2(ty, tx) + rng.gauss(0.0, TAG_BEARING_SIGMA))
-                if rng.random() >= tag_unsure(d):
+                if rng.random() >= tag_unsure(d * scale):
                     facing = C.wrap_angle(
-                        math.pi - float(e["tn"]) + rng.gauss(0.0, tag_facing_sigma(d))
+                        math.pi - float(e["tn"]) + rng.gauss(0.0, tag_facing_sigma(d * scale))
                     )
             else:
                 rng_range = dist * (1.0 + rng.gauss(0.0, TAG_RANGE_SIGMA))
@@ -574,10 +625,12 @@ class VisionModel:
         loom: float,
         size: float,
         dist: float,
+        scale: float = 1.0,
     ) -> str | None:
         if kind == "nest":
-            if band in TAG_READ_M:
-                readable = dist <= TAG_READ_M[band] and float(e.get("face", 0.0)) <= TAG_FACE_MAX
+            reach = tag_read_m(band, scale)
+            if reach is not None:
+                readable = dist <= reach and float(e.get("face", 0.0)) <= TAG_FACE_MAX
                 return "nest" if readable or bool(e.get("glow")) else None
             return "nest" if bool(e.get("glow")) else None
         if loom >= LOOMING_PER_S and size >= LOOMING_SIZE_RAD:
@@ -670,12 +723,13 @@ class LoomWatch:
         self.frames += 1
         best: tuple[Any, ...] | None = None
         seen = False
+        scale = _scale_of(sample)
         for e in sample.get("seen") or ():
             if str(e.get("kind")) == "nest" or int(e.get("vis", 0)) <= 0:
                 continue
             band = light_band(float(e.get("lux", 0.0)))
             size = float(e.get("size", 0.0))
-            if band == "black" or size < max(LOOMING_SIZE_RAD, MIN_SIZE_RAD.get(band, 1.0)):
+            if band == "black" or size < max(LOOMING_SIZE_RAD, min_size_rad(band, scale)):
                 continue
             loom = max(0.0, float(e.get("vr", 0.0)) / max(float(e.get("dist", 1.0)), 0.05))
             if loom < LOOMING_PER_S:
