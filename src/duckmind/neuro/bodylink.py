@@ -613,11 +613,20 @@ class BodyLink:
 
     # ── helpers ──
 
-    def _confirm_lift(self, prox: ProprioOut, t_ns: int, touch: bool) -> ProprioOut:
+    def _confirm_lift(
+        self, prox: ProprioOut, t_ns: int, touch: bool, robotd_held: bool = False
+    ) -> ProprioOut:
         """Proprio's lift claim, believed at once — unless it came right after the body pushed
         into something (``lift_after_contact_s``): then it must hold ``lift_confirm_s`` first
         (meanwhile only "unsure": no walking, no sitting down), and a claim the floor ends
-        before that is dropped with its set-down. Only its own body's senses decide this."""
+        before that is dropped with its set-down. Only its own body's senses decide this.
+
+        robotd's own pickup pause (``robotd_held``: ``safety.picked_up``, a real board's
+        ``[pickup]``) is believed at once, a waiting claim included: its classifier is not the
+        leg load a wall push fools, and the hand that lifts a duck is mostly a ToF touch first
+        (RealDuck2 2026-11-08, the simulator with [pickup] on: robotd paused 1.0 s after the
+        page's pick-up, the gate held the claim to 2.5 s in 6 of 10 paused standing lifts; 30 min
+        of free roam gave no pause at a push)."""
         cfg = self.cfg
         view = prox.view
         edges = list(prox.edges)
@@ -626,7 +635,7 @@ class BodyLink:
         if self.hold_until_ns > t_ns:
             self.contact_ns = t_ns  # a stall stop is holding it: a push, whatever else it is
         recent = t_ns - self.contact_ns < int(cfg.lift_after_contact_s * NS)
-        if "lifted" in edges and recent and not self.lift_told:
+        if "lifted" in edges and recent and not self.lift_told and not robotd_held:
             self.lift_pending_ns = t_ns
         if self.lift_pending_ns is not None:
             if not view.lifted:  # the floor ended it: it was the wall, not a hand
@@ -634,7 +643,7 @@ class BodyLink:
                 self.lifts_dropped += 1
                 kept = [e for e in edges if e not in ("lifted", "set_down")]
                 return replace(prox, edges=tuple(kept))
-            if t_ns - self.lift_pending_ns >= int(cfg.lift_confirm_s * NS):
+            if robotd_held or t_ns - self.lift_pending_ns >= int(cfg.lift_confirm_s * NS):
                 self.lift_pending_ns = None
                 self.lift_told = True
                 return replace(prox, edges=tuple(dict.fromkeys([*edges, "lifted"])))
@@ -984,7 +993,8 @@ class BodyLink:
             sent = self.walk_sent[1]
         touch = bool(depth is not None and depth.touch)
         prox = self.proprio.step(state, cmd=(sent[0], sent[1]), touch=touch)
-        prox = self._confirm_lift(prox, t_ns, touch)  # a push into a wall is not a pickup
+        # a push into a wall is not a pickup; robotd's own pickup pause is
+        prox = self._confirm_lift(prox, t_ns, touch, robotd_held=state.picked_up)
         events: list[dict[str, Any]] = []
         lying = bool(request.lying) or self._rolling(state, t_ns)
         prox = self._retest_lift(prox, state, t_ns, lying)

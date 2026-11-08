@@ -43,8 +43,14 @@ Do not assume your board matches either. Record:
   restart robotd: the look-around takes the head and a yawn opens the beak
   (it can drop what the beak holds). The brain also re-sends `robot.head` at
   least every 0.5 s, which keeps the look-around from starting. `[pickup]` may
-  stay on: the brain takes robotd's `safety.picked_up` as a lift (the
+  stay on: the brain takes robotd's `safety.picked_up` as a lift at once (the
   simulator runs it off and lets the brain's own leg-load sense find lifts).
+  Run once in the simulator with it on (2026-11-08), robotd paused about 1 s
+  after a standing or walking lift (19 of 22), never paused a seated duck
+  (the brain's own sense found those), handed the legs back 1.3 s after the
+  set-down, and paused falsely only while the duck lay on its side trying to
+  get up (30 short pauses in 30 min, no lift claimed). On the first real duck,
+  watch one get-up after a fall for repeated `held` pauses.
   `limp_fall` is the board's choice; righting was measured with it on and off;
 - the camera: the production board (`[board] version = "beta"` or
   `"face-board-v1"`) carries the GC2093 upright, about 85° × 55° (fx 695.6);
@@ -53,8 +59,18 @@ Do not assume your board matches either. Record:
   lens; the simulator keeps the IMX219;
 - usage data: since daemon 0.18.3 the robot sends anonymous usage data to
   PostHog by default (a random robot id, versions and policy names;
-  `docs/robot/telemetry.md` upstream; `MICRODUCK_TELEMETRY=0` or
-  `telemetry.set` turns it off). Duck Mind sends nothing itself.
+  `docs/robot/telemetry.md` upstream). The owner's choice is **off**:
+  `updaterd` holds the switch and answers `telemetry.status` /
+  `telemetry.set {"enabled": false}` on `/run/updaterd.sock` (`0660
+  root:robot`; not a gated call, so the bridge's `robot`-group user may make
+  it). The remote-body bridge turns it off once when it starts on a real duck
+  (`--keep-pollen-telemetry` skips that) and logs a `telemetry` event; off
+  survives reboots and updates. Check it from the computer: `python -m
+  duckmind.remotebody check` prints `usage data (Pollen telemetry): off
+  (enabled False, active False; …)`. `MICRODUCK_TELEMETRY=0` or
+  `DO_NOT_TRACK=1` in `updaterd`'s environment also forces it off. Duck Mind
+  sends nothing itself, and the simulator runs no `updaterd` (only duck-body
+  and robotd, which carries no sender).
 
 The service checks the head profile as a capability: a robotd at API 37 or later
 (robot.head's parameters are unchanged through API 49) with `velstand.onnx` in

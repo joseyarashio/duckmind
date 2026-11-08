@@ -14,6 +14,11 @@ at once and then sits the duck down (``robot.do sit_toggle`` while it stands), r
 sits or a brain is back. robotd's own deadman has already zeroed a walk 0.5 s after its last
 ``robot.move``; the bridge adds the explicit stop, the sit and the guarantee that a stalled link's
 backlog is never applied.
+
+**Pollen's usage data.** On a real duck the bridge asks updaterd for its telemetry switch when it
+starts and turns it off once (the owner's choice, 2026-11-08; ``--keep-pollen-telemetry`` leaves it
+alone), logs a ``telemetry`` event and reports the state to the brain's ``check``
+(:mod:`duckmind.remotebody.telemetry`).
 """
 
 from __future__ import annotations
@@ -32,6 +37,7 @@ from typing import Any
 
 from duckmind.body import BodyIntent
 from duckmind.remotebody import link as L
+from duckmind.remotebody import telemetry
 from duckmind.remotebody.pipe import LocalPipe
 
 ROBOTD_METHODS = frozenset(
@@ -633,7 +639,7 @@ def add_bridge_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--events", type=Path, help="append link/safety events here (JSON lines)")
 
 
-def main(argv: list[str] | None = None) -> int:
+def bridge_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m duckmind.remotebody bridge",
         description="Body-side bridge: robotd (and tofd/mediad) for one brain on the home LAN.",
@@ -643,7 +649,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tofd", help="tofd's socket (e.g. /run/tofd/tof.sock)")
     parser.add_argument("--media", help="mediad's frame socket (e.g. /run/mediad/media.sock)")
     parser.add_argument("--backend", choices=("real", "simulator"), default="real")
-    args = parser.parse_args(argv)
+    parser.add_argument(
+        "--updaterd",
+        default=telemetry.UPDATERD_SOCKET,
+        help="updaterd's socket, which answers Pollen's telemetry switch (a real duck only)",
+    )
+    parser.add_argument(
+        "--keep-pollen-telemetry",
+        action="store_true",
+        help="leave Pollen's usage data as it is (default: a real duck's bridge turns it off once "
+        "at start, the owner's choice of 2026-11-08)",
+    )
+    return parser
+
+
+def body_info_for(args: argparse.Namespace, log: Callable[..., None]) -> dict[str, Any]:
+    """What the bridge tells the brain about its body. On a real duck this is also where Pollen's
+    usage data is settled (:func:`duckmind.remotebody.telemetry.settle`: off unless
+    ``--keep-pollen-telemetry``), once per start, and logged; a simulated body has no updaterd."""
+    if args.backend != "real":
+        return {"backend": args.backend}
+    info = real_body_info()
+    info["telemetry"] = telemetry.settle(
+        args.updaterd, turn_off=not args.keep_pollen_telemetry, log=log
+    )
+    return info
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = bridge_parser().parse_args(argv)
     log = event_logger(args.events)
     channels = {"robotd": Channel("robotd", unix=args.robotd)}
     if args.tofd:
@@ -655,7 +689,7 @@ def main(argv: list[str] | None = None) -> int:
         token=L.read_token(args.token_file),
         channels=channels,
         keeper=keeper_for(args.robotd, args.backend, sit=not args.no_sit, log=log),
-        body_info=real_body_info() if args.backend == "real" else {"backend": args.backend},
+        body_info=body_info_for(args, log),
         deadman_s=args.deadman_ms / 1000.0,
         log=log,
     )

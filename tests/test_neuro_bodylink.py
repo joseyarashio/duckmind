@@ -34,6 +34,7 @@ def state(
     load: float = 45.0,
     gyro: tuple[float, float, float] = (0.0, 0.0, 0.0),
     yaw: float = 0.0,
+    picked_up: bool = False,
 ) -> RobotState:
     """One robot.state tick: ``head`` offsets from HOME, ``load`` the ten legs' sum."""
     joints = [0.0] * 15
@@ -51,6 +52,7 @@ def state(
             "safety": {
                 "fallen": fallen,
                 "limp": False,
+                "picked_up": picked_up,
                 "gravity": [math.sin(r), 0.0, -math.cos(r)],
             },
             "joints": joints,
@@ -327,6 +329,29 @@ def test_a_real_pickup_after_a_push_is_believed_once_it_lasts() -> None:
     outs = run(calm, BodyRequest(posture="stand"), 5.0, 1.0, load=8.0)
     first = next(k for k, o in enumerate(outs) for e in o.events if e["kind"] == "proprio.lifted")
     assert first * DT < 0.9
+
+
+def test_robotds_own_pickup_pause_is_believed_at_once_even_right_after_a_touch() -> None:
+    """RealDuck2 2026-11-08 (robotd 0.18.5, [pickup] on, the page's hand): the reaching hand is a ToF touch, so the
+    claim robotd's pause gave proprio waited the push gate's 1.5 s (paused at 1.0 s, 'lifted' at 2.5 s in 6 of 10
+    paused standing lifts). robotd's classifier is not the leg load a wall push fools: its verdict is believed at once."""
+    link = BodyLink()
+    run(link, BodyRequest(posture="stand"), 0.0, 5.0)
+    touch = P.DepthView(0, 60, None, None, 0, True, 0)  # the hand, seen by the ToF as it reaches
+    link.tick(state(5.0), BodyRequest(posture="stand"), depth=touch)
+    held = run(link, BodyRequest(posture="stand"), 5.02, 2.0, policy="held", picked_up=True)
+    told = [k for k, o in enumerate(held) for e in o.events if e["kind"] == "proprio.lifted"]
+    assert len(told) == 1 and told[0] * DT < 0.1
+    assert all(o.prox.view.lifted for o in held) and "lifted" in held[-1].gate
+    # a leg-load claim already waiting out the gate is believed the moment robotd pauses too
+    pending = BodyLink()
+    run(pending, BodyRequest(posture="stand"), 0.0, 5.0)
+    pending.tick(state(5.0), BodyRequest(posture="stand"), depth=touch)
+    light = run(pending, BodyRequest(posture="stand"), 5.02, 0.6, load=8.0)
+    assert not any(o.prox.view.lifted for o in light)  # the gate holds the leg-load claim …
+    paused = run(pending, BodyRequest(posture="stand"), 5.62, 0.2, policy="held", picked_up=True)
+    assert paused[0].prox.view.lifted  # … until robotd pauses
+    assert sum(e["kind"] == "proprio.lifted" for o in light + paused for e in o.events) == 1
 
 
 def test_a_stumble_stops_the_legs_only_when_the_trunk_really_tips() -> None:

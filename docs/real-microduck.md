@@ -120,6 +120,13 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
        --events ~/remote-body-events.jsonl
    ```
 
+   On a real duck the bridge also turns **Pollen's anonymous usage data** off once when it starts
+   (the owner's choice; it is on by default since daemon 0.18.3). `updaterd` holds that switch
+   and answers `telemetry.set {"enabled": false}` on `/run/updaterd.sock` (`0660 root:robot`, so
+   the bridge's user may call it); off survives reboots and updates and deletes the random robot
+   id. The bridge logs a `telemetry` event with what it found. `--keep-pollen-telemetry` leaves
+   the switch alone. The simulator runs no `updaterd`, so nothing is sent from the computer.
+
 5. **Check the link from the computer** — it reads robotd's health and policies and moves nothing:
 
    ```sh
@@ -134,6 +141,10 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    over it) turns on, what to change on the duck, and which camera lens duck-eye needs.
    Turn robotd's own idle look-around off: `sudo robotctl configure`, `[idle]` `enabled`
    off, then restart robotd (it takes the head and a yawn opens the beak).
+   It also prints Pollen's usage data as the bridge left it: `usage data (Pollen telemetry): off
+   (enabled False, active False; …)`. `ON` or `UNKNOWN` means the duck still sends, or the bridge
+   could not ask `updaterd`: switch it off in the console's drawer (*share anonymous usage
+   data*), or put `MICRODUCK_TELEMETRY=0` in `updaterd`'s environment.
 6. **Rehearse without the robot** at any time: `python -m duckmind.remotebody sim-body` runs a
    simulated duck behind the bridge, and `python -m duckmind.simweb --live --body
    remote://127.0.0.1:8797` drives it (add `python -m duckmind.remotebody shim` in between to add
@@ -155,7 +166,11 @@ or the remote one with its round trip, drops and longest silence) and lists thes
   brain was measured on them (v5, v8: yes; v9 = v7's walk: no).
 - [ ] **robotd.toml:** `check` prints the board and the merged `[idle]` / `[pickup]` /
   `limp_fall`; `[idle]` turned off in the owner layer (`sudo robotctl configure`). With
-  `[pickup]` on, lift the duck: robotd pauses (`safety.picked_up`) and the brain says *lifted*.
+  `[pickup]` on, lift the duck: robotd pauses (`safety.picked_up`) and the brain says *lifted*
+  at once (robotd does not pause a seated duck: the brain's own sense finds that lift). Watch one
+  get-up after a fall: in the simulator robotd's classifier paused get-up tries on the side.
+- [ ] **Usage data off:** `check` prints `usage data (Pollen telemetry): off` (`enabled False,
+  active False`); restart the duck and check again (it stays off).
 - [ ] **`robot.stop` on hardware** zeroes the twist without going limp (upstream: "stop is not
   limp").
 - [ ] **`sit_toggle` on hardware** from walk and stand: time to seated, on the table surface you

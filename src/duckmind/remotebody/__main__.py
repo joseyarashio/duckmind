@@ -89,9 +89,9 @@ def check(argv: list[str]) -> int:
 
 def describe_body(info: dict[str, object]) -> list[str]:
     """What the bridge said about the duck (its walk and sit-stand networks, its robotd.toml, its
-    camera) in plain lines for ``check``: whether the brain has measured those networks in the
-    simulator (it drives an unmeasured walk with the reference walk's numbers) and what the owner
-    should change on the duck."""
+    camera, Pollen's usage data) in plain lines for ``check``: whether the brain has measured those
+    networks in the simulator (it drives an unmeasured walk with the reference walk's numbers),
+    whether the duck sends usage data, and what the owner should change on the duck."""
     from duckmind.eye.camera import BOARD_CAMERAS
     from duckmind.neuro import seatcal, walkcal
 
@@ -139,6 +139,10 @@ def describe_body(info: dict[str, object]) -> list[str]:
             )
     elif info.get("backend") == "real":
         out.append("robotd.toml: not readable by the bridge's user (/etc/robot/robotd.toml)")
+    if info.get("backend") == "real":
+        from duckmind.remotebody.telemetry import describe
+
+        out.append(describe(info.get("telemetry")))
     return out
 
 

@@ -84,6 +84,8 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
        --events ~/remote-body-events.jsonl
    ```
 
+   接的是真的小鴨時，bridge 一啟動就會把 **Pollen 的匿名使用資料**（遙測）關掉一次（主人決定的；0.18.3 起小鴨預設會送）。這個開關在 `updaterd` 手上：bridge 對 `/run/updaterd.sock` 送 `telemetry.set {"enabled": false}`（權限 `0660 root:robot`，bridge 的使用者就能送）。關掉之後重開機、更新都會保持關著，隨機的機器人編號也會刪掉。bridge 會在事件檔記一筆 `telemetry`，寫它看到什麼、做了什麼。加 `--keep-pollen-telemetry` 就不碰這個開關。模擬器沒有跑 `updaterd`，所以這台電腦什麼都不會送出去。
+
 5. **在電腦上檢查連線**——只讀 robotd 的健康和策略，什麼都不會動：
 
    ```sh
@@ -91,6 +93,8 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
    ```
 
    會印出有哪些通道、deadman 多久、robotd 的健康（電量），以及連線的來回時間和最長的安靜時間。接的是真的小鴨時，還會印出：小鴨跑的走路和坐站網路（sha256 和策略組版本）、大腦在模擬器裡有沒有量過它們（v5、v8 有；沒量過的走路網路，大腦照 v5 的數字開）、板子是哪一種、`robotd.toml`（`/etc/robot/robotd.toml` 上面再疊主人的 `/var/lib/robot/robotd.toml`）開了什麼、小鴨上要改什麼、duck-eye 要用哪一顆鏡頭。請把 robotd 自己的「閒著東張西望」關掉：`sudo robotctl configure`，把 `[idle]` 的 `enabled` 關掉，再重開 robotd（它會搶走頭，打哈欠會張開嘴）。
+
+   還會印出 bridge 處理後的使用資料狀態：`usage data (Pollen telemetry): off (enabled False, active False; …)` 就是關好了。看到 `ON`（小鴨還在送）或 `UNKNOWN`（bridge 問不到 `updaterd`）：在官方控制台的抽屜裡把「share anonymous usage data」關掉，或在 `updaterd` 的環境變數加 `MICRODUCK_TELEMETRY=0`。
 6. **沒有機器人也能隨時演練**：`python -m duckmind.remotebody sim-body` 在 bridge 後面跑一隻模擬小鴨，`python -m duckmind.simweb --live --body remote://127.0.0.1:8797` 開牠（中間加 `python -m duckmind.remotebody shim` 就能加延遲、掉包、斷線：輸入 `cut`／`restore`）。
 
 模擬器頁面目前只開得動**模擬的**遠端身體：牠的感官（相機、聽覺、觸覺、電量）和 3D 畫面還是從模擬世界來的。真的小鴨要先讓這些感官從機器人來（見下面清單）。頁面「我的小鴨」分頁有一張「真的小鴨」卡片：說現在大腦開的是哪個身體（這台電腦裡的模擬身體，或遠端身體和它的來回時間、斷線次數、最久沒消息多久），並列出上面這些步驟。
@@ -99,7 +103,8 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
 
 - [ ] **socket 和權限**：`/run/robotd.sock` 在、權限 `0660 root:robot`；bridge 的使用者在 `robot` 群組；`hello` 有回答（0.18.x 回 API 49；大腦用 37 打招呼，robotd 不會拒絕任何版本）。
 - [ ] **策略**：`robot.subscribe` 回 `walk: velstand.onnx`；`check` 會印出走路和坐站網路的 sha256 和策略組版本（照 `docs/deploy/board.md` 記下來），以及大腦有沒有量過它們（v5、v8 有；v9 也就是 v7 的走路網路沒有）。
-- [ ] **robotd.toml**：`check` 會印出板子和合併後的 `[idle]`／`[pickup]`／`limp_fall`；在主人那一層把 `[idle]` 關掉（`sudo robotctl configure`）。`[pickup]` 開著時把小鴨抱起來：robotd 會暫停（`safety.picked_up`），大腦要說「被抱起來」。
+- [ ] **robotd.toml**：`check` 會印出板子和合併後的 `[idle]`／`[pickup]`／`limp_fall`；在主人那一層把 `[idle]` 關掉（`sudo robotctl configure`）。`[pickup]` 開著時把小鴨抱起來：robotd 會暫停（`safety.picked_up`），大腦要馬上說「被抱起來」（坐著被抱起來時 robotd 不會暫停，這時靠大腦自己的感覺）。看一次跌倒後的起身：在模擬器裡，robotd 的分類器會把側躺時的起身動作當成被抱起來而暫停。
+- [ ] **使用資料關掉**：`check` 印出 `usage data (Pollen telemetry): off`（`enabled False, active False`）；小鴨重開機後再 `check` 一次，還是關著。
 - [ ] **真機上的 `robot.stop`**：速度歸零、不會軟掉（官方說「stop 不是 limp」）。
 - [ ] **真機上的 `sit_toggle`**：從走路和站著坐下要多久、在你用的桌面上安不安全；坐著或跌倒時絕不送。
 - [ ] **robotd 自己的 500 ms deadman**：走路中停止送 `robot.move`。
