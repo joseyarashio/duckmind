@@ -328,11 +328,13 @@ def _steered(
     return edges
 
 
-@pytest.mark.parametrize("name", ["v5", "v8"])
+@pytest.mark.parametrize("name", ["v5", "v8", "v9"])
 def test_a_re_steered_walk_on_either_walk_is_not_read_as_a_graze_but_a_graze_is(
     name: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    walk = V5 if name == "v5" else V8
+    # (v9's turn lag fitted on its own roam ticks, 2 × 30 min: 0.20 + 0.05 s, v5's)
+    walk = {"v5": V5, "v8": V8, "v9": TABLE.walks[V9_WALK]}[name]
+    assert walk.turn_lag is not None
     # the latest command times the window: 'brushed' after the big turn-command changes, at no wall (live, both walks:
     # 12-14 forward brushes per walking minute)
     assert _steered(_driven_link(walk, monkeypatch), walk) == []
@@ -340,3 +342,78 @@ def test_a_re_steered_walk_on_either_walk_is_not_read_as_a_graze_but_a_graze_is(
         hits = _steered(_driven_link(walk, monkeypatch), walk, graze_at)
         assert [e[1:] for e in hits] == [("brushed", "right")], (graze_at, hits)
         assert graze_at < hits[0][0] <= graze_at + 1.0
+
+
+# policy set v9 (microduck #550, 2026-11-06): v7's velstand byte for byte, on the backlash body it declares
+V9_WALK = "ce894d30b3343036d499bfac1102bdaa58d59a21c1b58401ecb70fb6a2f63e0a"
+
+
+def _v9_map(monkeypatch: pytest.MonkeyPatch) -> walkcal.WalkMap:
+    """The map the driver gives a body whose policy folder holds v9 (found by the walk file's sha256)."""
+    body = SimpleNamespace(
+        paths=SimpleNamespace(policies="policies"), collision="allcollisions_backlash"
+    )
+    monkeypatch.setattr(walkcal, "walk_sha256", lambda _p: V9_WALK)
+    walk = neuro_live._walk_map(body, 20.0)
+    assert walk is not None, "v9's walk is measured: the driver maps it"
+    return walk
+
+
+def test_a_v9_link_sends_the_turn_the_brain_wants(monkeypatch: pytest.MonkeyPatch) -> None:
+    walk = _v9_map(monkeypatch)
+    v9w = walk.loaded
+    assert (
+        v9w.walk_sha256 == V9_WALK and v9w.body == "allcollisions_backlash" and walk.reference == V5
+    )
+    today, v9 = _link(None), _link(walk)
+    for k, (vx, vyaw) in enumerate(REQUESTS):
+        designed = _sent(today, vx, vyaw, t0=k)
+        sent = _sent(v9, vx, vyaw, t0=k)
+        want_speed, want_rate = V5.at(*designed)
+        speed, rate = v9w.at(*sent)
+        lo, hi = v9w.at(sent[0], -1.0)[1], v9w.at(sent[0], 1.0)[1]
+        if lo + 0.02 < want_rate < hi - 0.02:  # v9 can turn as v5 did: it does
+            assert rate == pytest.approx(want_rate, abs=0.03), (vx, vyaw, designed, sent)
+        else:  # (v9 turns right at most about as hard as v5: then it turns as hard as it can at that speed)
+            assert rate == pytest.approx(lo if want_rate < 0 else hi, abs=0.03), (
+                vx,
+                vyaw,
+                designed,
+                sent,
+            )
+        if 0.30 < sent[0] < 0.55 and lo + 0.02 < want_rate < hi - 0.02:
+            assert speed == pytest.approx(want_speed, abs=0.006), (vx, vyaw, designed, sent)
+        assert v9.walk_sent == (sent, designed)
+    # what it fixes: today's command on v9 turns left a third harder than on v5 (measured 0.56 vs 0.42 rad/s at (0.45, 1.0))
+    designed = _sent(today, 0.45, 1.0)
+    assert v9w.at(*designed)[1] > 1.25 * V5.at(*designed)[1]
+    assert v9w.at(*_sent(v9, 0.45, 1.0, t0=99.0))[1] == pytest.approx(V5.at(*designed)[1], abs=0.03)
+
+
+def test_v9_does_not_turn_on_the_spot_so_its_pivots_stay_arcs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    walk = _v9_map(monkeypatch)
+    # measured standing at (0, ±1.0): v9 0.66-0.69 rad/s (v8 1.19-1.20, v5 0.00), under PIVOT_SHARE_MIN
+    assert not walk.loaded.pivots
+    link = _link(walk)
+    for side in (1.0, -1.0):
+        sent = _sent(link, 0.37, 0.9 * side, t0=30.0 + side)
+        assert sent[0] > 0.25 and not link.pivot_in_place
+
+
+def test_a_v9_back_arc_turns_as_v5s(monkeypatch: pytest.MonkeyPatch) -> None:
+    walk = _v9_map(monkeypatch)
+    v9w = walk.loaded
+    assert v9w.back_arc is not None and v9w.back_arc.vxs == (-0.4, -0.3)
+    for vx, vyaw in BACK_ARCS:
+        link = _link(walk)
+        twists, edges, turned = _back_arc(link, v9w, vyaw)
+        sent = twists[-1]
+        assert "brushed" not in edges and "blocked" not in edges, (vyaw, sent)
+        assert link.walk_sent == (sent, (vx, vyaw))
+        _, _, v5_turned = _back_arc(_link(None), V5, vyaw)
+        if vyaw > 0:  # v9 backs a left arc as v5 does
+            assert turned == pytest.approx(v5_turned, abs=math.radians(4.0)), (vyaw, sent)
+        else:  # v9 backs a right arc at most 28° in the first second (v5 38°): it is asked its hardest
+            assert sent == (-0.4, -1.0) and v5_turned < turned < 0.0

@@ -107,3 +107,14 @@ def test_v5_and_unmeasured_walks_keep_proprio_s_standing_number() -> None:
     assert {k: v for k, v in vars(v8).items() if k != "lift_load"} == {
         k: v for k, v in vars(base).items() if k != "lift_load"
     }  # only the standing claim's level moves
+
+
+def test_a_v9_duck_sits_on_v8s_seat_and_stands_on_proprio_s_own_level() -> None:
+    # policy set v9 = v7's walk (ce894d30…) with v8's sit-stand (a6f102d9…, the same file): the seat is v8's measured one;
+    # v9's walk stood above 20 in every 0.3 s of its 1 h roam records (lowest 20.8 / 22.2; V9Check 2026-11-08), as v5's
+    # did, so it has no stance entry and the standing claim keeps proprio's own level
+    v9_walk = "ce894d30b3343036d499bfac1102bdaa58d59a21c1b58401ecb70fb6a2f63e0a"
+    base = ProprioConfig()
+    assert TABLE.seat_for(V8_SEAT.sitstand_sha256, "allcollisions_backlash", 20.0) == V8_SEAT
+    assert TABLE.stance_for(v9_walk, "allcollisions_backlash", 20.0) is None
+    assert TABLE.stand_proprio_for(base, v9_walk, "allcollisions_backlash", 20.0) is base

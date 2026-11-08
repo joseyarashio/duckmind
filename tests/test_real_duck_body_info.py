@@ -83,7 +83,13 @@ def test_check_says_whether_the_brain_measured_the_ducks_walk_and_what_to_change
             {"policies": {"set": "v9", "walk_sha256": V9_WALK, "sitstand_sha256": V8_SEAT}}
         )
     )
-    assert "NOT measured" in v9
+    assert "v9 velstand" in v9 and "measured in the simulator" in v9 and "NOT measured" not in v9
+    other = "\n".join(
+        describe_body(
+            {"policies": {"set": "v10", "walk_sha256": "0" * 64, "sitstand_sha256": V8_SEAT}}
+        )
+    )
+    assert "NOT measured" in other
     quiet = describe_body({"robotd_config": {**config, "idle": False, "board": "zero3"}})
     assert not any("change on the duck" in line for line in quiet)
     assert any("imx219" in line for line in quiet)
