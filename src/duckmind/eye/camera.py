@@ -2,11 +2,14 @@
 
 The intrinsics belong in duck-eye's configuration, not in the camera daemon: mediad hard-codes
 none that a client can read, and the eye may not import the simulator (:mod:`duckmind.world`),
-so this module carries its own copy of the family calibration — ``robotd-params``
-``CameraIntrinsics::alpha()``, solved on the unrotated 1280×720 frame as mediad sends it — and a
-test pins it to :mod:`duckmind.world.camera_model`'s numbers. Perception code never writes a
-pixel constant: it asks :meth:`EyeCamera.for_frame` for the K of the frame it holds (the header's
-width, height and rotate), as mediad scales a solve for another ``[media] quality``.
+so this module carries its own copies of the family calibrations — ``robotd-params``
+``CameraIntrinsics::alpha()`` (:data:`ALPHA`, the Zero 3W's IMX219 a quarter turn off: the
+simulator's camera, pinned by a test to :mod:`duckmind.world.camera_model`'s numbers) and
+``CameraIntrinsics::beta()`` (:data:`BETA`, the production board's GC2093, upright), both solved on
+the unrotated 1280×720 frame as mediad sends it; :func:`camera_family` picks one by robotd's
+``[board] version``. Perception code never writes a pixel constant: it asks
+:meth:`EyeCamera.for_frame` for the K of the frame it holds (the header's width, height and
+rotate, and the board's family), as mediad scales a solve for another ``[media] quality``.
 
 Frames and conventions (robotd's):
 
@@ -47,6 +50,68 @@ FAMILY_DISTORTION = (
 )
 ROTATE = 90  # mediad --rotate default
 PROVISIONAL = "family calibration; the duck's own lens is measured on the board (phase 8)"
+
+
+@dataclass(frozen=True)
+class CameraFamily:
+    """One board family's head camera: robotd-params ``CameraIntrinsics::<family>()`` on the
+    unrotated 1280×720 frame as mediad sends it, how it is mounted (``rotate``, clockwise degrees
+    to upright: ``Board::camera_mount_degrees``) and the upright picture's pinhole field
+    (``view_deg``: width × height, what the brain's field-of-view numbers are)."""
+
+    name: str
+    sensor: str
+    size: tuple[int, int]
+    k: tuple[float, float, float, float]
+    distortion: tuple[float, float, float, float, float]
+    rotate: int
+    view_deg: tuple[float, float]
+
+    @property
+    def half_view_rad(self) -> tuple[float, float]:
+        """Half the upright picture's width and height, radians."""
+        return math.radians(self.view_deg[0]) / 2.0, math.radians(self.view_deg[1]) / 2.0
+
+
+# The Zero 3W prototype ("alpha") board's IMX219, a quarter turn off: the upright picture is
+# 37.4° wide × 62.2° tall. The simulator's camera (duckmind.world.camera_model).
+ALPHA = CameraFamily(
+    "alpha", "imx219", FAMILY_SIZE, FAMILY_K, FAMILY_DISTORTION, ROTATE, (37.4, 62.2)
+)
+# The production ("beta") main board's GC2093 and lens, upright: CameraIntrinsics::beta(), unit
+# sky-gtc, 2026-10-28, ChArUco 80 views, 1.28 px RMS, the 1280×720 frame (a scaled readout of the
+# sensor's only 1920×1080 mode); 85.2° wide × 54.7° tall. Not the simulator's camera.
+BETA = CameraFamily(
+    "beta",
+    "gc2093",
+    (1280, 720),
+    (695.6216231288809, 696.0209167299262, 627.4740538073111, 363.60566030048255),
+    (
+        -0.368607360841971,
+        0.13550162561831905,
+        0.00012682873881955374,
+        0.0008719998338708391,
+        -0.022368269599378002,
+    ),
+    0,
+    (85.2, 54.7),
+)
+# robotd's [board] version → its camera (robotd-params board.rs: zero3 → IMX219 at 90°, beta →
+# GC2093 at 0°; face-board-v1, pollen-robotics/microduck #533, is the beta main board)
+BOARD_CAMERAS = {"zero3": ALPHA, "beta": BETA, "face-board-v1": BETA}
+
+
+def camera_family(board: str | None = None) -> CameraFamily:
+    """The camera of robotd's ``[board] version`` (``duckmind.robotd_config``); ``None`` is the
+    alpha family (the simulator's camera, and robotd's own reading of an unset board). An unknown
+    board raises: a guessed lens puts every floor point in the wrong place."""
+    if board is None:
+        return ALPHA
+    family = BOARD_CAMERAS.get(board)
+    if family is None:
+        raise ValueError(f"no camera known for board {board!r} (known: {sorted(BOARD_CAMERAS)})")
+    return family
+
 
 Quat = tuple[float, float, float, float]
 Vec = tuple[float, float, float]
@@ -194,7 +259,7 @@ class CameraPose:
 
 @dataclass(frozen=True)
 class EyeCamera:
-    """The family K and lens on one frame: ``width``×``height`` as delivered (unrotated),
+    """A family's K and lens on one frame: ``width``×``height`` as delivered (unrotated),
     turned upright by ``rotate``."""
 
     width: int
@@ -207,24 +272,29 @@ class EyeCamera:
     rotate: int = ROTATE
 
     @classmethod
-    def for_frame(cls, width: int, height: int, rotate: int = ROTATE) -> EyeCamera:
-        """The family calibration scaled to a delivered frame (as ``mediad/src/camera.rs``
-        scales a solve: each axis by its own ratio)."""
+    def for_frame(
+        cls, width: int, height: int, rotate: int | None = None, family: CameraFamily = ALPHA
+    ) -> EyeCamera:
+        """``family``'s calibration scaled to a delivered frame (as ``mediad/src/camera.rs``
+        scales a solve: each axis by its own ratio); ``rotate`` defaults to the family's mount."""
+        rotate = family.rotate if rotate is None else rotate
         if width <= 0 or height <= 0:
             raise ValueError(f"no frame is {width}x{height}")
         if rotate not in (0, 90, 180, 270):
             raise ValueError(f"rotate {rotate} is not a quarter turn")
-        sx, sy = width / FAMILY_SIZE[0], height / FAMILY_SIZE[1]
-        fx, fy, cx, cy = FAMILY_K
-        return cls(width, height, fx * sx, fy * sy, cx * sx, cy * sy, FAMILY_DISTORTION, rotate)
+        sx, sy = width / family.size[0], height / family.size[1]
+        fx, fy, cx, cy = family.k
+        return cls(width, height, fx * sx, fy * sy, cx * sx, cy * sy, family.distortion, rotate)
 
     @classmethod
-    def for_header(cls, header: object) -> EyeCamera:
-        """From a ``MediaFrameHeader`` (anything with width, height and rotate)."""
+    def for_header(cls, header: object, family: CameraFamily = ALPHA) -> EyeCamera:
+        """From a ``MediaFrameHeader`` (anything with width, height and rotate) of a ``family``
+        camera."""
         return cls.for_frame(
             int(getattr(header, "width")),  # noqa: B009
             int(getattr(header, "height")),  # noqa: B009
-            int(getattr(header, "rotate", ROTATE)),
+            int(getattr(header, "rotate", family.rotate)),
+            family,
         )
 
     # ── the upright picture ─────────────────────────────────────────

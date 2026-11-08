@@ -167,6 +167,9 @@ class RobotState:
     imu_quat: Quat4 | None
     camera: tuple[Vec3, Quat4] | None
     tof: tuple[Vec3, Quat4] | None
+    # robotd's pick-up detector (0.15.2+, [pickup]) has paused the policy: a hand holds the duck
+    # (``policy`` then reads ``held``); absent from older daemons, which reads as never picked up
+    picked_up: bool = False
 
     @classmethod
     def from_wire(cls, params: Mapping[str, Any]) -> RobotState:
@@ -228,6 +231,7 @@ class RobotState:
             imu_quat=None if quat is None else (quat[0], quat[1], quat[2], quat[3]),
             camera=None if frames is None else _pose(frames.get("camera")),
             tof=None if frames is None else _pose(frames.get("tof")),
+            picked_up=safety.get("picked_up") is True,
         )
 
     # ── derived readings every sensor module shares ──

@@ -33,11 +33,35 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from duckmind.eye.camera import ALPHA, CameraFamily
 from duckmind.world.people import PERSONAS, Persona, hip_height
 
 VERSION = "neuro-social-senses-1"
 
-SHIRT_FROM_M = 1.2  # the shirt is in the picture from about this far (the 62° tall frame)
+# The camera numbers below were set for the alpha camera (the simulator's: an upright picture
+# 37.4° wide × 62.2° tall); shirt_from_m() and roof_rows() give them for another board's camera
+# (eye.camera.camera_family: the production GC2093 is 85.2° × 54.7°). The simulated duck keeps
+# the alpha camera: switching it is the owner's decision.
+_ALPHA_SHIRT_M = 1.2  # the shirt is in the alpha picture from about this far
+_ALPHA_ROOF_DEG = (22.0, 29.0)  # rows above the optical axis in the alpha picture
+
+
+def shirt_from_m(camera: CameraFamily = ALPHA) -> float:
+    """How far a person stands before the shirt is in ``camera``'s picture: the alpha camera's
+    1.2 m, scaled so the shirt line meets the picture's top edge (a shorter picture sees it from
+    farther): 1.2 × tan(alpha's half height) / tan(this half height)."""
+    scale = math.tan(ALPHA.half_view_rad[1]) / math.tan(camera.half_view_rad[1])
+    return _ALPHA_SHIRT_M * scale
+
+
+def roof_rows(camera: CameraFamily = ALPHA) -> tuple[float, float]:
+    """The roof reading's rows (rad above the optical axis) in ``camera``'s picture: alpha's 22°
+    and 29° at the same share of the upright picture's half height, so both stay inside it."""
+    share = camera.half_view_rad[1] / ALPHA.half_view_rad[1]
+    return (math.radians(_ALPHA_ROOF_DEG[0]) * share, math.radians(_ALPHA_ROOF_DEG[1]) * share)
+
+
+SHIRT_FROM_M = shirt_from_m()  # 1.2 m: the shirt is in the picture from about this far
 LOOK_SIGMA = {"bright": 0.012, "dim": 0.025}  # chromaticity scatter
 LUMA_LIGHT = 0.12  # the room's light shifts the legs' measured brightness by ~12 %
 LUMA_SIGMA = 0.02
@@ -57,8 +81,8 @@ VOICE_SIGMA = (0.025, 0.2)  # a + b × how far under VOICE_CLEAR_DB of SNR the s
 VOICE_CLEAR_DB = 20.0
 ROOM_DB = 30.0
 SPEECH = frozenset({"voice", "name", "hello"})
-# the roof: rays through the top of the delivered frame (the upright frame is 62.2° tall)
-ROOF_ROWS = (math.radians(22.0), math.radians(29.0))  # above the optical axis, in the picture
+# the roof: rays through the top of the delivered frame (the alpha's upright frame is 62.2° tall)
+ROOF_ROWS = roof_rows()  # 22° and 29° above the optical axis, in the picture
 ROOF_RANGE_M = 1.2  # a surface within this along the ray can be read
 ROOF_UP_MIN = 0.25  # a ray must climb at least this (sin of its elevation) to look "up"
 ROOF_SIGMA = 0.15  # the height's scatter (× itself)

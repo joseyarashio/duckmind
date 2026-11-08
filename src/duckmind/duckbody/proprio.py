@@ -372,7 +372,7 @@ class Proprio:
                 fell_trigger = "fallen"
             elif stuck_s >= c.fall_tilt_hold_s - 1e-9:
                 fell_trigger = "tilt40"
-            if fell_trigger is not None and self.lift == "lifted":
+            if fell_trigger is not None and (self.lift == "lifted" or state.picked_up):
                 fell_trigger = None  # held in the arms: tilting there is not a fall
             if fell_trigger is not None:
                 self.fall_open = True
@@ -406,6 +406,17 @@ class Proprio:
         stopped_s = self._stopped.update(stopped, t)
         if self.fall_open and self.lift != "ground":
             self.lift = "ground"  # a fall supersedes an unsure/lifted guess
+        if state.picked_up and not self.fall_open and self.lift != "lifted":
+            # robotd's own pick-up detector (0.15.2+, [pickup] on: a real board's default) has paused
+            # the policy: a hand holds the duck. The policy then reads ``held`` (no posture) and the legs
+            # hold robotd's pause pose, so the load bands below cannot run: robotd's verdict is the
+            # claim. The set-down is the usual one once robotd hands the policy back.
+            self.lift = "lifted"
+            self.why_unsure = "robotd"
+            self.epoch += 1
+            edges.append("lifted")
+            self._down.update(False, t)
+            conf = 900_000
         if lift_ok and load is not None:
             unsure_load = c.unsure_load_sit if sit else c.unsure_load
             reversing = walking_cmd and vx < 0

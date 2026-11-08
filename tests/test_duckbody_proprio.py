@@ -32,6 +32,7 @@ def tick(
     gyro: tuple[float, float, float] = (0.3, 0.2, 0.1),
     cmd: tuple[float, float] = (0.0, 0.0),
     odom: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    picked_up: bool = False,
 ) -> RobotState:
     currents = [0.0] * 15
     currents[0], currents[10] = load
@@ -40,7 +41,8 @@ def tick(
             "t_ns": 10**10 + int(round(t * 1e9)),
             "policy": policy,
             "move": {"requested": [cmd[0], 0.0, cmd[1]], "applied": [0, 0, 0]},
-            "safety": {"fallen": fallen, "limp": False, "gravity": list(gravity)},
+            "safety": {"fallen": fallen, "limp": False, "gravity": list(gravity),
+                       "picked_up": picked_up},  # fmt: skip
             "joints": [0.0] * 15,
             "velocities": [0.0] * 15,
             "currents_ma": currents,
@@ -301,3 +303,26 @@ def test_a_reverse_start_is_not_a_lift_but_a_real_pickup_while_reversing_is() ->
     assert late  # past the spin-up the usual mark holds
     forward = [t for t, e in _reverse_start(21.0, 0.40, 0.25, cmd_vx=0.40) if e == "unloaded"]
     assert forward  # forward walks keep the usual mark
+
+
+def test_robotds_own_pickup_pause_is_a_lift_and_its_resume_a_set_down() -> None:
+    # (real duck prep 2026-11-08) a real board runs robotd's pick-up detector by default (0.15.2+):
+    # held, the policy reads "held" and the legs hold the pause pose, so the legs' load cannot claim
+    # the lift; robotd's safety.picked_up does. Before: the claim stayed "ground" the whole hold.
+    p = Proprio()
+    edges: list[tuple[float, str]] = []
+    still = (0.01, 0.01, 0.01)
+    for i in range(100):  # standing on the floor 2 s
+        edges += [(i * 0.02, e) for e in p.step(tick(i * 0.02, policy="stand", gyro=still)).edges]
+    assert edges == []
+    for i in range(100, 250):  # in a hand 3 s: robotd paused (a tilt there is no fall)
+        state = tick(i * 0.02, policy="held", picked_up=True, load=(4.0, 4.0),
+                     gravity=tilted(50.0), gyro=(0.8, 0.5, 0.2))  # fmt: skip
+        out = p.step(state)
+        edges += [(i * 0.02, e) for e in out.edges]
+        assert out.view.lifted and not out.view.fallen
+    assert [e for _, e in edges] == ["lifted"] and edges[0][0] == 2.0
+    for i in range(250, 450):  # set down: robotd hands the policy back, the legs carry it
+        edges += [(i * 0.02, e) for e in p.step(tick(i * 0.02, policy="stand", gyro=still)).edges]
+    down = [t for t, e in edges if e == "set_down"]
+    assert len(down) == 1 and 5.0 + 1.5 <= down[0] <= 5.0 + 3.0

@@ -792,6 +792,28 @@ class LiveBody:
         self.host_info = self._host.info()
         self._attach(link.robotd_socket, timeout_s)
 
+    def policy_hashes(self) -> dict[str, str | None] | None:
+        """sha256 of the walk and sit-stand networks this body runs (``walk_sha256``,
+        ``sitstand_sha256``), what the brain's measured walk and seat tables are keyed by
+        (neuro.walkcal, neuro.seatcal): a remote body's as its bridge reported them (the networks on
+        *that* machine), else the files in this machine's policy folder; None when neither says."""
+        info = self._link.info if self._link is not None else {}
+        reported = info.get("policies")
+        if isinstance(reported, Mapping):
+            return {
+                key: value if isinstance(value := reported.get(key), str) else None
+                for key in ("walk_sha256", "sitstand_sha256")
+            }
+        policies = getattr(self.paths, "policies", None)
+        if policies is None:
+            return None
+        from duckmind.neuro import seatcal, walkcal
+
+        return {
+            "walk_sha256": walkcal.walk_sha256(Path(policies)),
+            "sitstand_sha256": seatcal.seat_sha256(Path(policies)),
+        }
+
     def _attach(self, sock: Path, timeout_s: float) -> None:
         """Connect to a running body's robotd (and the world's oracle on ``body_port``), start the
         body threads and bring it up: enabled, standing, then seated when asked."""

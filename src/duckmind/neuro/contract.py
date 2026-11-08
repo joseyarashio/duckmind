@@ -283,7 +283,8 @@ class TofSense:
 
 @dataclass(frozen=True, slots=True)
 class Sighting:
-    """One thing in the camera's field of view (37.4° wide × 62.2° tall, where the head points).
+    """One thing in the camera's field of view (where the head points; the simulator's alpha camera
+    is 37.4° wide × 62.2° tall, the production board's GC2093 85.2° × 54.7°: eye.camera.camera_family).
     Only what is inside the view *and* visible in the current light is ever reported."""
 
     kind: str  # VISUAL_KINDS

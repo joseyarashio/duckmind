@@ -4,12 +4,12 @@
 
 Duck Mind 的大腦要住在家裡的電腦，身體是那隻小機器鴨。機器人自己的程式 `robotd` 留在小鴨身上；小鴨上再跑一個小小的 **bridge**，讓家裡網路上的**一個**大腦連得到它。這一頁說明：哪些已經好了、怎麼接小鴨、哪些還要在真的機器人上確認。
 
-> **現況（2026-11-04）。** 連線、bridge 和安全停車都做好了，用第二個程序裡的**模擬**小鴨，隔著一個會延遲、抖動、掉包、斷線的網路墊片演練過。還沒接過真的 Microduck。下面標「**待驗**」的步驟，都是照官方軟體推出來的，要等有人在機器人上跑過才算數。
+> **現況（2026-11-08）。** 連線、bridge 和安全停車都做好了，用第二個程序裡的**模擬**小鴨，隔著一個會延遲、抖動、掉包、斷線的網路墊片演練過。還沒接過真的 Microduck。下面標「**待驗**」的步驟，都是照官方軟體推出來的，要等有人在機器人上跑過才算數。出貨的小鴨用 Pollen 的量產主板（「beta」）加 V1.0 臉部板、工廠燒好的 Yocto 映像檔：robotd 0.18.x（API 49）、策略組 v8（下一版會換成 v9，也就是 v7 的走路網路）、兩層的 `robotd.toml`、直立裝的 GC2093 相機。模擬器跑的是 robotd 0.18.5 ＋ v8。
 
 ## 整體怎麼接
 
 ```text
-家裡電腦                                         小鴨（Radxa Zero 3）
+家裡電腦                                         小鴨（Pollen 的板子）
 ────────                                         ────────────────────
 大腦（模擬器頁面／神經鴨）                        robotd   /run/robotd.sock
   │ robotd.sock、tof.sock、media.sock（本機）     tofd     /run/tofd/tof.sock
@@ -65,7 +65,7 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
 
 ## 接小鴨——目前知道的步驟
 
-1. **先用 Pollen 自己的工具把小鴨設好**：Wi-Fi（在電腦上 `duckctl wifi connect`，或在小鴨上 `sudo robotctl net connect <ssid> --psk <密碼>`），再用 `duckctl ip` 找位址、在小鴨上跑 `robotctl health`。板子本身照官方的開發板說明。
+1. **先用 Pollen 自己的工具把小鴨設好**：Wi-Fi（在電腦上 `duckctl wifi connect`，或在小鴨上 `sudo robotctl net connect <ssid> --psk <密碼>`），再用 `duckctl ip` 找位址、在小鴨上跑 `robotctl health`。出貨的小鴨已經燒好 Pollen 的映像檔；自己組的 Radxa Zero 3 照官方的開發板說明。
 2. **在小鴨上裝 Duck Mind**，照 [docs/deploy/board.md](deploy/board.md)（venv 裡裝 wheel；Python ≥ 3.12）。bridge 只需要標準函式庫和 Duck Mind 本身。
 3. **在電腦上做共用密鑰**，複製到小鴨（兩份都要權限 600）：
 
@@ -74,7 +74,7 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
    duckctl scp ~/.duckmind/remote-body.token :.duckmind/remote-body.token
    ```
 
-   （`duckctl scp` 自己會找小鴨；開頭的 `:` 是小鴨上的路徑，在 `--user` 的家目錄，沒給就用 `DUCK_BOARD_USER`，再沒有就是 `radxa`。資料夾先用 `duckctl ssh` 建好。）
+   （`duckctl scp` 自己會找小鴨；開頭的 `:` 是小鴨上的路徑，在 `--user` 的家目錄，沒給就用 `DUCK_BOARD_USER`，再沒有就是 `microduck`。資料夾先用 `duckctl ssh` 建好。）
 4. **在小鴨上啟動 bridge**，用 `robot` 群組裡的使用者（這樣才打得開 `/run/robotd.sock`）：
 
    ```sh
@@ -90,26 +90,27 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
    python -m duckmind.remotebody check remote://<小鴨位址>:8797
    ```
 
-   會印出有哪些通道、deadman 多久、robotd 的健康（電量），以及連線的來回時間和最長的安靜時間。
+   會印出有哪些通道、deadman 多久、robotd 的健康（電量），以及連線的來回時間和最長的安靜時間。接的是真的小鴨時，還會印出：小鴨跑的走路和坐站網路（sha256 和策略組版本）、大腦在模擬器裡有沒有量過它們（v5、v8 有；沒量過的走路網路，大腦照 v5 的數字開）、板子是哪一種、`robotd.toml`（`/etc/robot/robotd.toml` 上面再疊主人的 `/var/lib/robot/robotd.toml`）開了什麼、小鴨上要改什麼、duck-eye 要用哪一顆鏡頭。請把 robotd 自己的「閒著東張西望」關掉：`sudo robotctl configure`，把 `[idle]` 的 `enabled` 關掉，再重開 robotd（它會搶走頭，打哈欠會張開嘴）。
 6. **沒有機器人也能隨時演練**：`python -m duckmind.remotebody sim-body` 在 bridge 後面跑一隻模擬小鴨，`python -m duckmind.simweb --live --body remote://127.0.0.1:8797` 開牠（中間加 `python -m duckmind.remotebody shim` 就能加延遲、掉包、斷線：輸入 `cut`／`restore`）。
 
 模擬器頁面目前只開得動**模擬的**遠端身體：牠的感官（相機、聽覺、觸覺、電量）和 3D 畫面還是從模擬世界來的。真的小鴨要先讓這些感官從機器人來（見下面清單）。頁面「我的小鴨」分頁有一張「真的小鴨」卡片：說現在大腦開的是哪個身體（這台電腦裡的模擬身體，或遠端身體和它的來回時間、斷線次數、最久沒消息多久），並列出上面這些步驟。
 
 ## 第一隻真小鴨的檢查清單（都還沒驗）
 
-- [ ] **socket 和權限**：`/run/robotd.sock` 在、權限 `0660 root:robot`；bridge 的使用者在 `robot` 群組；`hello` 回 API 37。
-- [ ] **策略**：`robot.subscribe` 回 `walk: velstand.onnx`；照 `docs/deploy/board.md` 記下策略的雜湊。
+- [ ] **socket 和權限**：`/run/robotd.sock` 在、權限 `0660 root:robot`；bridge 的使用者在 `robot` 群組；`hello` 有回答（0.18.x 回 API 49；大腦用 37 打招呼，robotd 不會拒絕任何版本）。
+- [ ] **策略**：`robot.subscribe` 回 `walk: velstand.onnx`；`check` 會印出走路和坐站網路的 sha256 和策略組版本（照 `docs/deploy/board.md` 記下來），以及大腦有沒有量過它們（v5、v8 有；v9 也就是 v7 的走路網路沒有）。
+- [ ] **robotd.toml**：`check` 會印出板子和合併後的 `[idle]`／`[pickup]`／`limp_fall`；在主人那一層把 `[idle]` 關掉（`sudo robotctl configure`）。`[pickup]` 開著時把小鴨抱起來：robotd 會暫停（`safety.picked_up`），大腦要說「被抱起來」。
 - [ ] **真機上的 `robot.stop`**：速度歸零、不會軟掉（官方說「stop 不是 limp」）。
 - [ ] **真機上的 `sit_toggle`**：從走路和站著坐下要多久、在你用的桌面上安不安全；坐著或跌倒時絕不送。
 - [ ] **robotd 自己的 500 ms deadman**：走路中停止送 `robot.move`。
 - [ ] **拔網路測試**：走路中把家裡 Wi-Fi 關掉（或把電腦帶出範圍）：從斷線到停下、到坐好要多久，看 bridge 的事件檔和錄影。
 - [ ] **家裡 Wi-Fi 的品質**：用 `check` 看 10 分鐘的來回時間、最長安靜時間、斷線次數；1.0 秒 deadman 一小時誤觸發幾次。
 - [ ] **重連**：Wi-Fi 回來 → 連線回來、大腦接回小鴨。
-- [ ] **頭的設定**：v5 的頭部差值（`robot.head`）在真的頭上（板子上的服務要加 `--approve-real-v5-head-profile` 才會送）。
+- [ ] **頭的設定**：從 HOME 算的頭部差值（`robot.head`）在真的頭上（板子上的服務要加 `--approve-real-v5-head-profile` 才會送；這個參數名字還留著 v5）。
 - [ ] **電量**：`robot.health.battery` 要送到大腦（現在大腦的電量是模擬世界的）。
-- [ ] **相機走連線**：`media.frame` 經過 bridge——一張 720p UYVY 是 1.8 MB；量 Wi-Fi 上每秒幾張，或要求小一點的畫質。
+- [ ] **相機走連線**：`media.frame` 經過 bridge——一張 720p UYVY 是 1.8 MB；量 Wi-Fi 上每秒幾張，或要求小一點的畫質。量產的相機是直立裝的 GC2093，大約 85° × 55°：duck-eye 要加 `--board beta`（或 `face-board-v1`）。
 - [ ] **麥克風、觸覺**：還沒有從機器人來的路（現在是模擬世界的模型）。
 - [ ] **頁面的 3D 畫面**：改用 `robot.state` 的關節畫，不用模擬器的真相。
 - [ ] **小鴨上的其他門**：官方 `mediad` 聽在 `0.0.0.0:8443`／`8080`、沒有認證，區網上的人都能開；藍牙配對（`btd`）預設關著。決定 bridge 使用時要不要用防火牆擋起來。
-- [ ] **Radxa Zero 3 的 CPU**：bridge 在 50 Hz 狀態加上 ToF 時的負載。
+- [ ] **小鴨板子的 CPU**：bridge 在 50 Hz 狀態加上 ToF 時的負載。
 - [ ] **時鐘**：大腦用 robotd 自己的 `t_ns`（不需要對時）；`check` 會報來回時間，連線也會算時鐘差。

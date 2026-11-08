@@ -136,3 +136,49 @@ def loaded_official_walk(report: object) -> bool:
         and "error" in walk
         and walk.get("error") is None
     )
+
+
+def _bounded_sha256(path: Path) -> str | None:
+    try:
+        if path.is_symlink() or not path.is_file():
+            return None
+        with path.open("rb") as source:
+            item = os.fstat(source.fileno())
+            if not stat.S_ISREG(item.st_mode) or not 0 < item.st_size <= MAX_WALK_BYTES:
+                return None
+            return hashlib.file_digest(source, "sha256").hexdigest()
+    except OSError:
+        return None
+
+
+def official_policy_hashes(walk: Path = Path(OFFICIAL_WALK_PATH)) -> dict[str, str | None]:
+    """Which official walk and sit-stand networks this board runs, by the sha256 the brain's
+    measured tables are keyed by (``neuro/walk_response.json``, ``neuro/seat_load.json``), and the
+    set's version (``.source``). ``walk_sha256`` only when the walk passes the capability check
+    (:func:`official_walk_fingerprint`); ``sitstand_sha256`` when that same set's manifest names a
+    ``sitstand`` network (v5 to v9 all do: ``alpha_sitstand.onnx``). A report, not an approval: a
+    set the brain was not measured on still passes the start checks, the brain then drives it with
+    the reference walk's numbers."""
+    out: dict[str, str | None] = {"set": None, "walk_sha256": None, "sitstand_sha256": None}
+    out["walk_sha256"] = official_walk_fingerprint(walk)
+    if out["walk_sha256"] is None:
+        return out
+    try:
+        release = walk.parent.resolve(strict=True)
+        manifest = json.loads(_small_text(release / "manifest.json") or "null")
+        source = _small_text(release / ".source") or ""
+    except (OSError, ValueError, UnicodeError):
+        return out
+    for line in source.splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key.strip() == "version":
+            out["set"] = value.strip() or None
+    policies = manifest.get("policies") if isinstance(manifest, Mapping) else None
+    seats = [
+        p
+        for p in (policies if isinstance(policies, list) else [])
+        if isinstance(p, Mapping) and p.get("name") == "sitstand" and isinstance(p.get("file"), str)
+    ]
+    if len(seats) == 1 and "/" not in seats[0]["file"]:
+        out["sitstand_sha256"] = _bounded_sha256(release / seats[0]["file"])
+    return out

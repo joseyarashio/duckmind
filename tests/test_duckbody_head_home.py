@@ -41,3 +41,21 @@ def test_a_commanded_look_never_counts_as_home() -> None:
         loop.tick(_state(i * 0.02, -0.05, 0.05))  # measured close to HOME, still commanded down
     assert loop.head_home_since is None
     assert loop.last_guard.head_home_ms == 0
+
+
+def test_a_duck_resting_at_home_still_tells_robotd_its_head_twice_a_second() -> None:
+    # robotd 0.16.1+ ([idle], on by default on a real board) takes the head and opens the beak once
+    # 2 s pass with no robot.head (real duck prep 2026-11-08); before, a duck with its head at HOME
+    # and nothing to do sent none at all
+    loop = BodyLoop()
+    sent = []
+    for i in range(250):  # 5 s standing, no act
+        out = loop.tick(_state(i * 0.02, 0.0, 0.0))
+        sent += [i * 0.02 for intent in out.intents if intent.method == "robot.head"]
+    gaps = [b - a for a, b in zip(sent, sent[1:], strict=False)]
+    assert sent and sent[0] == 0.0 and max(gaps) <= 0.5 + 1e-9
+    assert all(
+        intent.params == {"neck_pitch": 0.0, "head_pitch": 0.0, "head_yaw": 0.0, "head_roll": 0.0}
+        for intent in loop.tick(_state(5.5, 0.0, 0.0)).intents
+        if intent.method == "robot.head"
+    )

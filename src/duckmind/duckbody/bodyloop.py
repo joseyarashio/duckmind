@@ -516,10 +516,11 @@ class BodyLoop:
         v = v_back if twist is not None and twist[0] < 0 else v_ahead
         if v.halt or self.righting.active:
             twist = None
-        # the head: robot.head offsets, sent on change and every 0.5 s while away from HOME
+        # the head: robot.head offsets, sent on change and every 0.5 s — at HOME too: robotd 0.16.1+
+        # runs its own look-around and yawn (``[idle]``, on by default on a real board) once 2 s pass
+        # with no robot.head, taking the head and opening the beak (duckmind.robotd_config)
         if head != self.head_target or (
-            head is not None
-            and (self.head_sent_ns is None or t_ns - self.head_sent_ns >= HEAD_RESEND_NS)
+            self.head_sent_ns is None or t_ns - self.head_sent_ns >= HEAD_RESEND_NS
         ):
             self.head_target = head
             self.head_sent_ns = t_ns

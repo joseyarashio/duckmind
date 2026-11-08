@@ -7,15 +7,18 @@ The robot's own daemon, `robotd`, stays on the duck; a small **bridge** on the d
 brain on your home network reach it. This page says what is ready, how to connect a duck, and what
 still has to be checked on a real robot.
 
-> **Status (2026-11-04).** The link, the bridge and the safety stop are built and rehearsed with a
+> **Status (2026-11-08).** The link, the bridge and the safety stop are built and rehearsed with a
 > *simulated* duck on a second process behind a network shim (delay, jitter, loss, cuts). No real
 > Microduck has been connected yet. Every step below marked **verify** is a guess from the
-> official software until someone runs it on a robot.
+> official software until someone runs it on a robot. The robots that ship run Pollen's
+> production ("beta") main board with the V1.0 face board and the factory Yocto image: robotd
+> 0.18.x (API 49), policy set v8 (the next release moves to v9, which is v7's walk network), a
+> two-layer `robotd.toml` and an upright GC2093 camera. The simulator runs robotd 0.18.5 + v8.
 
 ## How it fits together
 
 ```text
-home computer                                   the duck (Radxa Zero 3)
+home computer                                   the duck (Pollen's board)
 ─────────────                                   ───────────────────────
 brain (simulator page / neural duck)            robotd   /run/robotd.sock
   │ robotd.sock, tof.sock, media.sock (local)   tofd     /run/tofd/tof.sock
@@ -93,8 +96,8 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
 
 1. **Set the duck up with Pollen's own tools** first: Wi-Fi (`duckctl wifi connect` from your
    computer, or `sudo robotctl net connect <ssid> --psk <passphrase>` on the duck), then
-   `duckctl ip` for its address and `robotctl health` on the duck. Follow the official dev-board
-   guide for the board itself.
+   `duckctl ip` for its address and `robotctl health` on the duck. A shipped duck comes with
+   Pollen's image already flashed; a hand-built Radxa Zero 3 follows the official dev-board guide.
 2. **Install Duck Mind on the duck** as in [docs/deploy/board.md](deploy/board.md) (a wheel in a
    venv; Python ≥ 3.12). The bridge needs only the standard library and Duck Mind itself.
 3. **Make the shared token** on the computer and copy it to the duck (keep both copies mode 600):
@@ -105,7 +108,7 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    ```
 
    (`duckctl scp` finds the duck itself; a leading `:` is a path on the duck, in the home of
-   `--user`, else `DUCK_BOARD_USER`, else `radxa`. Make the folder first with `duckctl ssh`.)
+   `--user`, else `DUCK_BOARD_USER`, else `microduck`. Make the folder first with `duckctl ssh`.)
 
 4. **Start the bridge on the duck**, as a user in the `robot` group (that is what opens
    `/run/robotd.sock`):
@@ -124,7 +127,13 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    ```
 
    It prints the channels, the deadman, robotd's health (battery) and the link's round trip and
-   longest silence.
+   longest silence. From a real duck's bridge it also prints the walk and sit-stand networks the
+   duck runs (their sha256 and set version) and whether the brain was measured on them in the
+   simulator (v5 and v8 are; an unmeasured walk is driven with v5's numbers), the board and what
+   its `robotd.toml` (`/etc/robot/robotd.toml` with the owner's `/var/lib/robot/robotd.toml`
+   over it) turns on, what to change on the duck, and which camera lens duck-eye needs.
+   Turn robotd's own idle look-around off: `sudo robotctl configure`, `[idle]` `enabled`
+   off, then restart robotd (it takes the head and a yawn opens the beak).
 6. **Rehearse without the robot** at any time: `python -m duckmind.remotebody sim-body` runs a
    simulated duck behind the bridge, and `python -m duckmind.simweb --live --body
    remote://127.0.0.1:8797` drives it (add `python -m duckmind.remotebody shim` in between to add
@@ -139,9 +148,14 @@ or the remote one with its round trip, drops and longest silence) and lists thes
 ## Checklist for the first real duck (not verified yet)
 
 - [ ] **Socket and permissions:** `/run/robotd.sock` exists, mode `0660 root:robot`; the bridge's
-  user is in `robot`; `hello` answers API 37.
-- [ ] **Policies:** `robot.subscribe` reports `walk: velstand.onnx`; record the policy hashes as in
-  `docs/deploy/board.md`.
+  user is in `robot`; `hello` answers (API 49 on daemon 0.18.x; the brain asks with 37 and robotd
+  refuses no client version).
+- [ ] **Policies:** `robot.subscribe` reports `walk: velstand.onnx`; `check` prints the walk and
+  sit-stand sha256 and set version (record them as in `docs/deploy/board.md`) and whether the
+  brain was measured on them (v5, v8: yes; v9 = v7's walk: no).
+- [ ] **robotd.toml:** `check` prints the board and the merged `[idle]` / `[pickup]` /
+  `limp_fall`; `[idle]` turned off in the owner layer (`sudo robotctl configure`). With
+  `[pickup]` on, lift the duck: robotd pauses (`safety.picked_up`) and the brain says *lifted*.
 - [ ] **`robot.stop` on hardware** zeroes the twist without going limp (upstream: "stop is not
   limp").
 - [ ] **`sit_toggle` on hardware** from walk and stand: time to seated, on the table surface you
@@ -152,17 +166,18 @@ or the remote one with its round trip, drops and longest silence) and lists thes
 - [ ] **Home Wi-Fi quality:** `check` round trip, longest silence and drops over 10 minutes;
   false alarms per hour at the 1.0 s deadman.
 - [ ] **Reconnect:** Wi-Fi back → the link returns and the brain takes the duck back.
-- [ ] **Head profile:** the v5 head deltas (`robot.head`) on the real head (the board service
-  sends them only with `--approve-real-v5-head-profile`).
+- [ ] **Head profile:** the head deltas from HOME (`robot.head`) on the real head (the board
+  service sends them only with `--approve-real-v5-head-profile`; the flag keeps its v5 name).
 - [ ] **Battery:** `robot.health.battery` reaches the brain (today the brain's battery is the
   simulated world's).
 - [ ] **Camera over the link:** `media.frame` through the bridge — a 720p UYVY frame is 1.8 MB;
-  measure frames per second on Wi-Fi, or ask for a smaller quality.
+  measure frames per second on Wi-Fi, or ask for a smaller quality. The production camera is
+  the GC2093, upright, about 85° × 55°: start duck-eye with `--board beta` (or `face-board-v1`).
 - [ ] **Microphone, touch:** no path from the robot yet (today: the simulated world's models).
 - [ ] **The page's 3D view** from `robot.state` joints instead of the simulator's truth.
 - [ ] **Other doors on the duck:** the official `mediad` listens on `0.0.0.0:8443`/`8080` with no
   authentication and lets a LAN peer drive the robot; Bluetooth pairing (`btd`) is off by default.
   Decide whether to firewall them while the bridge is in use.
-- [ ] **CPU on the Radxa Zero 3:** the bridge's load at 50 Hz state plus ToF.
+- [ ] **CPU on the duck's board:** the bridge's load at 50 Hz state plus ToF.
 - [ ] **Clock:** the brain uses robotd's own `t_ns` (no clock sync needed); `check` reports the
   round trip, the link reports a clock offset.

@@ -20,6 +20,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from duckmind.eye.camera import ALPHA
 from duckmind.neuro.contract import (
     FLOOR_RANGE_M,
     BodySense,
@@ -38,7 +39,7 @@ from duckmind.neuro.signals import Stream
 
 ROOM = 6.0
 MARGIN = 0.15
-CAM_HALF = math.radians(37.4) / 2
+CAM_HALF = ALPHA.half_view_rad[0]  # half the simulator's (alpha) camera width: 37.4° / 2
 HEAD_YAW_MAX = 0.6
 
 

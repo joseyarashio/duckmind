@@ -5,9 +5,12 @@ Status: **software release candidate; NOT CLEARED FOR UNSUPERVISED REAL PLAY**
 work. The author's real robot has not arrived yet; the exact
 board and physical acceptance gates remain pending delivery.
 
-Reference target: official Radxa Zero 3 / Armbian 26.2.1 Minimal with official
-Microduck daemons provisioned first. This is an assumption from upstream
-documentation, not confirmation of any actual board revision or wiring.
+Reference target: the robots that ship run Pollen's beta main board (Seeed
+RK3566) with the V1.0 face board and the factory Yocto A/B image, robotd 0.18.x
+(API 49) and policy set v8 (v9 next); a hand-built dev board runs the Radxa
+Zero 3 / Armbian guide. Official Microduck daemons are provisioned first. This
+is an assumption from upstream documentation, not confirmation of any actual
+board revision or wiring ([first-board checklist](deploy/board.md)).
 
 ## Product promise for the first burn
 

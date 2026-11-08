@@ -593,6 +593,29 @@ def keeper_for(robotd: str, backend: str, *, sit: bool, log: Callable[..., None]
     )
 
 
+def real_body_info(
+    walk: Path | None = None, base: Path | None = None, user: Path | None = None
+) -> dict[str, Any]:
+    """What the bridge on a real duck tells the brain about it at the handshake (read only, from
+    the duck's own files): the official walk and sit-stand networks' sha256 and set version
+    (:func:`duckmind.policy_approval.official_policy_hashes`; the brain's measured walk and seat
+    tables are keyed by them) and the board's merged ``robotd.toml`` (board, idle, pickup,
+    limp-fall: :mod:`duckmind.robotd_config`; None when this user cannot read it)."""
+    from duckmind import policy_approval, robotd_config
+
+    hashes = policy_approval.official_policy_hashes(
+        walk or Path(policy_approval.OFFICIAL_WALK_PATH)
+    )
+    config = robotd_config.board_config(
+        base or robotd_config.BASE_PATH, user or robotd_config.USER_PATH
+    )
+    return {
+        "backend": "real",
+        "policies": hashes,
+        "robotd_config": None if config is None else config.to_json(),
+    }
+
+
 def add_bridge_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--listen",
@@ -632,7 +655,7 @@ def main(argv: list[str] | None = None) -> int:
         token=L.read_token(args.token_file),
         channels=channels,
         keeper=keeper_for(args.robotd, args.backend, sit=not args.no_sit, log=log),
-        body_info={"backend": args.backend},
+        body_info=real_body_info() if args.backend == "real" else {"backend": args.backend},
         deadman_s=args.deadman_ms / 1000.0,
         log=log,
     )

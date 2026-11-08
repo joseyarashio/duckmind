@@ -138,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
                 "pose_joints": body.pose_joints_ok,
                 "tof": body.tof,
                 "head_alpha": body.robotd_head_alpha,
+                "policies": body.policy_hashes(),
             },
             deadman_s=args.deadman_ms / 1000.0,
             log=log,

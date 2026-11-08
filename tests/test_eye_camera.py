@@ -282,3 +282,47 @@ def test_the_eye_s_ground_points_land_on_the_rendered_floor():
             assert seen >= 3, head
     finally:
         eye.close()
+
+
+# ── the board's camera (real duck prep 2026-11-08) ────────────────────────────
+
+
+def _pinhole_view_deg(family: ec.CameraFamily) -> tuple[float, float]:
+    cam = ec.EyeCamera.for_frame(*family.size, family=family)
+    w, h = cam.upright_size
+    fx, fy, _, _ = cam.upright_k()
+    return 2 * math.degrees(math.atan(w / 2 / fx)), 2 * math.degrees(math.atan(h / 2 / fy))
+
+
+@pytest.mark.parametrize("family", [ec.ALPHA, ec.BETA])
+def test_each_family_s_field_of_view_is_its_lens_s(family):
+    assert _pinhole_view_deg(family) == pytest.approx(family.view_deg, abs=0.1)
+
+
+def test_the_production_board_has_the_upright_gc2093_and_the_simulator_keeps_the_imx219():
+    assert ec.camera_family() is ec.ALPHA  # the simulator's camera, and an unset [board]
+    assert ec.camera_family("zero3") is ec.ALPHA
+    assert ec.camera_family("beta") is ec.camera_family("face-board-v1") is ec.BETA
+    assert ec.BETA.rotate == 0 and ec.BETA.k[0] == pytest.approx(695.6, abs=0.1)
+    assert ec.BETA.view_deg[0] > 2 * ec.ALPHA.view_deg[0]  # 85° wide upright vs 37°
+    with pytest.raises(ValueError):
+        ec.camera_family("rock5")
+    header = type("H", (), {"width": 640, "height": 360, "rotate": 0})()
+    beta = ec.EyeCamera.for_header(header, ec.BETA)
+    assert (beta.fx, beta.cx) == pytest.approx((695.6216 / 2, 627.4741 / 2), abs=1e-3)
+    assert beta.dist == ec.BETA.distortion and beta.upright_size == (640, 360)
+    # the default stays the family the eye always had (the simulator's frames)
+    assert ec.EyeCamera.for_frame(1280, 720) == ec.EyeCamera.for_frame(1280, 720, 90, ec.ALPHA)
+    assert ec.EyeCamera.for_frame(1280, 720).fx == ec.FAMILY_K[0]
+
+
+def test_the_same_pixel_reads_a_wider_bearing_on_the_production_camera():
+    # a thing at the right edge of the picture is ~42° off the axis on the GC2093, ~19° on the
+    # IMX219: the alpha lens on a beta frame would put every sighting at under half its bearing
+    alpha = ec.EyeCamera.for_frame(1280, 720, family=ec.ALPHA)
+    beta = ec.EyeCamera.for_frame(1280, 720, family=ec.BETA)
+    aw, ah = alpha.upright_size
+    bw, bh = beta.upright_size
+    right_alpha = math.degrees(alpha.angles_rad(aw - 1, ah / 2)[0])
+    right_beta = math.degrees(beta.angles_rad(bw - 1, bh / 2)[0])
+    assert 15.0 < right_alpha < 30.0 and right_beta > 40.0

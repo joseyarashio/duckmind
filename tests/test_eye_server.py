@@ -453,3 +453,38 @@ def test_no_frame_from_the_camera_is_a_timeout(folder):
         body.close()
         server.close()
         shim.close()
+
+
+class CameraSpy:
+    name = "floor"
+
+    def __init__(self) -> None:
+        self.cameras: list[Any] = []
+
+    def run(self, view: f.LookView) -> dict[str, Any]:
+        self.cameras.append(view.camera)
+        return {"free_mm": [0, 0, 0, 0, 0]}
+
+
+def test_the_eye_reads_frames_with_its_boards_camera():
+    # (real duck prep 2026-11-08) a production board's GC2093 is upright and twice as wide as the
+    # simulator's IMX219: duck-eye --board beta reads its frames with that lens, and says so in pv
+    from duckmind.eye.camera import ALPHA, BETA
+
+    capture = 5_000_000_000
+    poses = [_pose(1, capture - 20_000_000), _pose(2, capture + 20_000_000)]
+    seen = {}
+    for family in (ALPHA, BETA):
+        spy = CameraSpy()
+        core = es.EyeCore(es.EyeConfig(camera=family), tasks={"floor": spy})
+        header = f.MediaFrameHeader(W, H, "UYVY", W * H * 2, (EPOCH_OFFSET_NS + capture) // 1000,
+                                    family.rotate)  # fmt: skip
+        core.run_frame(
+            _look(tasks=("floor",)), header, _frame(), captured_at_ns=capture, poses=poses
+        )
+        assert spy.cameras and spy.cameras[0].fx == pytest.approx(family.k[0] * W / 1280)
+        assert spy.cameras[0].dist == family.distortion and spy.cameras[0].rotate == family.rotate
+        seen[family.name] = core.pv
+    # the default is the simulator's camera, as before
+    assert seen["alpha"] == es.EyeCore(es.EyeConfig(), tasks={"floor": CameraSpy()}).pv
+    assert seen["beta"] != seen["alpha"]

@@ -52,7 +52,7 @@ from duckmind.eye import frames as eye_frames
 from duckmind.eye import governor
 from duckmind.eye import light as eye_light
 from duckmind.eye import protocol as proto
-from duckmind.eye.camera import EyeCamera
+from duckmind.eye.camera import ALPHA, BOARD_CAMERAS, CameraFamily, EyeCamera, camera_family
 from duckmind.eye.frames import (
     ClockBridge,
     ClockPair,
@@ -176,6 +176,8 @@ class EyeConfig:
     fetch_timeout_s: float = FETCH_TIMEOUT_S
     tasks: tuple[str, ...] = tuple(TASK_MODULES)
     task_options: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # the board's head camera (eye.camera.camera_family): the simulator's alpha unless told
+    camera: CameraFamily = ALPHA
 
 
 @dataclass(frozen=True)
@@ -207,7 +209,11 @@ class EyeCore:
         self.health: EyeHealth | None = None
         self.budget = governor.Budget()
         self.light = eye_light.LightTracker(self.config.thresholds)
-        self.pv = perception_hash(self.tasks, self.config.thresholds)
+        self.pv = perception_hash(
+            self.tasks,
+            self.config.thresholds,
+            EyeCamera.for_frame(*self.config.camera.size, family=self.config.camera),
+        )
         self.looks = 0
         self.log = log
 
@@ -347,7 +353,7 @@ class EyeCore:
             look=look,
             header=header,
             data=fetched.data,
-            camera=EyeCamera.for_header(header),
+            camera=EyeCamera.for_header(header, self.config.camera),
             planes=planes,
             captured_at_ns=at_ns,
             pose=pairing.pose,
@@ -757,6 +763,13 @@ def main(argv: list[str] | None = None) -> int:
         help="the duck's learned floor (JSON): read at start when it exists, written after "
         "every eye.learn that added samples (owner D1: the floor it learnt by walking)",
     )
+    parser.add_argument(
+        "--board",
+        choices=sorted(BOARD_CAMERAS),
+        default=None,
+        help="the duck's board (robotd.toml [board] version) for its camera's lens: zero3 is the "
+        "simulator's IMX219 (the default), beta and face-board-v1 the production GC2093",
+    )
     args = parser.parse_args(argv)
     options: dict[str, dict[str, Any]] = {}
     if args.duck_model:
@@ -771,6 +784,7 @@ def main(argv: list[str] | None = None) -> int:
         hash_frames=not args.no_hash,
         tasks=tuple(t for t in args.tasks.split(",") if t),
         task_options=options,
+        camera=camera_family(args.board),
     )
     core = EyeCore(config, log=_stderr)
     if floor_file is not None:

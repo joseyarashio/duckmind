@@ -202,3 +202,32 @@ def test_first_board_rejects_missing_walk_error_field() -> None:
 @pytest.mark.parametrize("report", [None, {}, {"slots": "not a list"}])
 def test_first_board_rejects_malformed_report(report) -> None:
     assert not loaded_official_walk(report)
+
+
+def test_policy_hashes_name_the_walk_and_seat_the_brain_was_measured_on(tmp_path) -> None:
+    # (real duck prep 2026-11-08) the bridge on the duck reports which walk and sit-stand networks it
+    # runs, by the sha256 the brain's measured tables (walkcal, seatcal) are keyed by
+    from duckmind.policy_approval import official_policy_hashes
+
+    walk = official_set(tmp_path / "seed-v9", b"v7 velstand", "v9")
+    (walk.parent / "alpha_sitstand.onnx").write_bytes(b"v6+ sitstand")
+    assert official_policy_hashes(walk) == {
+        "set": "v9",
+        "walk_sha256": hashlib.sha256(b"v7 velstand").hexdigest(),
+        "sitstand_sha256": hashlib.sha256(b"v6+ sitstand").hexdigest(),
+    }
+
+
+def test_policy_hashes_of_a_walk_that_fails_the_contract_say_nothing(tmp_path) -> None:
+    from duckmind.policy_approval import official_policy_hashes
+
+    walk = official_set(tmp_path / "seed", b"walk", "v8")
+    (walk.parent / "alpha_sitstand.onnx").write_bytes(b"seat")
+    (walk.parent / ".source").write_text("repo=someone/else\nversion=v8\n")
+    assert official_policy_hashes(walk) == {
+        "set": None,
+        "walk_sha256": None,
+        "sitstand_sha256": None,
+    }
+    missing = official_set(tmp_path / "noseat", b"walk", "v8")  # no sit-stand file on disk
+    assert official_policy_hashes(missing)["sitstand_sha256"] is None

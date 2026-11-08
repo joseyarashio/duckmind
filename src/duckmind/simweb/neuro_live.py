@@ -2607,39 +2607,49 @@ class NeuroDriver:
 _WALK_TABLE: walkcal.WalkTable | None = None
 
 
-def _walk_map(body: Any, delay_ms: float) -> walkcal.WalkMap | None:
-    """The map from the brain's twists to ``body``'s walk policy (walkcal): its walk file's sha256 in its policy folder
-    (``LiveBody.paths.policies``), its collision model and the link's servo command delay. None without a body, for the
-    walk the brain was tuned on, or for a walk not measured on that body with that delay."""
-    global _WALK_TABLE
-    paths = getattr(body, "paths", None) if body is not None else None
-    policies = getattr(paths, "policies", None)
+def _policy_shas(body: Any) -> tuple[str | None, str | None] | None:
+    """(walk, sit-stand) sha256 of the networks ``body`` runs, what the measured tables (walkcal,
+    seatcal) are keyed by: ``LiveBody.policy_hashes`` (a remote body's as its bridge reported them),
+    else the files in its policy folder (``paths.policies``). None without a body or either."""
+    if body is None:
+        return None
+    report = getattr(body, "policy_hashes", None)
+    if callable(report):
+        hashes = report()
+        return None if hashes is None else (hashes.get("walk_sha256"), hashes.get("sitstand_sha256"))
+    policies = getattr(getattr(body, "paths", None), "policies", None)
     if policies is None:
+        return None
+    return walkcal.walk_sha256(Path(policies)), seatcal.seat_sha256(Path(policies))
+
+
+def _walk_map(body: Any, delay_ms: float) -> walkcal.WalkMap | None:
+    """The map from the brain's twists to ``body``'s walk policy (walkcal): its walk file's sha256
+    (:func:`_policy_shas`), its collision model and the link's servo command delay. None without a
+    body, for the walk the brain was tuned on, or for a walk not measured on that body with that
+    delay."""
+    global _WALK_TABLE
+    shas = _policy_shas(body)
+    if shas is None:
         return None
     if _WALK_TABLE is None:
         _WALK_TABLE = walkcal.load()
     collision = getattr(body, "collision", None)
-    return _WALK_TABLE.map_for(
-        walkcal.walk_sha256(Path(policies)), None if collision is None else str(collision), delay_ms
-    )
+    return _WALK_TABLE.map_for(shas[0], None if collision is None else str(collision), delay_ms)
 
 
 def _walk_proprio(body: Any, cfg: ProprioConfig, delay_ms: float) -> ProprioConfig:
     """proprio's own-turn model for ``body``'s walk policy (walkcal: the reference walk's measured turning and the loaded
     walk's measured lag); ``cfg`` itself without a body or for a walk not measured on that body with that delay."""
     global _WALK_TABLE
-    paths = getattr(body, "paths", None) if body is not None else None
-    policies = getattr(paths, "policies", None)
-    if policies is None:
+    shas = _policy_shas(body)
+    if shas is None:
         return cfg
     if _WALK_TABLE is None:
         _WALK_TABLE = walkcal.load()
     collision = getattr(body, "collision", None)
     return _WALK_TABLE.proprio_for(
-        cfg,
-        walkcal.walk_sha256(Path(policies)),
-        None if collision is None else str(collision),
-        delay_ms,
+        cfg, shas[0], None if collision is None else str(collision), delay_ms
     )
 
 
@@ -2649,20 +2659,18 @@ _SEAT_TABLE: seatcal.SeatTable | None = None
 def _seat_proprio(
     body: Any, cfg: ProprioConfig, delay_ms: float
 ) -> tuple[ProprioConfig, str] | None:
-    """proprio's numbers for ``body``'s seat and standing stance (seatcal: its sit-stand and walk files' sha256 in its
-    policy folder, its collision model, the link's servo command delay) and their names. None without a body, for the
-    seat and walk the numbers were set on, or for a seat and walk not measured on that body with that delay."""
+    """proprio's numbers for ``body``'s seat and standing stance (seatcal: its sit-stand and walk files' sha256,
+    :func:`_policy_shas`; its collision model, the link's servo command delay) and their names. None without a body,
+    for the seat and walk the numbers were set on, or for a seat and walk not measured on that body with that delay."""
     global _SEAT_TABLE
-    paths = getattr(body, "paths", None) if body is not None else None
-    policies = getattr(paths, "policies", None)
-    if policies is None:
+    shas = _policy_shas(body)
+    if shas is None:
         return None
     if _SEAT_TABLE is None:
         _SEAT_TABLE = seatcal.load()
     collision = getattr(body, "collision", None)
     body_name = None if collision is None else str(collision)
-    sha = seatcal.seat_sha256(Path(policies))
-    walk_sha = walkcal.walk_sha256(Path(policies))
+    walk_sha, sha = shas
     seat = _SEAT_TABLE.seat_for(sha, body_name, delay_ms)
     stance = _SEAT_TABLE.stance_for(walk_sha, body_name, delay_ms)
     if seat is None and stance is None:

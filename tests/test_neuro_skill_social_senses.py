@@ -85,3 +85,15 @@ def test_the_roof_truth_under_a_box_on_the_physics_model() -> None:
     assert up and under == pytest.approx(0.2, abs=0.03)  # the table's underside, 0.2 m above
     outside, up2 = NSS.roof_truth(model, data, (2.0, 0.0, 0.2), axes, groups=(1, 1, 1, 0, 0, 0))
     assert up2 and outside is None
+
+
+def test_the_camera_numbers_follow_the_boards_camera_and_the_simulator_keeps_its_own() -> None:
+    # (real duck prep 2026-11-08) the production GC2093's upright picture is 54.7° tall, not 62.2°
+    from duckmind.eye.camera import ALPHA, BETA
+
+    assert NSS.SHIRT_FROM_M == NSS.shirt_from_m(ALPHA) == pytest.approx(1.2)
+    assert NSS.ROOF_ROWS == pytest.approx((math.radians(22.0), math.radians(29.0)))
+    assert 1.3 < NSS.shirt_from_m(BETA) < 1.5  # a shorter picture shows the shirt from farther
+    rows = NSS.roof_rows(BETA)
+    assert rows[0] < rows[1] < BETA.half_view_rad[1]  # both rows still inside the picture
+    assert NSS.ROOF_ROWS[1] > BETA.half_view_rad[1]  # alpha's 29° row would be off the GC2093's

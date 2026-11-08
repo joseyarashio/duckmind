@@ -19,18 +19,42 @@ Do not assume your board matches either. Record:
   head travel stops, battery rail, physical kill method, and the Python-linked
   SQLite version/patch status for WAL safety;
 - official `robotctl health` result, real battery percentage, `robotd` hello
-  API/version/revision, `robot.subscribe` walk policy and policy manifest
-  (`.source` version: daemon 0.16.2+ and the factory image install set v8);
+  API/version/revision (daemon 0.18.x says API 49), `robot.subscribe` walk policy
+  and policy manifest (`.source` version: daemon 0.16.2–0.18.8 and the factory
+  image install set v8; set v9, pinned on upstream `main` on 2026-11-06 for the
+  next release, is v7's walk network again — "v8's velstand turned out worse
+  than v7's on the robot", pollen-robotics/microduck #550);
 - whether a gamepad/operator can safely start and stop the official policy;
-- actual robotd binary and walk/sitstand policy hashes in the bench report;
+- actual robotd binary and walk/sitstand policy hashes in the bench report.
+  On the duck, `python -m duckmind.remotebody bridge --backend real` reads them
+  from `/opt/robot/policies/current` and `remotebody check` on the computer
+  prints them, with whether the brain was measured on that walk and seat in
+  the simulator (v5: walk `1c659be5…`, seat `c6c40e35…`; v8: walk `2fc7f8ee…`,
+  seat `a6f102d9…`). An unmeasured walk (v9's `ce894d30…`) still passes the
+  start checks below; the brain then drives it with v5's numbers;
 - both layers of `robotd.toml`: the image's `/etc/robot/robotd.toml` and the
-  owner's `/var/lib/robot/robotd.toml` (it survives OS updates). Since daemon
-  0.15.2–0.16.2 robotd pauses the policy while it thinks the duck is held
-  (`[pickup]`), runs its own idle head and yawn (`[idle]`) and goes limp in a
-  fall (`[safety] limp_fall`), all on by default; record what this board runs;
-- usage data: since daemon 0.18.3 the robot sends anonymous usage data
-  (`docs/robot/telemetry.md` upstream; `telemetry.set` turns it off). Duck Mind
-  sends nothing itself.
+  owner's `/var/lib/robot/robotd.toml` (only the keys changed on this robot;
+  it survives OS updates; robotd merges them table by table, key by key).
+  Since daemon 0.15.2–0.16.2 robotd pauses the policy while it thinks the duck
+  is held (`[pickup]`), runs its own idle head and yawn (`[idle]`) and goes limp
+  in a fall (`[safety] limp_fall`), all on by default. The bridge's `check`
+  prints the merged values and the board. For Duck Mind, turn `[idle]
+  enabled` off with `sudo robotctl configure` (it writes the owner layer) and
+  restart robotd: the look-around takes the head and a yawn opens the beak
+  (it can drop what the beak holds). The brain also re-sends `robot.head` at
+  least every 0.5 s, which keeps the look-around from starting. `[pickup]` may
+  stay on: the brain takes robotd's `safety.picked_up` as a lift (the
+  simulator runs it off and lets the brain's own leg-load sense find lifts).
+  `limp_fall` is the board's choice; righting was measured with it on and off;
+- the camera: the production board (`[board] version = "beta"` or
+  `"face-board-v1"`) carries the GC2093 upright, about 85° × 55° (fx 695.6);
+  the Zero 3W (`"zero3"`) the IMX219 a quarter turn off, 37° × 62° upright.
+  Start duck-eye with `--board <version>` so it reads the frames with that
+  lens; the simulator keeps the IMX219;
+- usage data: since daemon 0.18.3 the robot sends anonymous usage data to
+  PostHog by default (a random robot id, versions and policy names;
+  `docs/robot/telemetry.md` upstream; `MICRODUCK_TELEMETRY=0` or
+  `telemetry.set` turns it off). Duck Mind sends nothing itself.
 
 The service checks the head profile as a capability: a robotd at API 37 or later
 (robot.head's parameters are unchanged through API 49) with `velstand.onnx` in
@@ -39,7 +63,7 @@ unoverridden official walk at `/opt/robot/policies/current/velstand.onnx`, with
 no slot/change error. On disk, that file must belong to the official set
 (`.source` names `pollen-robotics/microduck-policies`) whose `manifest.json`
 declares it as the walk slot with the 61-observation/14-action contract at
-50 Hz (sets v5 to v8 do; upstream's manifest carries no per-file hashes). The
+50 Hz (sets v5 to v9 do; upstream's manifest carries no per-file hashes). The
 file's SHA-256 is taken when play is enabled and play stops if it changes.
 It rejects absent real battery, unhealthy robotd, fall/limp and commanded
 motion, and a same-basename override. These checks are necessary but **not
@@ -130,11 +154,13 @@ emergency stop or a substitute for a board-level signal/physical kill test.
 
 ## 3. Supervised head-profile bench trial
 
-The pinned official v5 `robot.look` path did **not** track its returned
+The official `robot.look` path (checked on v5) did **not** track its returned
 absolute head pose in MuJoCo; the walk policy expects head deltas from HOME.
 The first game uses a fixed `+0.15 rad` head-pitch delta, verified against
-measured `robot.state` head joints in simulation. Do not treat the simulator
-as proof that a physical head mechanism has the same sign or limits.
+measured `robot.state` head joints in simulation (v5 on daemon 0.15.0; not yet
+re-run on 0.18.x + v8). Do not treat the simulator as proof that a physical head mechanism
+has the same sign or limits. With `[idle]` on, robotd's own look-around
+moves the head between the game's commands: turn it off first (section 1).
 
 With the robot physically supported, clear of people/objects, battery healthy,
 official operator present and a physical power/torque kill path in reach:
@@ -156,8 +182,9 @@ official operator present and a physical power/torque kill path in reach:
    mechanical limit. Verify `robot.policies` reports the loaded official walk
    slot without override/error and that it has homed. Run
    `sudo -u duckmind sha256sum /opt/robot/policies/current/velstand.onnx`
-   and compare with the pinned digest above; Duck Mind will refuse real enable
-   if either report or file differs. Use
+   and write the digest in the bench report next to the set version (section
+   1); Duck Mind will refuse real enable if the report or the official-set
+   check fails, and stops play if the file changes while it plays. Use
    `sudo -u duckmind /opt/duckmind/current/venv/bin/duckmindctl enable`.
 4. In one terminal run `duckmindctl invite --actor alex --activity look_game`
    through `sudo -u duckmind`; keep another terminal ready for `duckmindctl stop`.
