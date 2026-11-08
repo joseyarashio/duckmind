@@ -43,9 +43,12 @@ WALK_FILE = "velstand.onnx"
 # alternate turning-rate and speed solves this many times (the speed barely moves the rate)
 FIX_ROUNDS = 4
 # A walk turns on the spot when, asked for PIVOT_VYAW standing (vx 0), it turns at least PIVOT_SHARE_MIN of it to both sides
-# (measured: v8 1.18-1.20 rad/s at 1.0; v5 0.00). A pivot the brain asks for is then the walk's own turn in place.
+# (measured: v8 1.18-1.20 rad/s at 1.0; v9 0.66-0.69; v5 0.00). A pivot the brain asks for is then the walk's own turn in
+# place. 0.6 (V9Follow 2026-11-09, was 0.8): v9 turning in place itself measured as well as or better than its pivots as
+# forward arcs (205 rig clicks: the same arrivals, bumps 440 -> 134) and as robotd's quick turns (64 live clicks: arrivals
+# 45 vs 42, ToF touches 96 vs 154); v5 and v8 are on the same side of it as before.
 PIVOT_VYAW = 1.0
-PIVOT_SHARE_MIN = 0.8
+PIVOT_SHARE_MIN = 0.6
 
 
 @dataclass(frozen=True)

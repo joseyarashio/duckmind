@@ -299,10 +299,11 @@ class Proprio:
         self._last_edge[name] = t_ns
         return False
 
-    def _own_turn(self, t_ns: int, rate: float) -> float:
+    def _own_turn(self, t_ns: int, rate: float, *, spun: float | None = None) -> float:
         """The heading (rad) the walk has turned through by ``t_ns`` by itself: ``rate`` is the turning the command of this
         tick asks for (0 when not walking); the body answers each command ``turn_dead_s`` later, through a first-order lag
-        of ``turn_lag_s``."""
+        of ``turn_lag_s``. ``spun``: the heading change (rad) since the last tick while robotd turns the duck itself (its
+        quick turn and the hand-back) — all of it the duck's own turn, and the lag goes on from that rate."""
         c = self.cfg
         self._turn_cmds.append((t_ns, rate))
         due = t_ns - int(c.turn_dead_s * NS)
@@ -312,10 +313,14 @@ class Proprio:
         target = first_rate if first_t <= due else 0.0  # (nothing answered yet: the duck stood)
         if self._turn_t is not None and t_ns > self._turn_t:
             dt = (t_ns - self._turn_t) / NS
-            before = self._turn_rate
-            follow = 1.0 - math.exp(-dt / c.turn_lag_s) if c.turn_lag_s > 0.0 else 1.0
-            self._turn_rate = before + follow * (target - before)
-            self._turn_heading += 0.5 * (before + self._turn_rate) * dt
+            if spun is not None:
+                self._turn_rate = spun / dt
+                self._turn_heading += spun
+            else:
+                before = self._turn_rate
+                follow = 1.0 - math.exp(-dt / c.turn_lag_s) if c.turn_lag_s > 0.0 else 1.0
+                self._turn_rate = before + follow * (target - before)
+                self._turn_heading += 0.5 * (before + self._turn_rate) * dt
         self._turn_t = t_ns
         return self._turn_heading
 
@@ -505,18 +510,22 @@ class Proprio:
         yaw = state.odom_yaw
         if (x, y, yaw) != (0.0, 0.0, 0.0):
             self.odom_seen_moving = True
+        if state.policy.startswith("quick_turn"):
+            self._turn_ns = t
+        own_turn = t - self._turn_ns <= int(c.own_turn_s * NS)
+        # robotd's quick turn (and its hand-back) turns the duck on purpose: the heading it turns through is the duck's own
+        # turn, so the brush window never judges that spin against the walk's turn once the walk is back (V9Follow
+        # 2026-11-09: 0.6-1.0 s after a quick turn the 1 s window still held it — a 'brushed' edge after the turn)
+        spun = _wrap(yaw - self.odom_win[-1][3]) if own_turn and self.odom_win else None
         self.odom_win.append((t, x, y, yaw))
         own = c.expected_yaw_rate(vx, vyaw) if walking_cmd else 0.0
-        self.turn_win.append(self._own_turn(t, own))
+        self.turn_win.append(self._own_turn(t, own, spun=spun))
         while self.odom_win and t - self.odom_win[0][0] > int(
             max(c.blocked_window_s, c.brush_window_s) * NS
         ):
             self.odom_win.popleft()
             self.turn_win.popleft()
         on_floor = self.lift == "ground" and not self.fall_open
-        if state.policy.startswith("quick_turn"):
-            self._turn_ns = t
-        own_turn = t - self._turn_ns <= int(c.own_turn_s * NS)
         if on_floor and gyro_mag is not None and gyro_mag > c.stumble_gyro:
             backed = []
             if load is not None and base_load is not None and base_load > 1.0 and not own_turn:

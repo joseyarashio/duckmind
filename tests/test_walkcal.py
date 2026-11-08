@@ -390,16 +390,20 @@ def test_a_v9_link_sends_the_turn_the_brain_wants(monkeypatch: pytest.MonkeyPatc
     assert v9w.at(*_sent(v9, 0.45, 1.0, t0=99.0))[1] == pytest.approx(V5.at(*designed)[1], abs=0.03)
 
 
-def test_v9_does_not_turn_on_the_spot_so_its_pivots_stay_arcs(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_v9_turns_on_the_spot_by_itself_and_v5_v8_are_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """V9Follow (2026-11-09): v9 turns 0.66-0.69 rad/s standing at (0, ±1.0) (v8 1.19-1.20, v5 0.00). Under the old 0.8 share
+    its pivots went to robotd's quick-turn skill (live, with the motion table) or became forward arcs; letting it turn in place
+    itself measured as well or better (205 rig clicks: the same 101 arrivals, bumps 440 -> 134 vs the arcs; 64 live turn-first
+    clicks: 45 vs 42 arrivals vs the quick turns, ToF touches 154 -> 96, 620 quick turns -> 7)."""
     walk = _v9_map(monkeypatch)
-    # measured standing at (0, ±1.0): v9 0.66-0.69 rad/s (v8 1.19-1.20, v5 0.00), under PIVOT_SHARE_MIN
-    assert not walk.loaded.pivots
+    assert walk.loaded.pivots
+    assert V8.pivots and not V5.pivots
     link = _link(walk)
     for side in (1.0, -1.0):
-        sent = _sent(link, 0.37, 0.9 * side, t0=30.0 + side)
-        assert sent[0] > 0.25 and not link.pivot_in_place
+        ask = BodyRequest(vx=0.37, vyaw=0.9 * side, pivot=side, posture="stand")
+        outs = [link.tick(_state(30.0 + side + k * DT), ask) for k in range(10)]
+        assert [i.twist for i in outs[-1].intents if i.method == "robot.move"] == [(0.0, side)]
+        assert link.pivot_in_place
 
 
 def test_a_v9_back_arc_turns_as_v5s(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -228,6 +228,46 @@ def test_a_long_quick_turn_on_the_spot_is_not_blocked_but_a_walk_that_stops_stil
     assert "blocked" in walk_ticks(p, 3.0, 0.0, t0=6.0, x0=0.4)
 
 
+def _quick_turn_then_walk(graze_at: float | None = None) -> list[tuple[float, str]]:
+    """A duck walking at 0.31 (the brain's pivot: its tight arc's walk is what robotd last got), robotd's quick turn right
+    for 0.9 s (the heading spins at -2.6 rad/s, the trunk stays on the spot), then the walk handed back going straight on
+    (its heading answers the command as the gait does, 0.2 s later). ``graze_at`` (s after the turn): a wall on its left
+    pushes it 25° right over 0.3 s while it keeps walking. The edges after the turn, (s after the turn, edge)."""
+    p = Proprio()
+    gait = p.cfg
+    x = y = yaw = 0.0
+    edges = []
+    end = 2.9
+    for k in range(int(6.0 / 0.02)):
+        t = k * 0.02
+        turning = 2.0 <= t < end
+        cmd = (0.31, -0.59) if t < end else (0.31, -0.03)
+        if turning:
+            yaw -= 2.6 * 0.02
+            x += 0.01 * 0.02
+        else:
+            yaw += gait.expected_yaw_rate(0.31, cmd[1]) * 0.02
+            x += 0.15 * 0.02 * math.cos(yaw)
+            y += 0.15 * 0.02 * math.sin(yaw)
+        if graze_at is not None and end + graze_at <= t < end + graze_at + 0.3:
+            yaw -= math.radians(25.0) / 0.3 * 0.02
+        out = p.step(tick(t, policy="quick_turn_right" if turning else "walk", cmd=cmd, load=(50.0, 50.0),
+                          gyro=(0.3, 0.2, -2.6 if turning else 0.1), odom=(x, y, yaw)))
+        if t >= end:
+            edges += [(round(t - end, 2), e) for e in out.edges]
+    return edges
+
+
+def test_the_quick_turns_own_spin_is_not_a_brush_once_the_walk_is_back_but_a_graze_after_it_still_is() -> None:
+    """V9Follow (2026-11-09): on v9 the brain's pivots are robotd's quick turns; proprio's 1 s brush window still held the
+    turn's spin 0.6-1.0 s after the hand-back (own_turn_s is 0.6 s) and judged it against the walk's own turn — a 'brushed'
+    edge right after the turn (live v9 roam: 4 of 33 turns, 0.76-0.94 s after them). The spin is the duck's own turn; a
+    wall that pushes it aside after the turn is still a graze."""
+    assert [e for e in _quick_turn_then_walk() if e[1] == "brushed"] == []
+    grazed = [e for e in _quick_turn_then_walk(graze_at=1.5) if e[1] == "brushed"]
+    assert grazed and 1.5 <= grazed[0][0] <= 2.0
+
+
 # the brain re-steers every few hundred ms (wall check, 2026-11-06: 82 of 111 forward 'brushed' came within 1 s of a turn-command
 # change, at no wall); the walk answers each command 0.2 s later (v5, fitted on the live roam tick logs)
 STEERING = (-0.48, 0.30, -0.20, 0.50, -0.60, 0.10)
