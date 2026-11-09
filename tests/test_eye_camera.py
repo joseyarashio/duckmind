@@ -19,6 +19,7 @@ def test_the_eye_carries_the_family_calibration_of_the_world():
     assert ec.ROTATE == cm.ROTATE_DEG
 
 
+@pytest.mark.usefixtures("alpha_board")
 @pytest.mark.parametrize("label", list(cm.QUALITIES))
 def test_k_scales_with_the_frame_like_every_media_quality(label):
     q = cm.QUALITIES[label]

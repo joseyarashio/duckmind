@@ -1777,7 +1777,7 @@ def main(argv: list[str] | None = None) -> None:
         help="whose head camera the simulated duck carries, by robotd.toml's [board] version: "
         "zero3 = the Zero 3W prototype's IMX219 (a quarter turn off, 37.4 x 62.2 deg), beta / "
         "face-board-v1 = the production GC2093 (upright, 85.2 x 54.7 deg). Default: "
-        "$DUCKMIND_BOARD, else zero3. Only the camera follows it (the render, the senses' "
+        "$DUCKMIND_BOARD, else beta (the production camera). Only the camera follows it (the render, the senses' "
         "view); the simulator's robotd keeps its default board",
     )
     voice_group = parser.add_argument_group(

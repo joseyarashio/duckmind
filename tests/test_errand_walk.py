@@ -31,6 +31,11 @@ CLICKS = [
 ]
 
 
+# (camera-dock 2026-11-09) the clicks came from the live duck with the alpha IMX219. On the production GC2093 (the default)
+# the second did not arrive within 25 s: the camera's five floor-line sectors are ~0.42 rad wide, and each end was laid
+# across its whole sector at the nearest range — a wall 5 cm beside the way where the floor was clear (49 such points on
+# this walk, the alpha's 4) — and the walk turned and backed about them. An end is laid where the look saw it now
+# (FreeSector.end_bearing); the test runs on the simulator's default camera
 @pytest.mark.parametrize(("pose", "place"), CLICKS)
 def test_a_place_well_off_the_heading_is_faced_on_the_spot_and_reached(
     pose, place, monkeypatch

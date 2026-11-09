@@ -42,6 +42,7 @@ def _renderer(scene, **kwargs):
         pytest.skip(f"no offscreen GL context here: {type(error).__name__}: {error}")
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_one_frame_from_a_standing_pose():
     from duckmind.world import camera_model as cm
 

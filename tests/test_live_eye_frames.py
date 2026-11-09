@@ -217,6 +217,7 @@ def test_the_generator_sleeps_between_frames_and_stops_on_request() -> None:
     assert clock.t == pytest.approx(3.0, abs=0.35)  # four frames: about three seconds of sim time
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_a_real_rendered_frame_of_the_eye_goes_through_unchanged() -> None:
     """The existing eye helpers (tests/test_eyecam.py): render one frame of the head camera and
     hand it over like the live connection would take it. Skips without MuJoCo and the checkout."""

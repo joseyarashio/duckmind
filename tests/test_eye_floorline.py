@@ -19,7 +19,7 @@ np = pytest.importorskip("numpy")
 
 from duckmind.eye import floorline as fl  # noqa: E402
 from duckmind.eye import protocol  # noqa: E402
-from duckmind.eye.camera import CameraPose, EyeCamera  # noqa: E402
+from duckmind.eye.camera import BETA, CameraPose, EyeCamera  # noqa: E402
 
 CAM = EyeCamera.for_frame(1280, 720, 90)
 S90 = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1.0]])
@@ -110,6 +110,73 @@ def test_no_floor_line_in_the_dark_or_without_a_pose() -> None:
         "why": "dark",
     }
     assert fl.analyse(y, u, v, CAM, None, model).result["why"] == "no_pose"
+
+
+# the production camera (GC2093, upright as delivered: rotate 0, a wide 1280×720 picture)
+BETA_CAM = EyeCamera.for_frame(1280, 720, 0, family=BETA)
+
+
+def beta_pose(height: float = 0.25, down_deg: float = 17.0) -> CameraPose:
+    p = math.radians(down_deg)
+    fwd = np.array([math.cos(p), 0.0, -math.sin(p)])
+    right = np.array([0.0, -1.0, 0.0])
+    down = np.cross(fwd, right)
+    return CameraPose(
+        cam_pos_m=(0.06, 0.0, height - 0.12),
+        cam_quat=_quat(np.stack([right, down, fwd], axis=1)),
+        imu_quat=(1.0, 0.0, 0.0, 0.0),
+        trunk_height_m=0.12,
+    )
+
+
+def beta_planes(y: int = 120, u: int = 110, v: int = 140) -> tuple:
+    return (
+        np.full((180, 320), y, np.uint8),
+        np.full((90, 160), u, np.uint8),
+        np.full((90, 160), v, np.uint8),
+    )
+
+
+def test_the_wide_production_picture_seeds_its_floor_from_straight_ahead() -> None:
+    # (camera-dock 2026-11-09) the lens puts the wide picture's nearest floor in its bottom
+    # corners, 0.3 m to the side: the seed "8 cm beyond the nearest floor" held a few corner
+    # samples and every look said no_floor_in_view, so the eye never learned a floor
+    pose = beta_pose()
+    y, u, v = beta_planes()
+    res = fl.analyse(y, u, v, BETA_CAM, pose, fl.FloorModel()).result
+    assert res["ok"] == 1 and res["learned"] == 0, res
+    assert max(res["free_mm"]) <= fl.BOOT_CAP_MM
+    model = fl.FloorModel()
+    for k in range(3):
+        fl.analyse(y, u, v, BETA_CAM, pose, model, look_id=f"L{k}")
+        assert model.learn(f"L{k}", "clear", [(100, 0), (900, 0)], 120) > 0
+    assert model.ready
+    res = fl.analyse(y, u, v, BETA_CAM, pose, model).result
+    middle = res["cols_free_mm"][8:16]  # (the lens's folded edges aside)
+    assert res["learned"] == 1 and min(middle) >= 1000, res["cols_free_mm"]
+
+
+def test_the_reference_is_the_floor_ahead_not_a_rug_in_the_corner() -> None:
+    # the wide picture's bottom corners show a rug beside the duck; the floor at its feet, straight
+    # ahead, is the planks: the planks are the reference and the way ahead is clear
+    pose = beta_pose()
+    y, u, v = beta_planes()
+    rug = (90, 150, 100)  # luma, U, V: a bluish rug the duck has also walked on
+    yr, ur, vr = beta_planes(*rug)
+    model = fl.FloorModel()  # both floors learned (walked on), built directly
+    for planes_ in ((y, u, v), (yr, ur, vr)):
+        model.counts[np.unique(fl.colour_bins(*planes_))] += 3000
+    model.walks, model.samples = 3, int(model.counts.sum())
+    grid = fl.ground_grid(BETA_CAM, pose, 4, 180, 320)
+    side = np.isfinite(grid.rng) & (np.abs(grid.gy) > 0.25) & (grid.rng < 0.6)
+    assert side.any()
+    y2, u2, v2 = y.copy(), u.copy(), v.copy()
+    y2[side] = rug[0]
+    half = side[::2, ::2]
+    u2[half], v2[half] = rug[1], rug[2]
+    res = fl.analyse(y2, u2, v2, BETA_CAM, pose, model).result
+    middle = res["cols_free_mm"][8:16]
+    assert min(middle) >= 1000, res["cols_free_mm"]
 
 
 def _box_rows(pose: CameraPose, near_m: float, far_m: float, col: int) -> tuple[int, int]:
@@ -217,7 +284,9 @@ def test_a_learned_floor_sees_a_red_box_on_the_path() -> None:
         res = fl.analyse(planes_.y, planes_.u, planes_.v, cam, scene.camera_pose(), model).result
         seg = scene.seg_upright()[::4, ::4]
         gid = scene.geom(box + "_geom")
-        edges = fl._column_edges(180)
+        edges = fl._column_edges(
+            seg.shape[1]
+        )  # (the alpha's upright picture is 180 wide, the beta's 320)
         box_cols = [c for c, (c0, c1) in enumerate(edges) if (seg[:, c0:c1] == gid).any()]
         assert box_cols
         seen = [res["cols_free_mm"][c] for c in box_cols]

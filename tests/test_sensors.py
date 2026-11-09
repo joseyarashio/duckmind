@@ -232,6 +232,7 @@ def _fetch(eye_frames, sock):  # type: ignore[no-untyped-def]
     raise last
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_the_camera_answers_media_frame_and_logs_the_truth(monkeypatch, folder):
     from duckmind.eye import frames as eye_frames
 

@@ -70,6 +70,19 @@ def test_unknown_end_lays_no_wall():
     assert not m.occupied(0.9, 0.0)
 
 
+def test_a_wide_sectors_end_is_laid_where_the_look_saw_it_not_across_the_sector():
+    # (camera-dock 2026-11-09) the production camera's sectors are ~0.42 rad wide: a chair leg at the sector's right edge
+    # 0.9 m away is a wall there, not across the sector's middle (where the floor is clear)
+    m = LM.LastMap()
+    leg = math.atan2(-0.36, 0.82)  # the sector spans -0.05 .. -0.47 rad
+    sectors = [FreeSector(bearing=-0.26, width=0.42, free_m=0.9, end="wall", end_bearing=leg)]
+    for k in range(8):
+        m.update(k * 1500, frame(k * 1500, floor=sectors))
+    assert m.occupied(0.9 * math.cos(leg), 0.9 * math.sin(leg))
+    mid = -0.26 + 0.3 * 0.42  # (the old spread's left point)
+    assert not m.occupied(0.9 * math.cos(mid), 0.9 * math.sin(mid))
+
+
 def test_a_repeat_from_the_same_stand_counts_for_little_a_second_visit_counts():
     quick = LM.LastMap()
     look_many(quick, 3, 1.0, gap_ms=100)

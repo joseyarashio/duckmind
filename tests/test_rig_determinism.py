@@ -29,6 +29,7 @@ pytest.importorskip("numpy")
 pytest.importorskip("mujoco")
 pytest.importorskip("onnxruntime")
 
+from duckmind.world import camera_model as cm  # noqa: E402
 from duckmind.world import headless_duck as hd  # noqa: E402
 from duckmind.world import rig as R  # noqa: E402
 
@@ -92,7 +93,8 @@ def test_a_frame_has_mediads_header_and_no_truth_in_it(two_runs) -> None:
     (_, frames, _), _ = two_runs
     header = frames[0].header
     assert set(header) == {"width", "height", "format", "bytes", "captured_at_unix_us", "rotate"}
-    assert header["format"] == "UYVY" and header["rotate"] == 90
+    # (the board's mount: the alpha's IMX219 a quarter turn, the production GC2093 — the simulator's default — upright)
+    assert header["format"] == "UYVY" and header["rotate"] == cm.sim_family().rotate
     assert header["bytes"] == header["width"] * header["height"] * 2 == len(frames[0].payload)
     assert header["captured_at_unix_us"] >= hd.WALL_EPOCH_US
     assert "lux" in frames[0].truth and "level" in frames[0].truth  # beside, not in, the frame

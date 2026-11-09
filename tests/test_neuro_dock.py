@@ -64,6 +64,52 @@ def test_an_unsure_facing_needs_a_carried_heading() -> None:
     assert got is not None and got.x == pytest.approx(pose.x) and got.y == pytest.approx(pose.y)
 
 
+def _idle_reads(run: D.DockRun, pose: D.DockPose, errors: list[float]) -> None:
+    """The duck standing at ``pose`` reads its tag once per facing error in ``errors`` (idle: each read within
+    ``remember_m`` is taken as where the dock is)."""
+    for k, err in enumerate(errors):
+        read = _read_from(pose)
+        assert read.facing is not None
+        read = replace(read, facing=D.wrap(read.facing + err), t_ms=500 * k)
+        run.step(D.DockIn(t_ms=500 * k, odom=(0.0, 0.0, 0.0), tag=read))
+
+
+def test_reads_of_a_far_tag_are_weighed_together_not_each_taken_alone() -> None:
+    """(camera-dock 2026-11-09) The production camera reads the tag's facing ~2× more scattered (σ ~0.07 rad at 2 m):
+    each read used to replace the frame, so its heading was the last read's error and the frame's side position
+    swung with it (0.08 rad at 2.1 m: ~170 mm). Now the reads are weighed together with the carried heading."""
+    pose = D.DockPose(2200.0, -300.0, math.pi - 0.05)
+    run = D.DockRun()
+    _idle_reads(run, pose, [0.08, -0.08] * 3 + [0.08])
+    got = run.pose((0.0, 0.0, 0.0))
+    assert got is not None and run.trusted()
+    assert abs(D.wrap(got.h - pose.h)) < 0.03  # (before: 0.08, the last read's)
+    assert abs(got.y - pose.y) < 60.0
+    assert run.heading_var is not None and math.sqrt(run.heading_var) < run.cfg.facing_sigma(2.1)
+
+
+def test_a_read_far_off_the_carried_heading_is_taken_as_it_is() -> None:
+    pose = D.DockPose(1800.0, 200.0, math.pi + 0.1)
+    run = D.DockRun()
+    _idle_reads(run, pose, [0.0, 0.0, 0.0])
+    moved = D.DockPose(
+        pose.x, pose.y, pose.h + 0.6
+    )  # (the carried frame was wrong: the read is not its scatter)
+    _idle_reads(run, moved, [0.0])
+    got = run.pose((0.0, 0.0, 0.0))
+    assert got is not None and abs(D.wrap(got.h - moved.h)) < 1e-6
+
+
+def test_a_carried_heading_grows_less_sure_as_it_walks_and_turns() -> None:
+    run = D.DockRun()
+    _idle_reads(run, D.DockPose(1500.0, 0.0, math.pi), [0.0])
+    before = run._heading_prior()
+    assert before is not None
+    run.step(D.DockIn(t_ms=2000, odom=(1000.0, 0.0, 3.0)))
+    after = run._heading_prior()
+    assert after is not None and after > before + run.cfg.heading_walk_var
+
+
 def test_the_docking_twist_rules() -> None:
     assert C.dock_walk(0.30, -1.0) == (0.30, -1.0)  # the U-turn as measured (not raised to 0.35)
     assert C.dock_walk(0.2, 0.5) == (0.30, 0.5)

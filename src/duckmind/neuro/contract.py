@@ -319,13 +319,19 @@ class FreeSector:
     """One sector of the camera's floor line — the same shape as duck-eye FL-v1's ``sectors``
     (:mod:`duckmind.eye.floorline`): how far the floor is clear in that direction and what ends
     it. Only what the lens sees in its light: none in the dark, and only inside the picture
-    (about 37° wide, where the head points). MODEL in the prototype (view geometry and light,
-    :mod:`duckmind.world.neuro_senses`); the eye's own floor line is phase 5's."""
+    (37° wide on the alpha prototype, ~85° on the production camera, where the head points). MODEL
+    in the prototype (view geometry and light, :mod:`duckmind.world.neuro_senses`); the eye's own
+    floor line is phase 5's."""
 
     bearing: float  # rad from the trunk's forward axis at the look, + = the duck's left
     width: float = 0.13  # rad, the sector's width
     free_m: float = FLOOR_RANGE_M  # clear floor from the trunk origin (level frame), m
     end: str = "unknown"  # FLOOR_ENDS: what ends the clear stretch ("unknown": nothing seen)
+    # rad (as ``bearing``), where in the sector the clear stretch ended — the nearest column's bearing (None: not known,
+    # anywhere across it). (camera-dock 2026-11-09) the production camera's sectors are ~0.42 rad wide: an end laid
+    # across the whole sector put a wall at its nearest range where the floor was clear (49 such points against the
+    # alpha's 4 on the errand walk test's second click)
+    end_bearing: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

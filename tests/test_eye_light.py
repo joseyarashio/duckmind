@@ -351,6 +351,7 @@ def _stand(eye, x: float, y: float, yaw: float) -> None:
     eye.set_pose(pose)
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_the_eye_reads_a_rendered_home_day_and_night_and_the_dock_light():
     """default_home through the phase-2 camera: noon reads bright, a moonless night black, and
     the same night facing the lit dock reads very dark (owner decision C1)."""

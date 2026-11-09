@@ -75,13 +75,13 @@ class CameraFamily:
 
 
 # The Zero 3W prototype ("alpha") board's IMX219, a quarter turn off: the upright picture is
-# 37.4° wide × 62.2° tall. The simulator's camera (duckmind.world.camera_model).
+# 37.4° wide × 62.2° tall. The simulator's camera with ``--board zero3`` (duckmind.world.camera_model).
 ALPHA = CameraFamily(
     "alpha", "imx219", FAMILY_SIZE, FAMILY_K, FAMILY_DISTORTION, ROTATE, (37.4, 62.2)
 )
 # The production ("beta") main board's GC2093 and lens, upright: CameraIntrinsics::beta(), unit
 # sky-gtc, 2026-10-28, ChArUco 80 views, 1.28 px RMS, the 1280×720 frame (a scaled readout of the
-# sensor's only 1920×1080 mode); 85.2° wide × 54.7° tall. Not the simulator's camera.
+# sensor's only 1920×1080 mode); 85.2° wide × 54.7° tall. The simulator's default camera (2026-11-09).
 BETA = CameraFamily(
     "beta",
     "gc2093",

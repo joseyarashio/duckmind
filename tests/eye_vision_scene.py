@@ -69,6 +69,7 @@ class Scene:
         from duckmind.world import homelayout, lights, nestpad, render_scene
 
         self.cm = cm
+        self.family = cm.sim_family()  # the head camera the simulated duck carries (its board)
         self.lights = lights
         self.layout = homelayout.load(home, mjcf_dir=folder)
         spec = homelayout.compose(self.layout, mjcf_dir=folder)
@@ -116,14 +117,22 @@ class Scene:
         self.eye.set_pose(frame)
         self.mujoco.mj_forward(self.m, self.d)
 
-    def camera_world(self) -> tuple[Any, Any]:
-        """Camera position, and the upright OpenCV axes (right, down, forward) in the world."""
+    def sensor_world(self) -> tuple[Any, Any]:
+        """Camera position, and the sensor's OpenCV axes (right, down, forward) in the world:
+        MuJoCo's camera looks down −z with +y up, on either board's mount."""
         import numpy as np
 
         cam = self.eye.eye.camera
         pos = np.array(self.d.cam_xpos[cam])
         r = np.array(self.d.cam_xmat[cam]).reshape(3, 3)
-        return pos, np.stack([r[:, 1], r[:, 0], -r[:, 2]], axis=1)
+        return pos, np.stack([r[:, 0], -r[:, 1], -r[:, 2]], axis=1)
+
+    def camera_world(self) -> tuple[Any, Any]:
+        """Camera position, and the upright OpenCV axes (right, down, forward) in the world."""
+        from duckmind.eye.floorline import upright_to_sensor
+
+        pos, r_ws = self.sensor_world()
+        return pos, r_ws @ upright_to_sensor(self.family.rotate)
 
     def pose_camera_at(self, cx: float, cy: float, heading: float, joints: Any = None) -> None:
         self.pose(cx, cy, heading, joints)
@@ -155,10 +164,9 @@ class Scene:
 
         from duckmind.eye.camera import CameraPose
 
-        pos, r_up = self.camera_world()
+        pos, r_ws = self.sensor_world()
         rt = np.array(self.d.xmat[self.trunk]).reshape(3, 3)
         tp = np.array(self.d.xpos[self.trunk])
-        r_ws = r_up @ np.array(S90, dtype=float).T
         return CameraPose(
             cam_pos_m=tuple(float(v) for v in rt.T @ (pos - tp)),
             cam_quat=mat_quat((rt.T @ r_ws).tolist()),
@@ -177,7 +185,8 @@ class Scene:
         import numpy as np
 
         w, h = self.eye.frame_size
-        return np.ascontiguousarray(np.rot90(self.eye.camera.renderer.segment_ids(w, h), k=-1))
+        ids = self.eye.camera.renderer.segment_ids(w, h)
+        return np.ascontiguousarray(np.rot90(ids, k=-(self.family.rotate // 90)))
 
     def close(self) -> None:
         self.eye.close()
@@ -195,7 +204,14 @@ def eye_inputs(cap: Any) -> tuple[Any, Any, Any]:
             return frames.upright_luma(data, w, h, rot, step=step)
         return frames.roi_luma(data, w, h, rot, box, step=step)
 
-    return frames.sample_quarter(data, w, h, rot), EyeCamera.for_frame(w, h, rot), luma_of
+    from duckmind.world import camera_model as cm
+
+    family = cm.sim_family()
+    return (
+        frames.sample_quarter(data, w, h, rot),
+        EyeCamera.for_frame(w, h, rot, family=family),
+        luma_of,
+    )
 
 
 def add_box(

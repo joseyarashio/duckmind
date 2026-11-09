@@ -55,6 +55,7 @@ def test_bearing_and_projection_are_inverse():
     assert (small.fx, small.cx) == pytest.approx((K.fx / 8, K.cx / 8))
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_quality_rungs_are_robotd_params_and_scale_k():
     assert list(cm.QUALITIES) == ["1080p30", "720p30", "720p15", "360p30"]
     assert cm.quality_rung().label == cm.DEFAULT_QUALITY == "720p30"
@@ -404,6 +405,7 @@ def test_p5_checkerboard_render_matches_family_k():
     assert abs(cy - (720 - K.cy)) > 200
 
 
+@pytest.mark.usefixtures("alpha_board")
 @pytest.mark.parametrize("quality", ["720p30", "360p30"])
 def test_p5_checkerboard_through_the_lens_to_the_frame_edges(quality):
     """P5 with distortion: the checkerboard through the family lens (the pinhole canvas and
@@ -446,6 +448,7 @@ def test_p5_checkerboard_through_the_lens_to_the_frame_edges(quality):
     assert (u0, v0) == pytest.approx((k.cx, k.cy), abs=1.5)
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_p5_orientation_after_the_flip_on_the_official_duck():
     """The official head camera with the 180° roll kept, K and the lens applied, turned upright
     like ``mediad --rotate 90``: up is up, the duck's left is left, the axis lands on K's
@@ -503,6 +506,7 @@ def test_p5_orientation_after_the_flip_on_the_official_duck():
     assert floor_rows.min() > ceiling_rows.max() - 3, "floor below, ceiling above"
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_the_scene_is_set_up_like_the_real_camera():
     mujoco = _mujoco()
     scene = _official_scene()
@@ -642,6 +646,7 @@ def test_a_glow_is_as_bright_by_day_as_by_night_and_skipped_out_of_view():
         camera.close()
 
 
+@pytest.mark.usefixtures("alpha_board")
 @pytest.mark.parametrize("quality", ["360p30", "1080p30"])
 def test_a_capture_has_its_rungs_size_and_packs_to_media_frame_bytes(quality):
     _mujoco()
@@ -697,7 +702,8 @@ def test_the_simulator_carries_the_camera_of_its_board(monkeypatch):
     from duckmind.eye.camera import ALPHA, BETA
 
     monkeypatch.delenv(cm.BOARD_ENV, raising=False)
-    assert cm.sim_board() == cm.DEFAULT_SIM_BOARD
+    # (camera-dock 2026-11-09, owner 「換」) the production GC2093 unless a board is named
+    assert cm.sim_board() == cm.DEFAULT_SIM_BOARD == "beta" and cm.sim_family() is BETA
     assert cm.sim_family("zero3") is ALPHA and cm.sim_family("beta") is BETA
     monkeypatch.setenv(cm.BOARD_ENV, "face-board-v1")
     assert cm.sim_family() is BETA

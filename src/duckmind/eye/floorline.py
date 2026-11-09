@@ -18,8 +18,9 @@ cable), and the low things standing on the floor (``things``: bearing, range, wi
    (:mod:`duckmind.eye.camera`'s K and lens) cut with the floor plane from the camera's measured
    height and tilt;
 2. the look's own reference: the *kinds* of floor (chroma cells) in the band just in front of the
-   feet (:data:`NEAR_BAND_MM` beyond the nearest floor the camera sees) whose colours the learned
-   model holds, and each kind's brightness there, in this light;
+   feet (:data:`NEAR_BAND_MM` deep, from the nearest floor the camera sees straight ahead within
+   the body's width — :func:`feet_band`) whose colours the learned model holds, and each kind's
+   brightness there, in this light;
 3. a sample is *floor-like* when the learned model holds its colour bin (a 3×3×3 neighbourhood
    count over a threshold: only colours the duck has walked on) **and** it is one of those kinds
    at :data:`LUMA_LO`–:data:`LUMA_HI` × its brightness at the feet. (Another kind of floor ahead —
@@ -76,7 +77,7 @@ FLOOR_FRACTION = 0.5  # a row of a column is floor when at least this much of it
 MAX_RANGE_MM = 1500  # the floor line looks no further (the planks blur into one colour)
 DIM_FACTOR = 0.8  # spec §4.4: dim light → distances ×0.8
 BOOT_CAP_MM = 350  # not learned yet: never claim more clear floor than this
-BOOT_BAND_MM = 80  # the provisional model's seed: the floor this far beyond the nearest seen
+BOOT_BAND_MM = 80  # the provisional model's seed: this deep from the nearest floor straight ahead
 READY_WALKS = 3  # walks learned before the model is trusted
 READY_SAMPLES = 4000  # and floor samples
 LEARN_RANGE_MM = 1600  # a look remembers the floor it saw up to this range
@@ -97,7 +98,8 @@ THRESH_MIN = 3  # … and at least this many
 # the look's own floor: the kinds of floor right in front of the feet, and their brightness now
 TYPE_DIV = 2  # chroma bins per floor kind (both axes)
 N_TYPES = (C_BINS // TYPE_DIV) ** 2
-NEAR_BAND_MM = 120  # the reference band: this far beyond the nearest floor the camera sees
+NEAR_BAND_MM = 120  # the reference band: this deep from the nearest floor straight ahead
+FEET_HALF_MM = 150  # … within this of the line ahead: the body's width and a step to either side
 NEAR_MAX_MM = 800
 TYPE_MIN_SHARE = 0.02  # a kind must be this much of the band (and 20 samples) to count
 LUMA_LO = 0.80  # a floor sample is this much darker …
@@ -274,16 +276,44 @@ class Reference:
     luma: tuple[float, ...] = ()
 
 
+def feet_band(grid: GroundGrid, depth_m: float, limit_m: float = math.inf) -> Any:
+    """The floor just in front of the feet: the samples within ±:data:`FEET_HALF_MM` of the line
+    the picture looks along (the optical axis on the floor, from the level origin), from the
+    nearest of them out ``depth_m`` further (and no further than ``limit_m`` from the origin).
+    ``None`` when no floor is seen there.
+
+    On the alpha's tall narrow picture the nearest floor anywhere is about this band; on the
+    production camera's wide one the lens puts the nearest floor in the bottom corners, 0.3 m to
+    the side, where a band "beyond the nearest floor" held a few samples and no seed (measured
+    2026-11-09 on default_home's renders: 270 of 270 looks "no floor in view"; with this band
+    270 of 270 usable, median error 90 mm, the alpha's 102 mm — ±60 / 100 / 150 mm were tried,
+    the widest was best on both cameras)."""
+    import numpy as np
+
+    ax, ay = float(grid.rot[0, 2]), float(grid.rot[1, 2])
+    if math.hypot(ax, ay) < 1e-6:  # looking straight down: along the picture's up
+        ax, ay = -float(grid.rot[0, 1]), -float(grid.rot[1, 1])
+    norm = math.hypot(ax, ay)
+    if norm < 1e-9:
+        return None
+    ax, ay = ax / norm, ay / norm
+    finite = np.isfinite(grid.rng)
+    gx = np.where(finite, grid.gx, 0.0)
+    gy = np.where(finite, grid.gy, 0.0)
+    ahead = finite & (gx * ax + gy * ay > 0.0) & (np.abs(gy * ax - gx * ay) <= FEET_HALF_MM / 1e3)
+    if not ahead.any():
+        return None
+    nearest = float(grid.rng[ahead].min())
+    return ahead & (grid.rng <= min(nearest + depth_m, limit_m))
+
+
 def local_reference(bins: Any, luma: Any, grid: GroundGrid, table: Any) -> Reference:
     """The floor kinds in the band right in front of the feet (learned floor colours only)."""
     import numpy as np
 
-    rng = grid.rng
-    finite = np.isfinite(rng)
-    if not finite.any():
+    near = feet_band(grid, NEAR_BAND_MM / 1000.0, NEAR_MAX_MM / 1000.0)
+    if near is None:
         return Reference()
-    nearest = float(rng[finite].min())
-    near = finite & (rng <= min(nearest + NEAR_BAND_MM / 1000.0, NEAR_MAX_MM / 1000.0))
     ok = near & table[bins]
     n = int(ok.sum())
     if n < 20:
@@ -710,13 +740,8 @@ def _boot_table(bins: Any, grid: GroundGrid) -> Any:
     """Not learned yet: a provisional model from the floor just in front of the feet."""
     import numpy as np
 
-    rng = grid.rng
-    finite = rng[np.isfinite(rng)]
-    if finite.size == 0:
-        return None
-    nearest = float(finite.min())
-    band = np.isfinite(rng) & (rng <= nearest + BOOT_BAND_MM / 1000.0)
-    if int(band.sum()) < 50:
+    band = feet_band(grid, BOOT_BAND_MM / 1000.0)
+    if band is None or int(band.sum()) < 50:
         return None
     counts = np.bincount(bins[band].ravel(), minlength=N_BINS).astype(np.int64)
     return floor_table(counts)

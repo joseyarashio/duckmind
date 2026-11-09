@@ -1238,12 +1238,15 @@ class FloorLineModel:
             if rng.random() < FLOOR_FALSE_STOP:
                 free, end = free * rng.uniform(0.4, 0.9), "unknown"  # a seam, a shadow, glare
             free = min(C.FLOOR_RANGE_M, max(0.05, free * scale))
+            jitter = rng.gauss(0.0, 0.01)
+            eb = item.get("eb")
             out.append(
                 C.FreeSector(
-                    bearing=round(float(item.get("b", 0.0)) + rng.gauss(0.0, 0.01), 4),
+                    bearing=round(float(item.get("b", 0.0)) + jitter, 4),
                     width=round(float(item.get("w", 0.13)), 4),
                     free_m=round(free, 3),
                     end=end,
+                    end_bearing=None if eb is None else round(float(eb) + jitter, 4),
                 )
             )
         return tuple(out)

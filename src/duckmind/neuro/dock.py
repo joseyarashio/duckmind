@@ -235,6 +235,23 @@ class DockConfig:
     reseat_after_ms: int = 3000  # seated in the dock, PG open this long: stand and sit again
     remembered_max_m: float = 25.0  # a remembered dock frame: trusted for this much walking
     contact_heading_sigma: float = 0.2  # rad: a docked duck faces the room within ~±20°
+    # (camera-dock 2026-11-09) A read's facing is weighed against the heading carried from the reads before it (the
+    # odometry's heading is the IMU's yaw: it drifts little between looks), each by how sure it is — the reader's facing
+    # scatters more the fewer pixels the tag has: σ = facing_sigma_rad + facing_sigma_per_m · (d − facing_sigma_from_m).
+    # The numbers are NB-v1's on the production GC2093 (camera-beta 2026-11-09: the alpha's 10 mrad + 30 mrad/m beyond
+    # 1 m, at the 1.53× distance that gives the tag as few pixels); on the alpha they are the cautious side. The carried
+    # heading loses heading_walk_var rad² per metre walked and heading_turn_frac of every radian turned (as a σ).
+    facing_sigma_rad: float = 0.010
+    facing_sigma_per_m: float = 0.046
+    facing_sigma_from_m: float = 0.65
+    heading_walk_var: float = 0.0004
+    heading_turn_frac: float = 0.01
+
+    def facing_sigma(self, range_m: float) -> float:
+        """How far (rad, 1 σ) a tag read's facing scatters at ``range_m``."""
+        return self.facing_sigma_rad + self.facing_sigma_per_m * max(
+            0.0, range_m - self.facing_sigma_from_m
+        )
 
     def lane_y(self) -> float:
         """The lane: to the dock's right (y < 0) or, mirrored, its left."""
@@ -463,6 +480,10 @@ class DockRun:
         self.unsure_since: int | None = None
         self.open_since: int | None = None
         self.walked_mm = 0.0  # odometry path since the dock frame was last confirmed
+        # (camera-dock) how sure the carried heading is (rad², None: not known) and how far the odometry carried it
+        # since (mm walked, rad turned)
+        self.heading_var: float | None = None
+        self.since_fix: tuple[float, float] = (0.0, 0.0)
         self._odom_prev: tuple[float, float, float] | None = None
         self.result: str | None = None
         self.face_stop: str | None = None
@@ -618,6 +639,7 @@ class DockRun:
         if din.upset:
             # picked up or set down: the odometry frame no longer holds
             self.tracker = _Tracker()
+            self._fixed(None)
             self.fix_ms = None
             self.fix_src = ""
             if self.mode in ("docking", "leaving"):
@@ -703,7 +725,10 @@ class DockRun:
     def _carry(self, din: DockIn) -> None:
         prev = self._odom_prev
         if prev is not None:
-            self.walked_mm += math.hypot(din.odom[0] - prev[0], din.odom[1] - prev[1])
+            step = math.hypot(din.odom[0] - prev[0], din.odom[1] - prev[1])
+            self.walked_mm += step
+            walked, turned = self.since_fix
+            self.since_fix = (walked + step, turned + abs(wrap(din.odom[2] - prev[2])))
         self._odom_prev = din.odom
 
     def _moving(self, din: DockIn, now: int) -> None:
@@ -737,6 +762,7 @@ class DockRun:
         )
         if not good:
             self.tracker.set(DockPose(float(geo.seat_mm), 0.0, 0.0), din.odom)
+            self._fixed(self.cfg.contact_heading_sigma**2)
             self.fix_src = "contact"
             self.fix_ms = din.t_ms
         self.walked_mm = 0.0
@@ -810,18 +836,55 @@ class DockRun:
         return PHASE_ZH.get(self.phase, self.phase)
 
     def _take(self, read: TagRead, din: DockIn) -> bool:
-        """A tag reading → the tracker (the carried heading when the facing is unsure)."""
+        """A tag reading → the tracker (the carried heading when the facing is unsure). (camera-dock 2026-11-09)
+        With a trusted frame whose heading came from earlier reads, the read's facing is weighed against the carried
+        heading, each by how sure it is (:meth:`DockConfig.facing_sigma`; the carried heading loses some with every
+        metre walked and radian turned): a lone read of a far tag no longer swings the whole frame. A facing too far
+        off the carried heading to be its scatter (3 σ) is taken as it is (the frame was wrong, not the read)."""
         carried = self.tracker.now(read.odom)
-        pose = pose_from_read(
-            read, self.cfg.geometry, carried.h if carried is not None and self.trusted() else None
-        )
+        heading = carried.h if carried is not None and self.trusted() else None
+        prior = self._heading_prior() if heading is not None else None
+        var = prior
+        if read.facing is not None:
+            seen = wrap(math.pi + read.facing)
+            var_read = self.cfg.facing_sigma(read.range_m) ** 2
+            if (
+                heading is not None
+                and prior is not None
+                and abs(wrap(seen - heading)) <= 3.0 * math.sqrt(prior + var_read)
+            ):
+                gain = prior / (prior + var_read)
+                heading = wrap(heading + gain * wrap(seen - heading))
+                var = prior * var_read / (prior + var_read)
+            else:
+                heading, var = seen, var_read
+            read = replace(read, facing=None)  # the heading is given
+        pose = pose_from_read(read, self.cfg.geometry, heading)
         if pose is None:
             return False
         self.tracker.set(pose, read.odom)
+        self._fixed(var)
         self.fix_ms = din.t_ms
         self.fix_src = "tag"
         self.walked_mm = 0.0
         return True
+
+    def _fixed(self, var: float | None) -> None:
+        """The tracker was just set: its heading is this sure (rad², None: not known)."""
+        self.heading_var = var
+        self.since_fix = (0.0, 0.0)
+
+    def _heading_prior(self) -> float | None:
+        """How sure the carried heading is now (rad²), or None."""
+        if self.heading_var is None:
+            return None
+        walked_mm, turned = self.since_fix
+        cfg = self.cfg
+        return (
+            self.heading_var
+            + cfg.heading_walk_var * walked_mm / 1000.0
+            + (cfg.heading_turn_frac * turned) ** 2
+        )
 
     # ── the plans ────────────────────────────────────────────────────────────
 
@@ -997,6 +1060,7 @@ class DockRun:
                 want = math.atan2(-carried.y, cfg.geometry.face_mm - carried.x)
                 heading = wrap(want - din.cue)
                 self.tracker.set(DockPose(carried.x, carried.y, heading), din.odom)
+                self._fixed(None)  # (a direction: how sure is not known)
                 self.misses = 0
                 self.log.append("cue")
                 return self._next(din, now)

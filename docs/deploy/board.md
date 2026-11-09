@@ -56,7 +56,8 @@ Do not assume your board matches either. Record:
   `"face-board-v1"`) carries the GC2093 upright, about 85° × 55° (fx 695.6);
   the Zero 3W (`"zero3"`) the IMX219 a quarter turn off, 37° × 62° upright.
   Start duck-eye with `--board <version>` so it reads the frames with that
-  lens; the simulator keeps the IMX219;
+  lens; the simulator carries the GC2093 too (`--board zero3` for the
+  IMX219);
 - usage data: since daemon 0.18.3 the robot sends anonymous usage data to
   PostHog by default (a random robot id, versions and policy names;
   `docs/robot/telemetry.md` upstream). The owner's choice is **off**:

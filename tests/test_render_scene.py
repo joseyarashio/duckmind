@@ -300,6 +300,7 @@ def test_the_backlight_glows_in_the_dark_only_and_turns_green_while_charging():
         eye.close()
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_a_capture_carries_media_frame_bytes_and_an_evaluator_log_and_repeats():
     cm, rs = _modules()
     scene, home = _home("default_home")

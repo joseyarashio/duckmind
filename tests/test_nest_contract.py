@@ -20,6 +20,10 @@ np = pytest.importorskip("numpy")
 from duckmind.duckbody import dockexec, lookplan  # noqa: E402
 
 
+# (camera-dock 2026-11-09) the 60 mm / 3° bounds are the alpha IMX219's single read. The production GC2093 has 1.53× fewer
+# pixels per degree: one read's facing is off ~0.07 rad at 1–2 m (here 0.066 rad, so 71 mm aside at 1.2 m) — the dock's
+# frame weighs reads together for that (tests/test_neuro_dock.py); this single-read bound keeps the camera it was set on
+@pytest.mark.usefixtures("alpha_board")
 @pytest.mark.parametrize(
     "dist_m,off_deg,turn_deg",
     [(1.0, 0.0, 0.0), (1.5, 20.0, 8.0), (1.2, -25.0, -10.0)],

@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from duckmind.neuro import clutter_route as CR
+from duckmind.neuro.boundary import end_place
 from duckmind.neuro.contract import SensorFrame
 
 # the setting: "0" = no map, "obs" = the map is built and saved but nothing reads it, "act" / "1" = the plan reads it (a way out of a knot),
@@ -519,8 +520,9 @@ class LastMap:
                 if reach > NEAR_M:
                     self._ray_free(px, py, heading + off, reach, FLOOR_FREE, t_s)
             if hit:
-                for off in (-0.3 * w, 0.0, 0.3 * w):
-                    h = heading + off
+                centre, spread = end_place(sector)
+                for frac in (-0.3, 0.0, 0.3):
+                    h = yaw + centre + frac * spread
                     self._add(
                         px + free * math.cos(h),
                         py + free * math.sin(h),

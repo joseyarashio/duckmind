@@ -59,6 +59,20 @@ def test_a_wall_seen_ahead_bends_the_walk_before_it_is_touched() -> None:
     assert clear.steer(0, (0.0, 0.0, 0.0)).veer == 0.0
 
 
+def test_a_wide_sectors_end_beside_the_way_does_not_shut_the_way_ahead() -> None:
+    # (camera-dock 2026-11-09) the production camera's sectors are ~0.42 rad wide; one ending at a wall corner on its right
+    # edge, 0.35 m away, put that wall across the whole sector — 5 cm beside the way straight ahead. Laid where the look
+    # saw it, the way ahead stays open; the corner itself is still a wall
+    corner = FreeSector(-0.3, 0.42, 0.35, "wall", end_bearing=-0.48)
+    b = B.Boundary()
+    b.update(0, _frame(0, floor=(corner,), look_ms=0))
+    assert b.clearance((0.0, 0.0, 0.0), 0.0) > 1.0
+    assert b.clearance((0.0, 0.0, 0.0), -0.48) < 0.4
+    # the alpha's 0.13-rad sectors are about one spread wide: laid across as before, end placed or not
+    narrow = FreeSector(-0.3, 0.13, 0.35, "wall", end_bearing=-0.36)
+    assert B.end_place(narrow) == B.end_place(FreeSector(-0.3, 0.13, 0.35, "wall")) == (-0.3, 0.13)
+
+
 def test_close_to_a_wall_only_the_slowest_tight_arc_goes_on() -> None:
     b = B.Boundary()
     b.update(0, _frame(0, floor=_line(0.25), look_ms=0))

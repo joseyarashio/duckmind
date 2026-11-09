@@ -234,12 +234,17 @@ def _headless_home(seed: int, x: float, y: float, yaw: float, seconds: float) ->
 HEADLESS_STARTS = [(4, 0.761, -1.006, 1.44), (71, 1.093, -0.519, 0.485)]
 
 
+@pytest.mark.parametrize("board", ["zero3", "beta"])
 @pytest.mark.parametrize("start", HEADLESS_STARTS)
 def test_headless_it_finds_its_dock_and_docks_from_a_frame_carried_too_far(
-    start: tuple[int, float, float, float], monkeypatch: pytest.MonkeyPatch
+    start: tuple[int, float, float, float], board: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """On either head camera (camera-dock 2026-11-09: on the production GC2093 start0 found its dock and never got in
+    within 150 s — each lone, scattered read of the tag's facing replaced the frame, and steered by it the walk along
+    the lane ran into a cushion and pushed there for 40 s; the reads weighed together take it up the lane)."""
     _need_headless()
     monkeypatch.setenv("DUCKMIND_BODY_COMMAND_DELAY_MS", "20")
+    monkeypatch.setenv("DUCKMIND_BOARD", board)
     seen = _headless_home(*start, 150.0)
     assert seen["engaged"] is not None, seen  # the program took the legs (before: never, in 300 s)
     assert seen["why"] == "engage:tag", (

@@ -108,6 +108,10 @@ FLOOR_ASSOCIATION_CARRY_MAX_PX = 64
 FLOOR_ASSOCIATION_STEP_PX = 2
 FLOOR_MAX_M = 1.5
 FLOOR_RAY_HEIGHTS_M = (0.02, 0.10)
+# (camera-dock 2026-11-09) What lies flat on the floor and covers it — the layout's rugs and mats (a 2 mm rug, drawn and
+# seen, often not felt) — is floor to find a thing's foot on: a toy standing on the living room's rug had no floor under
+# it (only the ``floor*`` geoms counted), so it got no range and a still toy there was never seen, on either camera
+FLOOR_COVERINGS = frozenset({"rug", "mat"})
 
 # The delivered frame (the family's K at 1280×720, unrotated, through its lens): a pinhole
 # direction must first fall inside the frame's undistorted extents (the barrel polynomial folds
@@ -646,10 +650,17 @@ class NeuroWorld:
         self.candidates = self._candidates(model)
         import mujoco
 
+        layout = getattr(self.people, "layout", None) or getattr(self.props, "layout", None)
+        coverings = {
+            str(e.geom).lower()
+            for e in getattr(layout, "elements", ()) or ()
+            if getattr(e, "kind", "") in FLOOR_COVERINGS
+        }
+
         def is_flat_floor(g: int) -> bool:
             name = str(mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, g) or "").lower()
             named_floor = name == "floor" or name.startswith("floor_") or name.startswith("floor-")
-            if not named_floor or int(model.geom_bodyid[g]) != 0:
+            if not (named_floor or name in coverings) or int(model.geom_bodyid[g]) != 0:
                 return False
             if float(world.data.geom_xmat[g][8]) < 0.98:
                 return False  # walls or downward-facing surfaces are never support floor
@@ -1130,11 +1141,12 @@ class NeuroWorld:
             near_all.append(near)
             best = FLOOR_MAX_M
             end = "unknown"
+            best_b = b_mid
             for frac in (-0.3, 0.0, 0.3):
                 b, _ = level_bearing(cx_mid + frac * span, 0.0)
                 hit, kind = self._floor_ray(data, trunk, yaw + b)
                 if hit < best:
-                    best, end = hit, kind
+                    best, end, best_b = hit, kind, b
             if best > far:
                 free, end = far, "unknown"
             elif best < near:
@@ -1150,6 +1162,7 @@ class NeuroWorld:
                     "free": round(max(0.0, free), 3),
                     "end": end,
                     "hit": round(best, 3),
+                    "eb": round(best_b, 4),  # where the clear stretch ended (the ray that hit)
                 }
             )
         return {"sectors": sectors, "near": round(min(near_all), 3)}

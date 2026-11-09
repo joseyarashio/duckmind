@@ -35,7 +35,7 @@ import math
 from collections import deque
 from dataclasses import dataclass
 
-from duckmind.neuro.contract import FLOOR_RANGE_M, SensorFrame, wrap_angle
+from duckmind.neuro.contract import FLOOR_RANGE_M, FreeSector, SensorFrame, wrap_angle
 
 MEMORY_TAU_S = 25.0  # a boundary point fades unless seen again
 KEEP_WEIGHT = 0.12  # below this it is forgotten
@@ -126,6 +126,22 @@ class Steer:
     look_ahead: bool = False  # the way ahead is not SEEN clear: slow, and look where it goes
     cornered: bool = False  # no arc it could make has room: stop (a forward arc only presses)
     known_ahead: float = 0.0  # m, how far ahead it has seen the floor clear (or walked)
+
+
+END_SPREAD_RAD = 0.13  # an end the look placed (``FreeSector.end_bearing``) is a column or two this wide, not the sector
+WIDE_SECTOR_RAD = 0.2  # … in a sector wider than this (beta's ~0.42; the alpha's 0.13 as before)
+
+
+def end_place(sector: FreeSector) -> tuple[float, float]:
+    """(centre bearing, width) to lay a floor-line sector's end across: in a wide sector, where the clear stretch ended
+    when the look says so (at most :data:`END_SPREAD_RAD` wide), else the whole sector (camera-dock 2026-11-09: the
+    production camera's 0.42-rad sectors laid a wall at the nearest range across floor that was clear; the alpha's
+    0.13-rad sectors are about one spread wide and stay as they were)."""
+    width = float(sector.width)
+    at = getattr(sector, "end_bearing", None)
+    if at is None or width <= WIDE_SECTOR_RAD:
+        return float(sector.bearing), width
+    return float(at), END_SPREAD_RAD
 
 
 @dataclass(slots=True)
@@ -298,10 +314,11 @@ class Boundary:
                     p.w *= 0.3
             self.rays.append(_Ray(px, py, heading, half, free, 1.0))
             if sector.end in ("wall", "thing") and free < FLOOR_RANGE_M - 0.05:
+                centre, spread = end_place(sector)
                 for frac in (-0.35, 0.0, 0.35):
                     self._add(
                         (px, py, yaw),
-                        float(sector.bearing) + frac * float(sector.width),
+                        centre + frac * spread,
                         free,
                         str(sector.end),
                         1.0,

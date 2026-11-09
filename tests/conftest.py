@@ -153,6 +153,14 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
 
 
 @pytest.fixture
+def alpha_board(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The simulated duck carries the alpha prototype's IMX219 (``--board zero3``): for a test whose numbers are that
+    camera's (its K, its quarter-turned frame). The simulator's default is the production GC2093 (camera-dock
+    2026-11-09)."""
+    monkeypatch.setenv("DUCKMIND_BOARD", "zero3")
+
+
+@pytest.fixture
 def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     """Live voice (LV1): a test that uses this can not reach the network or the Keychain: a
     connect, a name lookup or a ``security`` call fails the test on the spot."""

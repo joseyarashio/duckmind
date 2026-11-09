@@ -456,6 +456,21 @@ def test_a_thing_behind_the_duck_is_never_in_view_and_one_ahead_is():
     assert all(abs(s.bearing) < 0.8 for s in everything)
 
 
+@pytest.mark.parametrize("family", [ALPHA, BETA], ids=lambda f: f.name)
+def test_a_still_toy_on_the_rug_has_a_floor_under_it_and_is_seen(family):
+    """(camera-dock 2026-11-09) default_home's living-room rug (2 mm, drawn and seen, not felt) is floor to find a thing's
+    foot on: before, only ``floor*`` geoms counted, the toy on it got no range and, still, was never seen."""
+    home = Home(x=0.25, y=-0.1, yaw=math.pi / 2, camera=family)  # facing the rug (y 0.5…2.1 m)
+    # 1 m ahead, on the rug (the coffee table's near leg 0.3 m to its right)
+    home.put("ball_felt", 0.25, 0.9)
+    home.run(3.0)
+    entries = [e for e in home.seen("thing:ball_felt") if e.get("vis")]
+    assert entries and all(e.get("rng") is not None for e in entries), entries[:2]
+    assert all(abs(e["rng"] - 1.0) < 0.15 for e in entries)
+    things = home.sighted("thing")
+    assert any(s.range_m and abs(s.range_m - 1.0) < 0.25 for s in things), things
+
+
 def _walled() -> dict[str, Any]:
     from duckmind.world import homelayout
 

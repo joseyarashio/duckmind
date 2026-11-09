@@ -244,6 +244,7 @@ def world_camera_pose(eye):
     )
 
 
+@pytest.mark.usefixtures("alpha_board")
 def test_golden_a_box_in_default_home() -> None:
     """The world camera (lens, AE, white balance, IMX219 noise) in default_home by day: the floor
     learned from three walked corridors, then a red 6 cm box 0.6 m ahead is seen at its place."""
