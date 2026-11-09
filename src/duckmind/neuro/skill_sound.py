@@ -144,9 +144,15 @@ EXTRA_WEIGHTS: dict[str, dict[str, float]] = {
     # to the eye must not win the duck from it on a hair: the hand pulls the theremin by up to
     # 1.25, a new thing pulls investigate by up to 0.9 + 0.3, and in the headless test room (a
     # dreamer, 2026-10-04) the two were level — the thing won by 0.01 and the duck walked off to
-    # it while the hand played. A fifth of the hand's pull settles it; a duck with no hand in its
-    # beam (hand_hover 0) loses nothing.
-    "investigate": {"hand_hover": -0.25},
+    # it while the hand played. A fifth of the hand's pull (−0.25) settled it for the alpha's 37°
+    # view; the production camera's ~85° view (2026-11-09) keeps several new things in sight at
+    # once, so the newness stays up (0.8–0.9 for seconds, against 0.25–0.5) while the curiosity
+    # drive climbs (0.85): the dreamer's investigate stood at 1.17–1.20 against the instrument's
+    # 1.08 with the hand right in front, and it never took the instrument up. The hand at the face
+    # now takes most of a new thing's pull (0.7 of novel's 0.9): with everything at its most —
+    # novel, thing and curiosity all 1 — investigate is 0.95 under a full hover, below a dreamer's
+    # 1.07–1.17 for the instrument. A duck with no hand in its beam (hand_hover 0) loses nothing.
+    "investigate": {"hand_hover": -0.7},
 }
 SATIATE_S: dict[str, float] = {"theremin": 45.0, "dance": 40.0, "wheee_ride": 30.0}
 PLAY_ACTS = frozenset({"theremin", "dance"})  # playing satisfies the play drive
@@ -615,6 +621,7 @@ class SkillBrain:
             feat.extend([0.0] * (len(S.FEATURES) - len(feat)))
         for name, value in features.items():
             feat[S.F[name]] = float(value)
+        self._hand_arrived(base)
         seq_before = int(base._vocal_seq)
         cmd, tel = base.step(t_ms, seen)
         # the skills' own calls count on the brain's counter (every call a new one)
@@ -633,6 +640,27 @@ class SkillBrain:
                 reason_zh=msg("neuro.incoming.incoming_skill_sound.SkillBrain.step"),
             )
         return out_cmd, tel
+
+    def _hand_arrived(self, base: Any) -> None:
+        """A hand that has just come up to the face is an event, as a thing newly in view is
+        (NeuroBrain's novelty claim for investigate): for ST.ARRIVAL_S after it began to hover, the
+        instrument takes the body from the bout in hand once it is what the duck wants most (its
+        salience the highest of every channel's), on the terms of a person's answer
+        (``Selector.claim_next``: never from a fear act, sleep, an afraid duck, going home or a skill
+        busy with something), and the bout it starts is held on to like any other. (camera-dock
+        2026-11-09: on the production camera's wide view the dreamer was mid-investigate when the
+        hand came, and a bout in hand holds the body until a rival's activation is 1 + commitment
+        times its own — the instrument, wanted more, waited out the whole 16 s.)"""
+        th = self.skills._th
+        sel = base.sel
+        index = sel.index("theremin")
+        if th is None or index is None or str(base.behaviour) == "theremin":
+            return
+        if not 0.0 < th.hovered_s <= ST.ARRIVAL_S:
+            return
+        want = sel.sal[index]
+        if want > 0.0 and want >= max(sel.sal):
+            sel.claim_next("theremin")
 
 
 def _sleep_acts() -> frozenset[str]:

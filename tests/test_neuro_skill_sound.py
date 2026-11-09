@@ -126,6 +126,65 @@ def test_a_hovering_hand_outweighs_a_new_thing_far_away(skills: None) -> None:
     assert S.W["investigate"]["novel"] > 0.0  # (the other pulls on it are untouched)
 
 
+def _wide_view(t_ms: int, *, hand_at: float | None) -> C.SensorFrame:
+    """The production camera's ~85° view: from the first second on, three things on both sides of
+    the beak (one new to the eye every second), and from ``hand_at`` on a hand hovering in front
+    (its ToF return moving, the camera's hand label)."""
+    t = t_ms / 1000.0
+    reading = C.TofSense(present=True)
+    sights: list[C.Sighting] = []
+    if hand_at is not None and t > hand_at:
+        reading = C.TofSense(
+            present=True, ahead_mm=int(300 + 120 * math.sin(2 * math.pi * 0.3 * t))
+        )
+        sights.append(C.Sighting(kind="hand", bearing=0.0, size=0.3, track=1, motion=0.4))
+    if t > 1.0:
+        for j, bearing in enumerate((0.45, -0.6, 0.7)):
+            track = 10 + 3 * int(t) + j
+            sights.append(
+                C.Sighting("thing", bearing, range_m=1.2 + 0.4 * j, size=0.08, track=track)
+            )
+    return C.SensorFrame(
+        t_ms=t_ms,
+        body=C.BodySense(posture="stand"),
+        tof=reading,
+        camera=C.CameraSense(usable=True, sightings=tuple(sights)),
+    )
+
+
+def test_a_hand_that_comes_while_it_investigates_the_things_in_view_takes_it(
+    skills: None,
+) -> None:
+    # (camera-dock 2026-11-09: on the production camera's wide view the dreamer was already off
+    # investigating the things beside the hand when it came, and held on to that bout: in this
+    # scene it took the instrument up 5.8 s after the hand came, and played 312 ticks of the 12 s
+    # to investigate's 288.)
+    hand_at = 6.0
+    brain = _brain("dreamer")
+    acts: Counter[str] = Counter()
+    first: float | None = None
+    busy = ""
+    for tick in range(int((hand_at + 12.0) * 50)):
+        cmd, _ = brain.step(tick * 20, _wide_view(tick * 20, hand_at=hand_at))
+        t = tick * 0.02
+        if t < hand_at:
+            busy = cmd.behaviour
+            continue
+        acts[cmd.behaviour] += 1
+        if cmd.behaviour == "theremin" and first is None:
+            first = t - hand_at
+    assert busy == "investigate"  # (when the hand came it was off to the things)
+    assert first is not None and first < 2.0  # it takes the instrument up as the hand comes …
+    assert acts["theremin"] > 50 * 10 and acts["theremin"] > 5 * acts["investigate"]  # … and plays
+    # with no hand the same things draw it as before: it investigates, and never plays
+    brain = _brain("dreamer")
+    alone: Counter[str] = Counter()
+    for tick in range(int((hand_at + 12.0) * 50)):
+        cmd, _ = brain.step(tick * 20, _wide_view(tick * 20, hand_at=None))
+        alone[cmd.behaviour] += 1
+    assert alone["theremin"] == 0 and alone["investigate"] > 50 * 10
+
+
 def test_new_things_do_not_take_the_head_from_the_instrument_or_the_dance(skills: None) -> None:
     # A thing newly seen is noted, not turned to, while the head has a job (reflex.ENGAGED_ACTS):
     # in these scenes the look at each prop owned the duck's head for 72 % of the instrument's

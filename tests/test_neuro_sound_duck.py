@@ -95,10 +95,9 @@ def test_a_duck_dances_to_the_music_with_its_head_down_on_the_beat() -> None:
     assert not duck.fallen()
 
 
-# (camera-dock 2026-11-09) on the production camera (the default) the dreamer's ~85° view takes in a thing beside the hand:
-# it goes to investigate it (320 of the first 400 ticks) and never takes up the instrument in these 16 s. The theremin is
-# the ToF's skill, not the camera's: this keeps the alpha's 37° view it was set on
-@pytest.mark.usefixtures("alpha_board")
+# (camera-dock 2026-11-09) on the production camera (the default) the dreamer's ~85° view takes in things beside the
+# hand: it was off investigating them when the hand came and never took up the instrument in these 16 s, until the hand
+# at its face took most of a new thing's pull and the hand's arrival let the instrument take the body (skill_sound)
 @needs_helper
 def test_a_tof_duck_plays_the_theremin_and_robotd_sings_the_hand() -> None:
     duck = _duck("dreamer", tof=True)

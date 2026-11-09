@@ -74,6 +74,9 @@ STILL_HABITUATE_S = 4.0  # a return that never moves: not a hand (a wall, a leg)
 DOWN_AFTER_S = 0.35  # the hand gone this long: the instrument goes down
 LEARN_PER_S = 0.01  # answered play: the value moves this share toward +1 a second (RW)
 FRIGHT_DROP = 0.15  # a fright while playing: this share toward −1
+# A hand that has just come up to the face is an event, as a thing newly in view is: for this long
+# after it began to hover the instrument may take the body from the bout in hand (SkillBrain.step)
+ARRIVAL_S = 3.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,6 +233,7 @@ class ThereminTick:
     gaze_bearing: float  # where the head holds still (the hand's third)
     playing_s: float  # how long this play has gone on
     value: float  # the learned value of a hovering hand (−1..1)
+    hovered_s: float = 0.0  # how long the hand has hovered (``hover`` > 0); 0 when it does not
 
 
 @dataclass(slots=True)
@@ -243,6 +247,7 @@ class ThereminSkill:
     plays: int = 0
     last_t: float | None = None
     was_playing: bool = False
+    hover_since: float | None = None  # when the hand began to hover (None: it does not)
 
     def __post_init__(self) -> None:
         if self.hover is None:
@@ -256,6 +261,11 @@ class ThereminSkill:
         self.last_t = t_s
         assert self.hover is not None
         view = self.hover.step(t_s, frame)
+        if view.hover > 0.0 and frame.tof.present:
+            if self.hover_since is None:
+                self.hover_since = t_s
+        else:
+            self.hover_since = None
         # what it learned of hovering hands scales the pull (a hand that played along draws it
         # more, one that frightened it less)
         feature = view.hover * (0.75 + 0.5 * self.value) if frame.tof.present else 0.0
@@ -285,10 +295,12 @@ class ThereminSkill:
             gaze_bearing=view.bearing,
             playing_s=self.playing_s if up else 0.0,
             value=self.value,
+            hovered_s=0.0 if self.hover_since is None else t_s - self.hover_since,
         )
 
 
 __all__ = [
+    "ARRIVAL_S",
     "FAR_MM",
     "HandHover",
     "HoverView",
