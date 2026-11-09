@@ -51,6 +51,28 @@ COMMAND_ROUTE = ROUTE + "/command"
 STATUS_ROUTE = ROUTE + "/status"
 MAX_BODY = int(asr.MAX_S * asr.SR * 2) + 1024
 BODY_TIMEOUT_S = 10.0
+# A body longer than MAX_BODY is still read and dropped up to this size, so its sender hears the 413;
+# past it (or without a length) the connection is closed after the refusal.
+MAX_DRAIN = 8 * 1024 * 1024
+DRAIN_CHUNK = 64 * 1024
+
+
+def _drain(handler: BaseHTTPRequestHandler, length: int) -> None:
+    """Read and drop a refused request's body (at most :data:`MAX_DRAIN` bytes, :data:`BODY_TIMEOUT_S`)."""
+    if not 0 < length <= MAX_DRAIN:
+        handler.close_connection = True
+        return
+    try:
+        handler.connection.settimeout(BODY_TIMEOUT_S)
+        while length > 0:
+            chunk = handler.rfile.read(min(DRAIN_CHUNK, length))
+            if not chunk:
+                break
+            length -= len(chunk)
+    except OSError:
+        pass
+    if length > 0:
+        handler.close_connection = True
 
 
 class VoiceRefusal(Exception):
@@ -110,7 +132,9 @@ class VoiceHub:
         begun = self.clock()
         rec = self.recognizer
         if rec is None:
-            raise VoiceRefusal(HTTPStatus.SERVICE_UNAVAILABLE, "no_recognizer", problem=self.problem)
+            raise VoiceRefusal(
+                HTTPStatus.SERVICE_UNAVAILABLE, "no_recognizer", problem=self.problem
+            )
         if not getattr(self.hub, "enabled", False):
             raise VoiceRefusal(HTTPStatus.SERVICE_UNAVAILABLE, "not_running")
         if lang not in W.LANGS:
@@ -137,7 +161,9 @@ class VoiceHub:
         got = spoken.understood
         understood: dict[str, Any] = {"kind": "none", "reason": got.reason}
         answer: dict[str, Any] | None = None
-        words = spoken.by_sound or heard.text  # (what the duck is told: the table phrase when found by sound)
+        words = (
+            spoken.by_sound or heard.text
+        )  # (what the duck is told: the table phrase when found by sound)
         if got.verb is not None:
             understood = {"kind": "command", "verb": got.verb, "lang": got.lang,
                           "confidence": got.confidence}  # fmt: skip
@@ -183,6 +209,9 @@ class VoiceHub:
         except ValueError:
             length = -1
         if length < 0 or length > MAX_BODY:
+            # read (and drop) a body that is too long before refusing it: a refusal sent while the
+            # client is still writing ends in its broken pipe, never in this 413
+            _drain(handler, length)
             _send_json(handler, HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                        {"ok": False, "reason": "too_long"})  # fmt: skip
             return

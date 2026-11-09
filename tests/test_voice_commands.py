@@ -344,6 +344,17 @@ def test_a_clip_that_cannot_be_heard_is_refused_with_a_reason(
     assert server.driver.commands == []
 
 
+def test_a_clip_far_too_long_still_hears_its_413(server) -> None:
+    """The server read none of a too-long body before refusing it, so a client still writing it got a
+    broken pipe (or a reset) instead of the 413, whenever the body outgrew the socket's buffers: 4 MiB
+    always does."""
+    pcm = b"\x00" * (4 * 1024 * 1024)  # (under the server's drain cap, MAX_DRAIN)
+    for _ in range(2):
+        got, data = _post_clip(f"{server.url}/api/neuro/voice/command?lang=en", pcm)
+        assert (got, data["ok"], data["reason"]) == (413, False, "too_long")
+    assert server.driver.commands == []
+
+
 def test_without_a_recogniser_the_route_says_why() -> None:
     hub = N.NeuroHub(enabled=True)
     state = SimState(Config(seed=7, name="測試"))

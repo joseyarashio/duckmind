@@ -83,6 +83,9 @@ class Channel:
     name: str
     unix: str | None = None
     tcp: tuple[str, int] | None = None
+    # (a simulated body only) each whole line the daemon sends, rewritten before the brain gets
+    # it: the sim-body's robot.health carries the world's pack (remotebody.battery)
+    answers: Callable[[bytes], bytes] | None = None
 
     def connect(self, timeout_s: float = 1.0) -> socket.socket:
         if self.unix is not None:
@@ -442,7 +445,7 @@ class Bridge:
 
     def _frame(self, link: _Link, kind: bytes, sid: int, payload: bytes) -> None:
         if kind == b"P":
-            link.send(b"Q", 0, payload + b" %d" % time.monotonic_ns())
+            link.send(b"Q", 0, payload + b" %d %d" % (time.monotonic_ns(), time.time_ns()))
         elif kind == b"O":
             self._open(link, sid, payload.decode("ascii", "replace"))
         elif kind == b"D":
@@ -461,6 +464,8 @@ class Bridge:
             except L.LinkError as error:
                 self._close_stream(link, sid, str(error), tell=True)
         elif kind == b"C":
+            # (closed at once: requests still queued for a stalled daemon are dropped, never applied
+            # late; only the brain's end drains a closed stream, LocalPipe.finish)
             self._close_stream(link, sid, "brain closed it", tell=False)
         else:
             raise L.LinkError(f"unexpected frame {kind!r} from the brain")
@@ -489,8 +494,26 @@ class Bridge:
             self._close_stream(link, sid, f"{channel.name}: {error}", tell=True)
             return
 
-        def to_brain(data: bytes) -> None:
-            link.send(b"D", sid, data)
+        answers = channel.answers
+        if answers is None:
+
+            def to_brain(data: bytes) -> None:
+                link.send(b"D", sid, data)
+
+        else:
+            lines = bytearray()
+
+            def to_brain(data: bytes) -> None:
+                lines.extend(data)
+                end = lines.rfind(b"\n")
+                if end < 0:
+                    if len(lines) > MAX_REQUEST_LINE:  # (no line this long to rewrite: pass it on)
+                        link.send(b"D", sid, bytes(lines))
+                        lines.clear()
+                    return
+                whole = bytes(lines[: end + 1])
+                del lines[: end + 1]
+                link.send(b"D", sid, b"".join(answers(line) for line in whole.splitlines(True)))
 
         def closed(reason: str) -> None:
             with link.lock:

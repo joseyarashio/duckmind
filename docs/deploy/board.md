@@ -276,3 +276,48 @@ Keep the wheel hash, `uv.lock`, simulator reports, board health, observer
 notes and result of each physical gate in a versioned acceptance record.
 The hardware is awaiting delivery; no real-board installation, rollback,
 power-loss, or motion acceptance result has been recorded.
+
+## 5. Closing mediad's LAN doors while the remote-body bridge is in use
+
+The official `mediad` listens on **every interface** (`--host 0.0.0.0`): port 8443 is its WebRTC
+signalling and 8080 its console page (mediad `src/main.rs`, `--port` and `--web-port`). Neither
+asks for a password — "there is no authorisation on the robot — a LAN peer may drive it" (mediad
+`src/route.rs`, module comment) — so anyone on the home network can drive the duck around the
+bridge and its deadman. `netpadd` (a gamepad over UDP port 4210) is off unless `[netpad]
+enabled = true` in `robotd.toml`. From the computer, `python -m duckmind.remotebody check
+remote://<duck>:8797` knocks on 8443 and 8080 and says whether they answer.
+
+Duck Mind and the bridge change nothing here: the duck stays as Pollen ships it unless you type
+the lines below. The table lives in memory only, so a reboot (or the delete line) gives Pollen's
+setup back. **Verify** on the factory Yocto image first that `nft` exists (`command -v nft`) and
+that the kernel answers `sudo nft list ruleset`.
+
+```sh
+# on the duck, while the bridge is in use: only the brain's computer reaches the bridge, and
+# nobody on the LAN reaches mediad's doors or netpadd (the duck's own processes still do)
+BRAIN=x.x.x.x   # the brain computer's LAN address (the bridge's link_up event logs it as "peer")
+sudo nft -f - <<EOF
+table inet duckmind {
+  chain input {
+    type filter hook input priority 0; policy accept;
+    iif "lo" accept
+    tcp dport { 8443, 8080 } drop
+    udp dport 4210 drop
+    meta nfproto ipv4 tcp dport 8797 ip saddr != $BRAIN drop
+    meta nfproto ipv6 tcp dport 8797 drop
+  }
+}
+EOF
+sudo nft list table inet duckmind     # check it is in
+sudo nft delete table inet duckmind   # undo (or reboot)
+```
+
+Then run `check` again from the computer: it should say `mediad's LAN doors: closed from this
+computer`. What it costs: Pollen's console page and the app's local WebRTC session stop working
+while the table is in; ssh (22), `duckctl`, Bluetooth and the duck's updates are untouched.
+Pollen's remote access goes out through its rendezvous service rather than in through 8443, so
+it should keep working (not verified on a duck). Without `nft`: the same drops with `iptables`
+(`sudo iptables -I INPUT -p tcp --dport 8443 -j DROP`, likewise 8080 and `-p udp --dport 4210`),
+also gone at the next reboot; or keep mediad off the LAN for good with a systemd drop-in that
+starts it with `--host 127.0.0.1` (that closes the console page too, and survives updates only
+as long as the drop-in does).

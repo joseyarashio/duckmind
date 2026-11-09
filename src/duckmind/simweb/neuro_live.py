@@ -618,8 +618,8 @@ def _day_minute(moment: datetime | None) -> float:
 
 
 def _battery(world: Mapping[str, Any] | None) -> tuple[float | None, bool | None]:
-    """The world's pack (MODEL: robotd is not fed yet, owner E1): state of charge 0..1 and
-    whether it charges."""
+    """The pack: the world's (MODEL: robotd is not fed yet, owner E1) or, on a remote body, its
+    robotd's (:func:`with_body_battery`): state of charge 0..1 and whether it charges."""
     battery = (world or {}).get("battery")
     if not isinstance(battery, Mapping) or "percent" not in battery:
         return None, None
@@ -627,6 +627,28 @@ def _battery(world: Mapping[str, Any] | None) -> tuple[float | None, bool | None
         return max(0.0, min(1.0, float(battery["percent"]) / 100.0)), bool(battery.get("charging"))
     except (TypeError, ValueError):
         return None, None
+
+
+def with_body_battery(body: Any, world: dict[str, Any] | None) -> dict[str, Any] | None:
+    """On a remote body the pack is the duck's: its robotd's ``robot.health`` battery (the body's
+    ``battery()``: :mod:`duckmind.remotebody.battery`) replaces the simulated world's, so every
+    reader of ``world["battery"]`` (the senses, the dock, the family's help) gets what the duck
+    reports. Before robotd's first answer the battery is unknown (absent), never the world's. A
+    body started here keeps the world's pack."""
+    if getattr(body, "remote", None) is None:
+        return world
+    read = getattr(body, "battery", None)
+    reading = read() if callable(read) else None
+    rest = {k: v for k, v in (world or {}).items() if k != "battery"}
+    if reading is None:
+        return rest if world is not None else None
+    pack = {
+        "percent": reading["percent"],
+        "volts": reading.get("volts"),
+        "charging": bool(reading.get("charging")),
+        "source": "robotd",
+    }
+    return {**rest, "battery": pack}
 
 
 # ── telemetry ────────────────────────────────────────────────────────────────
@@ -1915,7 +1937,7 @@ class NeuroDriver:
             world = getattr(body, "world", None)
             frame = getattr(body, "frame", None)
             try:
-                self._world = world() if callable(world) else None
+                self._world = with_body_battery(body, world() if callable(world) else None)
                 self._truth = frame() if callable(frame) else None
                 self._world_at = time.monotonic()
             except Exception:

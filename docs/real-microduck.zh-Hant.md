@@ -92,12 +92,26 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
    python -m duckmind.remotebody check remote://<小鴨位址>:8797
    ```
 
-   會印出有哪些通道、deadman 多久、robotd 的健康（電量），以及連線的來回時間和最長的安靜時間。接的是真的小鴨時，還會印出：小鴨跑的走路和坐站網路（sha256 和策略組版本）、大腦在模擬器裡有沒有量過它們（v5、v8 有；沒量過的走路網路，大腦照 v5 的數字開）、板子是哪一種、`robotd.toml`（`/etc/robot/robotd.toml` 上面再疊主人的 `/var/lib/robot/robotd.toml`）開了什麼、小鴨上要改什麼、duck-eye 要用哪一顆鏡頭。請把 robotd 自己的「閒著東張西望」關掉：`sudo robotctl configure`，把 `[idle]` 的 `enabled` 關掉，再重開 robotd（它會搶走頭，打哈欠會張開嘴）。
+   會印出有哪些通道、deadman 多久、robotd 的健康、大腦拿到的電量（見下面）、連線的來回時間和最長的安靜時間，還有：**時鐘差**（小鴨的時鐘減電腦的時鐘，誤差是來回時間的一半；把它加到電腦的時間上，就能跟 bridge 的事件檔和錄影對上）、**相機走連線每秒幾張**（連續拿 3 秒的 `media.frame`；`--camera-seconds` 可以改）、**mediad 在區網上的門**（8443、8080）從這台電腦敲不敲得開。接的是真的小鴨時，還會印出：小鴨跑的走路和坐站網路（sha256 和策略組版本）、大腦在模擬器裡有沒有量過它們（v5、v8 有；沒量過的走路網路，大腦照 v5 的數字開）、板子是哪一種、`robotd.toml`（`/etc/robot/robotd.toml` 上面再疊主人的 `/var/lib/robot/robotd.toml`）開了什麼、小鴨上要改什麼、duck-eye 要用哪一顆鏡頭。請把 robotd 自己的「閒著東張西望」關掉：`sudo robotctl configure`，把 `[idle]` 的 `enabled` 關掉，再重開 robotd（它會搶走頭，打哈欠會張開嘴）。
 
    還會印出 bridge 處理後的使用資料狀態：`usage data (Pollen telemetry): off (enabled False, active False; …)` 就是關好了。看到 `ON`（小鴨還在送）或 `UNKNOWN`（bridge 問不到 `updaterd`）：在官方控制台的抽屜裡把「share anonymous usage data」關掉，或在 `updaterd` 的環境變數加 `MICRODUCK_TELEMETRY=0`。
+
+   **家裡 Wi-Fi 的品質**：`check remote://<小鴨位址>:8797 --wifi-minutes 10` 會接著把連線掛 10 分鐘，每分鐘和最後各印一行：來回時間 p50／p95／最長、**小鴨那一邊**最長的安靜時間（兩個心跳到 bridge 之間隔多久，用小鴨自己的時鐘量：就是它的 deadman 在看的東西）、斷線次數，以及**每小時誤觸發幾次 deadman**（電腦一直在送心跳還斷線，就是讓小鴨白白坐下一次），還有差一點就觸發的次數（安靜超過 deadman 的一半）。
 6. **沒有機器人也能隨時演練**：`python -m duckmind.remotebody sim-body` 在 bridge 後面跑一隻模擬小鴨，`python -m duckmind.simweb --live --body remote://127.0.0.1:8797` 開牠（中間加 `python -m duckmind.remotebody shim` 就能加延遲、掉包、斷線：輸入 `cut`／`restore`）。
 
-模擬器頁面目前只開得動**模擬的**遠端身體：牠的感官（相機、聽覺、觸覺、電量）和 3D 畫面還是從模擬世界來的。真的小鴨要先讓這些感官從機器人來（見下面清單）。頁面「我的小鴨」分頁有一張「真的小鴨」卡片：說現在大腦開的是哪個身體（這台電腦裡的模擬身體，或遠端身體和它的來回時間、斷線次數、最久沒消息多久），並列出上面這些步驟。
+模擬器頁面目前只開得動**模擬的**遠端身體：牠的感官（相機、聽覺、觸覺）和 3D 畫面還是從模擬世界來的。**電量**已經從身體來了：遠端身體時，大腦每 2 秒透過連線問 robotd 的 `robot.health` 電量（`LiveBody.battery()`、`duckmind/remotebody/battery.py`），不再用模擬世界的電池。robotd 報的是伏特（馬達的供電，平滑過）和它自己換算的百分比（6.6 V 是 0 %、帶負載 8.2 V 是 100 %），所以走路時會往下掉、休息時回來；robotd **沒有「正在充電」的旗子**（Pollen #470），真的小鴨上「有沒有在充電」不知道，大腦當成沒在充。bridge 後面的模擬小鴨（`sim-body`）會把模擬世界的電池放進它的 robotd 的 `robot.health`（帶負載的伏特、robotd 換算的百分比、有沒有在充電），所以演練走的是同一條路。真的小鴨要先讓其他感官從機器人來（見下面清單）。頁面「我的小鴨」分頁有一張「真的小鴨」卡片：說現在大腦開的是哪個身體（這台電腦裡的模擬身體，或遠端身體和它的來回時間、斷線次數、最久沒消息多久），並列出上面這些步驟。
+
+### 量產小鴨的麥克風和觸覺
+
+robotd 0.18.5 裡**沒有任何一個程式把麥克風的聲音給別的程式**（查的是 Pollen 的原始碼，`microduck` #526）：
+
+- `mediad` 管相機、WebRTC 和遠端連線；麥克風只出現在它的說明裡（`mediad/src/lib.rs:1-18` 列了做好的部分，影像管線只有畫面）。`docs/design/architecture.md:454` 的聲音軌是設計，還沒有程式。
+- 唯一在聽麥克風的是 **robotd 自己的麥克風工作**：一個 `arecord`，16 kHz、單聲道、16 位元（`pet-detect/src/worker.rs:366-374`），給「摸頭」分類器和環境聲音偵測用。錄音裝置一次只能給一個程式用（`worker.rs:5`）。量產板上是 ALSA 的 `default`，映像檔把它接到臉部板的麥克風（`robotd-params/src/lib.rs:1449-1458`）。要 `[audio] pet_detect = true` 才會跑（預設關，`lib.rs:1426-1433`）。
+- 聽到的東西不會離開 robotd：被摸頭時小鴨會咕咕叫（`robotd/src/main.rs:2795-2809`）；環境聲音只寫在除錯紀錄裡，註解說「等自主大腦來了才有人用」（`main.rs:2812-2816`）。沒有任何 IPC 方法或通知帶這些（`duck-ipc-proto/src/lib.rs` 裡沒有）。
+
+要怎麼送過來：bridge 可以在 robotd 的麥克風工作關著時，自己在小鴨上跑 `arecord`（16 kHz 單聲道 16 位元是 256 kbit/s，比相機小很多），當成新的通道送到大腦的聽覺；或是 Pollen 把麥克風（或摸頭、聲音事件）開成 IPC。兩個今天都沒有，所以遠端身體時大腦的聽覺還是模擬世界的。
+
+**觸覺**：量產小鴨**沒有觸覺感測器**（Pollen 的原始碼裡沒有任何觸控或電容元件）。牠能感覺到有人在碰牠的只有：（1）被抱起來——robotd 的分類器，`robot.state` 裡的 `safety.picked_up`，大腦已經在讀；（2）摸頭——上面麥克風的摸頭分類器（「幾乎就是摸頭的接觸式麥克風」，`pet-detect/src/worker.rs:52`），只在 robotd 裡面聽得到；（3）被推、腳被抓住——`robot.state` 裡關節自己的位置、目標和電流，今天已經透過連線送到大腦，但大腦還沒有把它們當成觸覺來讀。要送（2）需要跟麥克風一樣的新路。
 
 ## 第一隻真小鴨的檢查清單（都還沒驗）
 
@@ -108,14 +122,14 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
 - [ ] **真機上的 `robot.stop`**：速度歸零、不會軟掉（官方說「stop 不是 limp」）。
 - [ ] **真機上的 `sit_toggle`**：從走路和站著坐下要多久、在你用的桌面上安不安全；坐著或跌倒時絕不送。
 - [ ] **robotd 自己的 500 ms deadman**：走路中停止送 `robot.move`。
-- [ ] **拔網路測試**：走路中把家裡 Wi-Fi 關掉（或把電腦帶出範圍）：從斷線到停下、到坐好要多久，看 bridge 的事件檔和錄影。
-- [ ] **家裡 Wi-Fi 的品質**：用 `check` 看 10 分鐘的來回時間、最長安靜時間、斷線次數；1.0 秒 deadman 一小時誤觸發幾次。
+- [ ] **拔網路測試**：走路中把家裡 Wi-Fi 關掉（或把電腦帶出範圍）：從斷線到停下、到坐好要多久，看 bridge 的事件檔和錄影（`check` 會印小鴨的時鐘差，用來把事件檔對上電腦的時間）。
+- [ ] **家裡 Wi-Fi 的品質**：`check --wifi-minutes 10`：來回時間、小鴨那邊最長的安靜時間、斷線次數，以及 1.0 秒 deadman 一小時誤觸發幾次。
 - [ ] **重連**：Wi-Fi 回來 → 連線回來、大腦接回小鴨。
 - [ ] **頭的設定**：從 HOME 算的頭部差值（`robot.head`）在真的頭上（板子上的服務要加 `--approve-real-v5-head-profile` 才會送；這個參數名字還留著 v5）。
-- [ ] **電量**：`robot.health.battery` 要送到大腦（現在大腦的電量是模擬世界的）。
-- [ ] **相機走連線**：`media.frame` 經過 bridge——一張 720p UYVY 是 1.8 MB；量 Wi-Fi 上每秒幾張，或要求小一點的畫質。量產的相機是直立裝的 GC2093，大約 85° × 55°：duck-eye 要加 `--board beta`（或 `face-board-v1`）。
-- [ ] **麥克風、觸覺**：還沒有從機器人來的路（現在是模擬世界的模型）。
+- [ ] **電量**：程式好了（robotd 的 `robot.health` 電量透過連線送到大腦；用 sim-body 演練過）；真機上：`check` 會印 `battery (what the brain gets)`，再看走路時百分比會不會往下掉。
+- [ ] **相機走連線**：`media.frame` 經過 bridge——一張 720p UYVY 是 1.8 MB；`check` 會印出透過連線每秒拿到幾張（抽 3 秒；bridge 後面的模擬小鴨、中間墊片 20 ± 5 ms、掉包 0.2 %：每秒 5.2 張 720p、77 Mbit/s），或要求小一點的畫質。量產的相機是直立裝的 GC2093，大約 85° × 55°：duck-eye 要加 `--board beta`（或 `face-board-v1`）。
+- [ ] **麥克風、觸覺**：沒有程式把麥克風給別人，小鴨也沒有觸覺感測器（見上面「量產小鴨的麥克風和觸覺」）；今天大腦的聽覺和觸覺是模擬世界的。
 - [ ] **頁面的 3D 畫面**：改用 `robot.state` 的關節畫，不用模擬器的真相。
-- [ ] **小鴨上的其他門**：官方 `mediad` 聽在 `0.0.0.0:8443`／`8080`、沒有認證，區網上的人都能開；藍牙配對（`btd`）預設關著。決定 bridge 使用時要不要用防火牆擋起來。
-- [ ] **小鴨板子的 CPU**：bridge 在 50 Hz 狀態加上 ToF 時的負載。
-- [ ] **時鐘**：大腦用 robotd 自己的 `t_ns`（不需要對時）；`check` 會報來回時間，連線也會算時鐘差。
+- [ ] **小鴨上的其他門**：官方 `mediad` 聽在 `0.0.0.0:8443`／`8080`、沒有認證，區網上的人都能開；藍牙配對（`btd`）預設關著。`check` 會說 8443／8080 從電腦敲不敲得開；`docs/deploy/board.md` 第 5 節有 bridge 使用時把它們關起來的 nftables 設定（只在記憶體裡；預設不會改小鴨上的任何東西）。
+- [ ] **小鴨板子的 CPU**：在電腦上量過（Apple M5 Pro，一顆核心的百分比；`tools/measure_bridge_cpu.py`：bridge 自己一個程序，假的 robotd／tofd／mediad 送照 robotd 0.18.5 格式、每行 5.4 kB 的 `robot.state`，tofd 的 8×8 畫面，mediad 的 720p UYVY 畫面）：只有連線 0.4 %，加上 50 Hz 的 `robot.state` 0.6 %，再加 15 Hz 的 ToF 0.6 %，再加相機每秒 2 張 1.2 %、每秒 5 張 2.2 %；不限速時每秒轉了 205 張（3 Gbit/s）用掉 60 %，一張 1.8 MB 的畫面大約 3 ms CPU（其中 0.6 ms 是簽章）。板子上的 RK3566（四顆 1.8 GHz 的 Cortex-A55）**是估的**、沒量過：這種 Python 工作每顆核心慢 15–30 倍（依公開的單核跑分，循序執行的 A55 對 Apple 的效能核心）：狀態加 ToF 大約一顆核心的 10–20 %（整塊板子的 3–5 %），相機每秒多一張再多一顆核心的 5–9 %。相機真正的限制是 Wi-Fi：沒壓縮的 720p UYVY 每秒 2 張就是 29.5 Mbit/s、5 張是 74 Mbit/s。到小鴨上：在小鴨上跑 `tools/measure_bridge_cpu.py`（只要裝了 Duck Mind 就能跑），大腦在開的時候用 `top` 看 bridge。
+- [ ] **時鐘**：大腦用 robotd 自己的 `t_ns`（不需要對時）；`check` 會印小鴨的時鐘跟電腦差多少（誤差是來回時間的一半）。

@@ -66,10 +66,15 @@ def neural_duck_body(environ: MutableMapping[str, str]) -> dict[str, Any]:
 
 
 def channels_for(body: Any) -> dict[str, Channel]:
-    """What this simulated body offers a brain: robotd, the world server and, when the world runs
-    them, tofd and the camera's frame socket."""
+    """What this simulated body offers a brain: robotd (its ``robot.health`` carrying the world's
+    pack, as a real duck's robotd carries its own: :mod:`duckmind.remotebody.battery`), the world
+    server and, when the world runs them, tofd and the camera's frame socket."""
+    from duckmind.remotebody.battery import world_health_battery
+
     channels = {
-        "robotd": Channel("robotd", unix=str(body.robotd_socket)),
+        "robotd": Channel(
+            "robotd", unix=str(body.robotd_socket), answers=world_health_battery(body.world)
+        ),
         "world": Channel("world", tcp=("127.0.0.1", int(body.body_port))),
     }
     if body.home:

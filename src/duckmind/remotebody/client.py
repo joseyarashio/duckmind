@@ -30,6 +30,7 @@ from typing import Any
 
 from duckmind.remotebody import link as L
 from duckmind.remotebody.pipe import LocalPipe
+from duckmind.remotebody.quality import LinkQuality
 from duckmind.tmpdir import short_tmp
 
 RECONNECT_S = (0.1, 0.25, 0.5, 1.0)
@@ -73,6 +74,7 @@ class RemoteLink:
         self._last_rx = 0.0
         self._rtt_ms: deque[float] = deque(maxlen=RTT_KEEP)
         self.offset_ns: int | None = None  # body monotonic − brain monotonic (pong midpoints)
+        self.quality = LinkQuality()  # every pong: round trips, silences at the duck, wall clocks
         self.max_gap_ms = 0.0  # the longest silence from the body while the link was up
         self.connects = 0
         self.drops = 0
@@ -143,6 +145,7 @@ class RemoteLink:
                 continue
             tries = 0
             self._adopt(welcome)
+            self.quality.new_link()
             with self._lock:
                 self._sock, self._codec = sock, codec
                 self._generation += 1
@@ -288,15 +291,19 @@ class RemoteLink:
         elif kind == b"C":
             with self._lock:
                 pipe = self._streams.pop(sid, None)
-            if pipe is not None:
-                pipe.close(payload.decode("utf-8", "replace"), notify=False)
+            if pipe is not None:  # (what came before the close is still written)
+                pipe.finish(payload.decode("utf-8", "replace"))
         elif kind == b"Q":
             parts = payload.split(b" ")
-            if len(parts) == 2:
+            if len(parts) in (2, 3):
                 sent, body_ns = int(parts[0]), int(parts[1])
                 now = time.monotonic_ns()
+                wall = time.time_ns() - (now - sent) // 2 if len(parts) == 3 else None
                 self._rtt_ms.append((now - sent) / 1e6)
                 self.offset_ns = body_ns - (sent + now) // 2
+                self.quality.pong(
+                    now - sent, body_ns, None if wall is None else int(parts[2]) - wall
+                )
         else:
             raise L.LinkError(f"unexpected frame {kind!r} from the body")
 

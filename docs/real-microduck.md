@@ -133,8 +133,12 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    python -m duckmind.remotebody check remote://<duck-address>:8797
    ```
 
-   It prints the channels, the deadman, robotd's health (battery) and the link's round trip and
-   longest silence. From a real duck's bridge it also prints the walk and sit-stand networks the
+   It prints the channels, the deadman, robotd's health and the battery as the brain gets it (see
+   below), the link's round trip and longest silence, the **clock offset** (the duck's wall clock
+   minus the computer's, ± half a round trip: add it to the computer's times to line them up with
+   the bridge's events file and a video), the **camera's frame rate over the link** (3 s of
+   `media.frame` back to back; `--camera-seconds`), and whether **mediad's LAN doors** (8443,
+   8080) answer from the computer. From a real duck's bridge it also prints the walk and sit-stand networks the
    duck runs (their sha256 and set version) and whether the brain was measured on them in the
    simulator (v5 and v8 are; an unmeasured walk is driven with v5's numbers), the board and what
    its `robotd.toml` (`/etc/robot/robotd.toml` with the owner's `/var/lib/robot/robotd.toml`
@@ -145,16 +149,64 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    (enabled False, active False; …)`. `ON` or `UNKNOWN` means the duck still sends, or the bridge
    could not ask `updaterd`: switch it off in the console's drawer (*share anonymous usage
    data*), or put `MICRODUCK_TELEMETRY=0` in `updaterd`'s environment.
+
+   **Home Wi-Fi quality:** `check remote://<duck-address>:8797 --wifi-minutes 10` then holds the
+   link ten minutes and prints each minute and the total: round trip p50 / p95 / max, the longest
+   silence *at the duck* (the gap between two pings arriving at the bridge, read off the duck's
+   own clock: exactly what its deadman judges), drops, and **false deadman alarms per hour** (every
+   drop while the computer kept pinging sat the duck down for nothing) with the near misses
+   (silences over half the deadman).
 6. **Rehearse without the robot** at any time: `python -m duckmind.remotebody sim-body` runs a
    simulated duck behind the bridge, and `python -m duckmind.simweb --live --body
    remote://127.0.0.1:8797` drives it (add `python -m duckmind.remotebody shim` in between to add
    delay, loss and cuts: type `cut` / `restore`).
 
 The simulator page itself drives **simulated** remote bodies only for now: its senses (camera,
-hearing, touch, battery) and its 3D view still come from the simulated world. A real duck needs
-those senses from the robot first (see the checklist). The page's 我的小鴨 (my duck) tab has a
+hearing, touch) and its 3D view still come from the simulated world. The **battery** already comes
+from the body: on a remote body the brain reads robotd's `robot.health` battery over the link
+every 2 s (`LiveBody.battery()`, `duckmind/remotebody/battery.py`), never the simulated world's
+pack. robotd reports volts (the servos' supply, smoothed) and its own percentage of them (6.6 V is
+0 %, 8.2 V under load is 100 %), so it sags while the duck walks and recovers at rest; it has **no
+charging flag** (Pollen #470), so on a real duck "charging" is unknown and the brain sees it as
+not charging. The simulated body behind the bridge (`sim-body`) puts the world's pack into its
+robotd's `robot.health` (the loaded volts, robotd's percentage of them, and `charging`), so the
+rehearsal goes through the same path. A real duck needs the other senses from the robot first (see
+the checklist). The page's 我的小鴨 (my duck) tab has a
 *The real duck* card: it says which body the brain drives now (the simulated one on this computer,
 or the remote one with its round trip, drops and longest silence) and lists these steps.
+
+### Microphone and touch on the production duck
+
+**No daemon serves the microphone to a client** in robotd 0.18.5 (checked in Pollen's source,
+`microduck` at #526):
+
+- `mediad` is camera, WebRTC and the remote gateway; the microphone is only in its description
+  (`mediad/src/lib.rs:1-18` lists what exists; the pipeline is video only). The audio track in
+  `docs/design/architecture.md:454` is a design, not code.
+- The only reader of the microphone is **robotd's own mic worker**: an `arecord` child at 16 kHz,
+  mono, 16-bit (`pet-detect/src/worker.rs:366-374`) feeding the petting classifier and an
+  ambient-sound watcher. The capture device is single-client (`worker.rs:5`). On the production
+  board it is ALSA's `default`, which the image routes to the face board's microphone
+  (`robotd-params/src/lib.rs:1449-1458`). The worker runs only with `[audio] pet_detect = true`
+  (off by default, `lib.rs:1426-1433`).
+- What it hears stays inside robotd: petting makes the duck coo (`robotd/src/main.rs:2795-2809`);
+  ambient-sound events are only logged at debug, "no consumer until the autonomous brain arrives"
+  (`main.rs:2812-2816`). No IPC method or notification carries either
+  (`duck-ipc-proto/src/lib.rs` has none).
+
+What would carry it: the bridge could run its own `arecord` on the duck (16 kHz mono 16-bit is
+256 kbit/s, small next to the camera) while robotd's mic worker is off, and serve it as a new link
+channel to the brain's hearing; or Pollen exposes the mic (or its petting and sound events) over
+IPC. Neither exists today, so the brain's hearing on a remote body is still the simulated world's.
+
+**Touch:** the production duck has **no touch sensor** (no touch or capacitive part anywhere in
+Pollen's source). What it can sense that a person handles it: (1) being picked up — robotd's
+classifier, `safety.picked_up` in `robot.state`, which the brain already reads; (2) a head
+scratch — the petting classifier on the microphone above ("practically a contact mic for head
+scratches", `pet-detect/src/worker.rs:52`), heard only inside robotd; (3) a push or a held leg —
+the joints' own positions, targets and currents in `robot.state`, which reach the brain over the
+link today but which the brain does not yet read as touch. Carrying (2) needs the same new path as
+the microphone.
 
 ## Checklist for the first real duck (not verified yet)
 
@@ -177,22 +229,40 @@ or the remote one with its round trip, drops and longest silence) and lists thes
   use; never sent while seated or fallen.
 - [ ] **robotd's own 500 ms deadman** on hardware (stop streaming `robot.move` mid-walk).
 - [ ] **Pull the plug test:** walk, then switch the home Wi-Fi off (or walk the computer out of
-  range): time from the cut to stopped and to seated, from the bridge's events file and a video.
-- [ ] **Home Wi-Fi quality:** `check` round trip, longest silence and drops over 10 minutes;
-  false alarms per hour at the 1.0 s deadman.
+  range): time from the cut to stopped and to seated, from the bridge's events file and a video
+  (`check` prints the duck's clock offset to line the events file up with the computer's clock).
+- [ ] **Home Wi-Fi quality:** `check --wifi-minutes 10`: round trip, longest silence at the duck,
+  drops and false alarms per hour at the 1.0 s deadman.
 - [ ] **Reconnect:** Wi-Fi back → the link returns and the brain takes the duck back.
 - [ ] **Head profile:** the head deltas from HOME (`robot.head`) on the real head (the board
   service sends them only with `--approve-real-v5-head-profile`; the flag keeps its v5 name).
-- [ ] **Battery:** `robot.health.battery` reaches the brain (today the brain's battery is the
-  simulated world's).
+- [ ] **Battery:** the code is ready (robotd's `robot.health` battery reaches the brain over the
+  link; rehearsed with the sim-body); on the duck: `check` prints `battery (what the brain gets)`,
+  and watch the percent sag while it walks.
 - [ ] **Camera over the link:** `media.frame` through the bridge — a 720p UYVY frame is 1.8 MB;
-  measure frames per second on Wi-Fi, or ask for a smaller quality. The production camera is
+  `check` prints the frames per second it got over the link (3 s sample; the sim-body behind the
+  shim at 20 ± 5 ms and 0.2 % loss gave 5.2 frames/s of 720p, 77 Mbit/s), or ask for a smaller
+  quality. The production camera is
   the GC2093, upright, about 85° × 55°: start duck-eye with `--board beta` (or `face-board-v1`).
-- [ ] **Microphone, touch:** no path from the robot yet (today: the simulated world's models).
+- [ ] **Microphone, touch:** no daemon serves the microphone and the duck has no touch sensor (see
+  *Microphone and touch* above); today the brain's hearing and touch are the simulated world's.
 - [ ] **The page's 3D view** from `robot.state` joints instead of the simulator's truth.
 - [ ] **Other doors on the duck:** the official `mediad` listens on `0.0.0.0:8443`/`8080` with no
   authentication and lets a LAN peer drive the robot; Bluetooth pairing (`btd`) is off by default.
-  Decide whether to firewall them while the bridge is in use.
-- [ ] **CPU on the duck's board:** the bridge's load at 50 Hz state plus ToF.
-- [ ] **Clock:** the brain uses robotd's own `t_ns` (no clock sync needed); `check` reports the
-  round trip, the link reports a clock offset.
+  `check` says whether 8443/8080 answer from the computer; `docs/deploy/board.md` §5 has the
+  nftables table that closes them while the bridge is in use (in memory only; nothing is changed
+  on the duck by default).
+- [ ] **CPU on the duck's board:** measured on the computer (Apple M5 Pro, % of one core;
+  `tools/measure_bridge_cpu.py`: the bridge as its own process, fakes sending robotd 0.18.5-shaped
+  `robot.state` lines of 5.4 kB, tofd's 8×8 frames and mediad's 720p UYVY frames): the link alone
+  0.4 %, + `robot.state` at 50 Hz 0.6 %, + ToF at 15 Hz 0.6 %, + the camera at 2 frames/s 1.2 %, at
+  5 frames/s 2.2 %; flat out it relayed 205 frames/s (3 Gbit/s) at 60 %, about 3 ms of CPU per
+  1.8 MB frame (0.6 ms of it the frame's signature). **Estimate** for the board's RK3566 (four
+  Cortex-A55 at 1.8 GHz), not measured: 15–30× slower per core for this Python work (published
+  single-core benchmark ratios of an in-order A55 against an Apple performance core): state + ToF
+  about 10–20 % of one core (3–5 % of the board), each camera frame per second another 5–9 % of a
+  core. The camera's real limit is the Wi-Fi: raw 720p UYVY is 29.5 Mbit/s at 2 frames/s and
+  74 Mbit/s at 5. On the duck: run `tools/measure_bridge_cpu.py` there (it needs only Duck Mind),
+  and watch the bridge in `top` while the brain drives.
+- [ ] **Clock:** the brain uses robotd's own `t_ns` (no clock sync needed); `check` prints the
+  duck's wall-clock offset from the computer (± half a round trip).

@@ -35,6 +35,7 @@ class FakeRobotd:
     def __init__(self, path: str) -> None:
         self.path = path
         self.policy = "stand"
+        self.battery: dict[str, Any] | None = None  # robot.health's battery (None: not read yet)
         self.received: list[tuple[float, dict[str, Any]]] = []
         self._server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._server.bind(path)
@@ -100,6 +101,10 @@ class FakeRobotd:
                         result = {"accepted": True, "walk": "velstand.onnx", "skills": []}
                     if message["method"] == "hello":
                         result = {"api_version": 37}
+                    if message["method"] == "robot.health":
+                        result = {"healthy": True, "degraded": False}
+                        if self.battery is not None:
+                            result["battery"] = dict(self.battery)
                     try:
                         conn.sendall(
                             json.dumps(
@@ -590,3 +595,122 @@ def test_a_simulated_remote_body_runs_the_neural_ducks_world(tmp_path: Path) -> 
     assert env["DUCKMIND_BODY_COMMAND_DELAY_MS"] == "20"
     mine = {"DUCKMIND_SIMHOME_EXT": "duckmind.world.worldkit", "DUCKMIND_ROBOTD_SKILLS": "none"}
     assert neural_duck_body(mine)["world_extensions"] == "duckmind.world.worldkit"  # (given wins)
+
+
+# ── the battery: robotd's robot.health over the link ─────────────────────────────────────────
+
+
+def test_a_remote_bodys_battery_is_its_robotds_robot_health(
+    rig: dict[str, Any], tmp_path: Path
+) -> None:
+    """On a remote body the brain's battery is what the duck's robotd says (robot.health over the
+    link), never the simulated world's pack: volts and percent, and no word about charging (robotd
+    has no charging flag). After a Wi-Fi drop it reads again."""
+    from duckmind.livebody import LiveBody, LivePaths, RemoteBodySpec
+    from duckmind.simweb.neuro_live import _battery, with_body_battery
+
+    rig["robotd"].battery = {"volts": 7.62, "percent": 64.0}
+    link = rig["connect"]()
+    link.start(timeout_s=3)
+    paths = LivePaths(*(tmp_path / n for n in ("m", "r", "p", "robotd", "ort")))
+    body = LiveBody(paths, remote=RemoteBodySpec(str(link.url), tmp_path / "token"))
+    body._link = link
+    try:
+        assert wait_for(lambda: body.battery() is not None)
+        reading = body.battery()
+        assert reading is not None
+        assert (reading["percent"], reading["volts"], reading["charging"]) == (64.0, 7.62, None)
+        assert reading["source"] == "robotd"
+        world = {"battery": {"percent": 12, "soc_ppm": 120_000, "charging": True}, "hand": {}}
+        seen = with_body_battery(body, world)
+        assert seen is not None and seen["hand"] == {}
+        assert _battery(seen) == (0.64, False)  # (the duck's 64 %, not the world's 12 %)
+        rig["shim"].cut()
+        assert wait_for(lambda: not link.up, 2.0)
+        rig["robotd"].battery = {"volts": 7.0, "percent": 25.0}
+        rig["shim"].restore()
+        assert wait_for(lambda: (body.battery() or {}).get("percent") == 25.0, 8.0)
+    finally:
+        body.stop()
+
+
+def test_a_remote_body_without_a_reading_has_no_battery_and_a_local_one_keeps_the_worlds() -> None:
+    from types import SimpleNamespace
+
+    from duckmind.simweb.neuro_live import _battery, with_body_battery
+
+    world = {"battery": {"percent": 40, "charging": True}, "people": []}
+    assert with_body_battery(SimpleNamespace(remote=None), world) is world
+    unread = with_body_battery(SimpleNamespace(remote=object(), battery=lambda: None), world)
+    assert unread == {"people": []} and _battery(unread) == (None, None)
+    reading = {"percent": 30.0, "volts": 7.08, "charging": None, "source": "robotd"}
+    real = with_body_battery(SimpleNamespace(remote=object(), battery=lambda: reading), None)
+    assert real == {
+        "battery": {"percent": 30.0, "volts": 7.08, "charging": False, "source": "robotd"}
+    }
+
+
+def test_robotd_without_a_battery_reading_is_unknown_not_empty() -> None:
+    from duckmind.remotebody.battery import parse
+
+    assert parse({"healthy": True}) is None
+    assert parse({"healthy": True, "battery": {"volts": 7.4}}) is None
+    assert parse({"healthy": True, "battery": {"volts": 8.4, "percent": 100.0}}) == {
+        "percent": 100.0,
+        "volts": 8.4,
+        "charging": None,
+        "source": "robotd",
+    }
+
+
+def test_the_simulated_bodys_robotd_reports_the_worlds_pack() -> None:
+    """robotd --sim says the nominal 7.4 V (the world never feeds it its pack, owner E1), so the
+    sim-body's bridge puts the world's pack into robot.health — what a fed robotd would say (the
+    loaded volts and its percentage of them) and whether it charges — and passes everything else
+    (robot.state) through untouched."""
+    from types import SimpleNamespace
+
+    from duckmind.remotebody.battery import parse, world_health_battery
+    from duckmind.remotebody.simbody import channels_for
+    from duckmind.robotd import RobotdSafetyClient
+
+    world: dict[str, Any] = {
+        "battery": {"percent": 61, "volts_mv": 7310, "robotd_percent_if_fed": 44, "charging": True}
+    }
+    with tempfile.TemporaryDirectory(prefix="dm-rb-b-", dir=short_tmp()) as directory:
+        robotd = FakeRobotd(os.path.join(directory, "r.sock"))
+        robotd.battery = {"volts": 7.4, "percent": 50.0}
+        sim = SimpleNamespace(
+            robotd_socket=robotd.path, body_port=1, home=None, world=lambda: world
+        )
+        channel = channels_for(sim)["robotd"]
+        assert channel.answers is not None
+        bridge = Bridge(
+            listen=("127.0.0.1", 0),
+            token=TOKEN,
+            channels={
+                "robotd": Channel(
+                    "robotd", unix=robotd.path, answers=world_health_battery(lambda: world)
+                )
+            },
+            keeper=None,
+        )
+        bridge.start()
+        link = RemoteLink(f"remote://127.0.0.1:{bridge.port}", TOKEN)
+        try:
+            link.start(timeout_s=3)
+            with RobotdSafetyClient(link.robotd_socket, timeout_s=2.0) as client:
+                health = client.health()
+                assert health["battery"] == {"volts": 7.31, "percent": 44, "charging": True}
+                assert (parse(health) or {}).get("charging") is True
+                world.clear()  # (no pack in the world: robotd's own answer)
+                assert client.health()["battery"] == {"volts": 7.4, "percent": 50.0}
+            port = RobotdBodyPort(link.robotd_socket, backend="simulator", hz=25)
+            try:
+                assert port.observe().policy == "stand"
+            finally:
+                port.close()
+        finally:
+            link.close()
+            bridge.close()
+            robotd.close()

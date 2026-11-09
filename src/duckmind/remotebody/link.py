@@ -26,7 +26,9 @@ the link. Kinds:
 * ``O`` open a stream (brain → body; payload: the channel name); ``C`` close a stream (either way);
 * ``D`` data (either way; raw bytes of the daemon's own protocol);
 * ``P`` ping (brain → body, every :data:`HEARTBEAT_S`; payload: the brain's monotonic ns);
-* ``Q`` pong (body → brain; payload: ``<brain ns> <body ns>``) — round-trip time and clock offset.
+* ``Q`` pong (body → brain; payload: ``<brain ns> <body monotonic ns> <body wall ns>``) — round
+  trip, clock offset and the silences at the body (:mod:`duckmind.remotebody.quality`); a brain
+  also takes the older two-field pong.
 
 The link signs frames but does not encrypt them: it is meant for the home LAN, never the internet
 (both ends refuse addresses outside loopback, private and link-local ranges).

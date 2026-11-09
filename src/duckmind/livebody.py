@@ -589,6 +589,8 @@ class LiveBody:
         self.remote = remote
         self._link: Any = None  # its RemoteLink once start() has dialled it
         self._port_lock = threading.Lock()  # one renewal of a remote body's robotd connection
+        self._battery: Any = None  # a remote body's robot.health battery (remotebody.battery)
+        self._battery_lock = threading.Lock()
         self.seated_start = seated
         # None: duckmind.bodyhost (phase 0); a home: duckmind.world.simhome (live_home). A
         # duck without a nest gets the home's no_nest variant; ``tof``: whether its head has
@@ -922,6 +924,8 @@ class LiveBody:
                     closer.close()
             except Exception:
                 pass
+        if self._battery is not None:
+            self._battery.close()
         if self._link is not None:
             self._link.close()  # (removes its own folder: the local sockets)
             return
@@ -1544,6 +1548,22 @@ class LiveBody:
         if time.monotonic() - self.world_at > MONITOR_STALE_S:
             return None
         return self.world_state
+
+    def battery(self) -> dict[str, Any] | None:
+        """A remote body's battery as its robotd reports it (``robot.health`` over the link every
+        2 s: :class:`~duckmind.remotebody.battery.HealthBattery`): ``percent``, ``volts``,
+        ``charging`` (None: robotd does not say), ``source``, ``age_s``. None for a body started
+        here (its battery is the world's), before robotd's first answer, or when it is stale."""
+        link = self._link
+        if self.remote is None or link is None or self._stop.is_set():
+            return None
+        with self._battery_lock:
+            if self._battery is None:
+                from duckmind.remotebody.battery import HealthBattery
+
+                self._battery = HealthBattery(lambda: link.robotd_socket if link.up else None)
+                self._battery.start()
+            return self._battery.reading()
 
     def world_call(self, op: str, **params: Any) -> dict[str, Any]:
         """One world op on the world server's port (``x_place``, ``x_hand``, ``x_people``, …),
