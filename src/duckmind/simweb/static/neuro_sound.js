@@ -420,6 +420,9 @@ function build() {
   strip.setAttribute("aria-label", tr("page.neuro.sound.header"));
   // (its place is the 玩 tab, under the play card)
   mount.append(strip);
+  // (a real duck: the world's music and hand are held off with the reason — also when real mode
+  // was known before this strip was built, or it is built again for another language)
+  if (window.duckReal) window.duckReal.hold(strip);
   strip.addEventListener("click", (event) => {
     const b = event.target.closest("button[data-sound]");
     if (!b) return;

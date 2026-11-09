@@ -43,6 +43,7 @@ import {
   modeLabel,
   playoutArrive,
   playoutTime,
+  policyKey,
   poseGap,
   sampleFrames,
   trailPush,
@@ -77,6 +78,8 @@ const I18N = window.I18N;
 const T = (key, values) => (I18N ? I18N.t(key, values) : key);
 const F = (obj, name) => (obj ? (I18N ? I18N.field(obj, name) : obj[name]) ?? "" : "");
 const FS = (obj, name) => (obj ? (I18N ? I18N.items(obj, name) : obj[name]) || [] : []);
+// A button's own re-enable timer: on again — unless a real duck refuses it (realduck.js: real wins).
+const letGo = (el) => (window.duckReal ? window.duckReal.release(el) : (el.disabled = false));
 const SOURCE_WORDS = () => !I18N || I18N.isSource() || I18N.lang === I18N.PSEUDO;
 const POSTURE_ZH = {
   sit: "page.duck3d.POSTURE_ZH.sit",
@@ -969,6 +972,7 @@ const POINT_WORDS = {
   gaveUpPlain: "page.point.gave_up.plain",
   notFloor: "page.point.notfloor",
   failed: "page.neuro.why",
+  real: "page.real.note.gothere",
 };
 // the duck's reason for giving up (errand.REASONS) → its words, spelled out so the page's key checks read them
 const POINT_WHY = {
@@ -994,6 +998,8 @@ const pointing = {
 };
 
 const remoteHasLegs = () => !!(window.duckRemote && window.duckRemote.mode !== "idle");
+// a real duck (realduck.js: /api/body `real` refuses "gothere"): pointing at the floor is held off
+const goThereRefused = () => !!(window.duckReal && window.duckReal.refuses("gothere"));
 
 function buildPointMarker(scene) {
   // a ring and a dot lying on the floor, about 12 cm across: the duck is 20 cm long
@@ -1079,7 +1085,7 @@ async function sendGoThere(point, height) {
 }
 
 function floorClick(clientX, clientY, canvas, camera) {
-  if (!view.neuro || !view.neuro.on || pointing.busy || remoteHasLegs()) return;
+  if (!view.neuro || !view.neuro.on || pointing.busy || remoteHasLegs() || goThereRefused()) return;
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const raycaster = new THREE.Raycaster();
@@ -1122,15 +1128,17 @@ function tickPointing(now) {
   if (!el || el.hidden) return;
   const line = pointing.track.line(now);
   const remote = remoteHasLegs();
-  const key = `${line ? `${line.kind}|${line.seq}|${line.reason || ""}` : remote ? "remote" : "hint"}|${I18N ? I18N.lang : ""}`;
+  // (a real duck: no simulated world to place a point in — the line says so instead of the hint)
+  const refused = !line && goThereRefused();
+  const key = `${line ? `${line.kind}|${line.seq}|${line.reason || ""}` : refused ? "real" : remote ? "remote" : "hint"}|${I18N ? I18N.lang : ""}`;
   if (key === pointing.shown) return;
   pointing.shown = key;
   const words = (name, params) => {
     if (I18N) I18N.text(el, name, params);
     else el.textContent = name;
   };
-  el.dataset.state = line ? line.state : "hint";
-  if (!line) words(remote ? POINT_WORDS.hintRemote : POINT_WORDS.hint);
+  el.dataset.state = line ? line.state : refused ? "refused" : "hint";
+  if (!line) words(refused ? POINT_WORDS.real : remote ? POINT_WORDS.hintRemote : POINT_WORDS.hint);
   else if (line.kind === "sent") words(POINT_WORDS.sent);
   else if (line.kind === "walking") words(POINT_WORDS.walking);
   else if (line.kind === "arrived") words(POINT_WORDS.arrived);
@@ -1170,11 +1178,18 @@ const liveEls = {
 function liveText(info) {
   if (!info.enabled) return "";
   // (plain words; the program's own text is in the line's tooltip, see showLive)
-  if (info.error) return T("page.duck3d.liveText.9a7698", { error_zh: (info.error_zh && F(info, "error_zh")) || info.error });
+  const said = (info.error_zh && F(info, "error_zh")) || info.error;
+  // (a real duck: the robot itself, never "the physics body")
+  if (info.error) return T(info.real ? "page.real.live.error" : "page.duck3d.liveText.9a7698", { error_zh: said });
+  if (info.real && (info.starting || !info.available)) return T("page.real.live.waiting");
   if (info.starting || !info.available) return T("page.duck3d.liveText.34fa2a");
-  const POLICY = { sit: "page.duck3d.liveText.2bb395", rise: "page.duck3d.liveText.6543ad", walk: "page.duck3d.liveText.e5dca5", stand: "page.duck3d.liveText.b52df7" };
-  const policy = POLICY[info.policy] ? T(POLICY[info.policy]) : info.policy || "";
+  const key = policyKey(info.policy, !!info.real);
+  const policy = key ? T(key) : info.real ? "" : info.policy || "";
   const rt = info.realtime != null ? T("page.duck3d.liveText.80e047", { realtime: info.realtime }) : "";
+  if (info.real) {
+    const head = T(info.fallen ? "page.real.live.fallen" : "page.real.live.driving");
+    return policy ? `${head} · ${policy}` : head;
+  }
   if (info.demo) return T("page.duck3d.liveText.403afa");
   if (info.held) return T("page.duck3d.liveText.438798");
   if (view.neuro) return `${info.fallen ? T("page.duck3d.liveText.85b23b") : T("page.duck3d.liveText.ed4d44")} · ${policy}${rt}`;
@@ -1213,7 +1228,8 @@ const HAND_DOCK_ZH = "page.duck3d.HAND_DOCK_ZH";
 function noteTruth(frame) {
   const live = view.live;
   const truth = frame && frame.truth;
-  if (!truth) return;
+  // (a real duck's frames are its own odometry: no truth line on the floor — its colour says physics)
+  if (!truth || truth.frame === "odometry") return;
   if (live.placedSeen !== undefined && truth.placed_at !== live.placedSeen && PLACED_WHY_ZH[truth.placed_why]) {
     caption(T(PLACED_WHY_ZH[truth.placed_why]));
   }
@@ -1379,7 +1395,7 @@ function startLive() {
           body: JSON.stringify({ method: "body_demo" }),
         });
       } finally {
-        setTimeout(() => (liveEls.demo.disabled = false), 8000);
+        setTimeout(() => letGo(liveEls.demo), 8000);
       }
     });
   }
@@ -1400,7 +1416,7 @@ function startLive() {
       } catch (error) {
         caption(T("page.duck3d.startLive.f9da4a"));
       } finally {
-        setTimeout(() => (liveEls.upright.disabled = false), 2500);
+        setTimeout(() => letGo(liveEls.upright), 2500);
       }
     });
   }
@@ -1415,7 +1431,7 @@ function startLive() {
           body: JSON.stringify({ method: "body_reset" }),
         });
       } finally {
-        setTimeout(() => (liveEls.reset.disabled = false), 3000);
+        setTimeout(() => letGo(liveEls.reset), 3000);
       }
     });
   }
@@ -2257,6 +2273,7 @@ function step(dt, realNow) {
     const base = T(view.hasNest ? "page.duck3d.step.f34f0e" : "page.duck3d.step.e0aafc");
     const planAway = Math.hypot(view.body.x, view.body.y);
     let where = T("page.duck3d.step.away", { base, away: planAway, nested: view.hasNest && view.nested ? T("page.duck3d.step.62aa02") : "" });
+    const realDuck = !!(view.live.info && view.live.info.real);
     if (truthMode) {
       const [tx, ty] = drawn.solid.trunk;
       const off = Math.hypot(tx - plan.trunk[0], ty - plan.trunk[1]);
@@ -2274,6 +2291,8 @@ function step(dt, realNow) {
           ? T("page.duck3d.step.body_dock", { y_mm: Math.hypot(tx - seat.x_mm / 1000, ty - seat.y_mm / 1000) })
           : T("page.duck3d.step.body_base", { base, uy: Math.hypot(ux, uy) });
       }
+      // A real duck: how far its own odometry says it went from where it started (no home, no nest).
+      if (realDuck) where = T("page.real.readout.where", { uy: Math.hypot(ux, uy) });
     }
     // 神經鴨原型: the beak is the command its driver sent for that very sample (the physics model has
     // no mouth joint): the readout says which it is (measured, commanded, or not given).
@@ -2281,7 +2300,9 @@ function step(dt, realNow) {
     const beakValue = source === "measured_sim" || source === "commanded_fallback" ? Math.round((view.live.drawnMouth ?? view.mouth) * 100) : null;
     const beak = truthMode ? beakCaption(window.I18N, source, beakValue) : T("page.duck3d.step.88a138", { mouth: Math.round(view.mouth * 100) });
     const truthNote = truthMode
-      ? view.neuro
+      ? realDuck
+        ? T("page.real.readout.note", { playedNote: playedNote() })
+        : view.neuro
         ? T("page.duck3d.step.e38efc", { playedNote: playedNote() })
         : T("page.duck3d.step.6a7f61")
       : view.rate > 1.05
@@ -2353,8 +2374,10 @@ function renderMode(truthMode) {
     oldServer: !!(info.frame && (!("truth" in info.frame) || (info.frame.truth && "anchored_at" in info.frame.truth))),
     physicalHome: view.room.physical,
     held: !!info.held,
+    // (a real duck: its own joints and odometry, never "physics truth")
+    real: !!info.real,
   });
-  if (view.neuro) Object.assign(label, neuroMode(label, info));
+  if (view.neuro && !info.real) Object.assign(label, neuroMode(label, info));
   modeDetail = T(label.detail);
   const text = `${label.mode}|${label.title}|${label.detail}|${I18N ? I18N.lang : ""}`;
   if (text === modeText) return;

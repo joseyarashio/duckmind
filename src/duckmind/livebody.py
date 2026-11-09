@@ -65,7 +65,12 @@ from typing import Any, cast
 import duckmind
 from duckmind import bodyhost
 from duckmind.body import BodyIntent
-from duckmind.duckbody.robotd_client import SKILLS_ONE_AT_A_TIME_SINCE, daemon_before
+from duckmind.duckbody.robotd_client import (
+    SKILLS_ONE_AT_A_TIME_SINCE,
+    RobotdError,
+    RobotState,
+    daemon_before,
+)
 from duckmind.duckcore import content
 from duckmind.i18n import msg
 from duckmind.robotd import RobotdBodyPort, RobotdOperatorClient
@@ -444,6 +449,48 @@ def unknown_monitor(collision: str, lockstep: bool, why: str) -> dict[str, Any]:
     }
 
 
+def real_monitor() -> dict[str, Any]:
+    """A real duck's monitor: no simulated physics to stall or step slower than the wall clock."""
+    return {
+        "collision": "real",
+        "lockstep": False,
+        "max_stall_ms_10s": None,
+        "max_stall_ms_60s": None,
+        "robotd_hz": None,
+        "realtime": 1.0,
+        "trust": "ok",
+        "why_zh": [],
+    }
+
+
+# Where a real duck's trunk is when robotd's contact odometry gives no height (z 0): about the
+# seated and the standing heights of the simulator's body (metres).
+REAL_SEATED_Z = 0.06
+REAL_STANDING_Z = 0.12
+
+
+def real_frame_pose(
+    odom_pos: Sequence[float], odom_yaw: float, imu_quat: Sequence[float] | None, policy: str
+) -> tuple[list[float], list[float]]:
+    """A real duck's trunk and orientation for the page, from its own senses only: robotd's
+    contact odometry (x, y, z; z by posture when robotd gives none) and the IMU's tilt turned to
+    the odometry's heading (the IMU's own yaw drifts apart from the odometry's). Quaternion in
+    MuJoCo order (w, x, y, z), body to the odometry frame."""
+    z = float(odom_pos[2]) if len(odom_pos) > 2 and float(odom_pos[2]) > 0.0 else 0.0
+    if z <= 0.0:
+        z = REAL_SEATED_Z if policy == "sit" else REAL_STANDING_Z
+    trunk = [float(odom_pos[0]), float(odom_pos[1]), z]
+    w, x, y, qz = (1.0, 0.0, 0.0, 0.0) if imu_quat is None else (float(v) for v in imu_quat[:4])
+    norm = math.sqrt(w * w + x * x + y * y + qz * qz) or 1.0
+    w, x, y, qz = w / norm, x / norm, y / norm, qz / norm
+    imu_yaw = math.atan2(2.0 * (w * qz + x * y), 1.0 - 2.0 * (y * y + qz * qz))
+    # tilt = yaw(-imu_yaw) ⊗ imu, then the odometry's heading in front: yaw(odom_yaw) ⊗ tilt
+    turn = float(odom_yaw) - imu_yaw
+    cw, sz = math.cos(turn / 2.0), math.sin(turn / 2.0)
+    quat = [cw * w - sz * qz, cw * x - sz * y, cw * y + sz * x, cw * qz + sz * w]
+    return trunk, quat
+
+
 def _log_tail(path: Path, lines: int = 6) -> str:
     try:
         text = path.read_text(encoding="utf-8", errors="replace").strip().splitlines()
@@ -494,6 +541,15 @@ class RemoteBodySpec:
 
     url: str
     token_file: Path
+
+
+class NoWorld(ConnectionError):
+    """A world op asked of a real duck's body: there is no simulated world to ask. ``str()`` is
+    the plain reason for the page; ``op`` the op that was asked."""
+
+    def __init__(self, op: str) -> None:
+        super().__init__(msg("livebody.no_world"))
+        self.op = op
 
 
 class ClipPlayer:
@@ -681,6 +737,12 @@ class LiveBody:
         self.robotd_head_alpha = ROBOTD_DEFAULT_HEAD_ALPHA
         # the one-shot skills this body's robotd answers robot.do for (its subscribe ack)
         self.robotd_skills: tuple[str, ...] = ()
+        # A real Microduck behind its bridge (the bridge says ``backend: real``; a rehearsal's
+        # sim-body says so with --as-real): the page and the brain get only the duck's own senses
+        # over the link — robotd's state (joints, contact odometry, IMU), its camera and ToF —
+        # and no simulated world at all (no oracle, no x_world, no world ops: NoWorld).
+        self.real = False
+        self.rehearsal = False  # a real-mode rehearsal: sim-body --as-real on a computer
 
     # ── lifecycle ───────────────────────────────────────────────────────
 
@@ -770,17 +832,28 @@ class LiveBody:
         )
         link.start(timeout_s=min(timeout_s, REMOTE_DIAL_S))
         self._link = link
-        if "world" not in link.channels:
-            # A real duck: the page draws and senses through the simulated world's truth today,
-            # so it attaches to simulated remote bodies only (docs/real-microduck.md).
+        info = link.info
+        self.real = info.get("backend") == "real"
+        if not self.real and "world" not in link.channels:
+            # A simulated body that offers no world: the page draws and senses through the
+            # simulated world when the body is simulated, so it needs one.
             link.close()
             self._link = None
             raise RuntimeError(
-                f"remote body {self.remote.url} has no simulated world (a real Microduck?): "
-                "the simulator page drives simulated remote bodies only for now"
+                f"remote body {self.remote.url} is simulated (backend {info.get('backend')!r}) "
+                "but offers no simulated world"
             )
-        info = link.info
         self._state_dir = link.dir  # robotd.sock (and tof.sock, media.sock) live here
+        if self.real:
+            # Only the duck's own senses: a world channel, if any, is never used.
+            self.rehearsal = bool(info.get("rehearsal"))
+            self.home = None
+            self.pose_joints_ok = False
+            self.collision, self.lockstep = "real", False
+            self.monitor = real_monitor()
+            self.host_info = {"ops": ["x_sensors"], "real": True}
+            self._attach(link.robotd_socket, timeout_s)
+            return
         self.home = info.get("home") or None
         self.pose_joints_ok = bool(info.get("pose_joints"))
         if isinstance(info.get("collision"), str):
@@ -816,20 +889,29 @@ class LiveBody:
             "sitstand_sha256": seatcal.seat_sha256(Path(policies)),
         }
 
+    @property
+    def _backend(self) -> str:
+        return "real" if self.real else "simulator"
+
     def _attach(self, sock: Path, timeout_s: float) -> None:
         """Connect to a running body's robotd (and the world's oracle on ``body_port``), start the
-        body threads and bring it up: enabled, standing, then seated when asked."""
-        assert self.body_port is not None
-        self._port = RobotdBodyPort(sock, backend="simulator", hz=25)
+        body threads and bring it up: enabled, standing, then seated when asked. A real duck has
+        no oracle and no world: its frames come from robotd's own state (_read_state)."""
+        assert self.real or self.body_port is not None
+        self._port = RobotdBodyPort(sock, backend=self._backend, hz=25)
         if self._port.capabilities.get("walk") != "velstand.onnx":
             raise RuntimeError(f"unexpected walking policy: {self._port.capabilities}")
         self.robotd_skills = tuple(str(s) for s in self._port.capabilities.get("skills") or ())
         missing_skills = sorted(set(skill_names_from_env()) - set(self.robotd_skills))
-        if missing_skills:
+        if missing_skills and not self.real:
+            # (a real duck's robotd runs the skills it loaded itself: this computer's table is not on it)
             raise RuntimeError(f"robotd did not load the trained skills {missing_skills}")
         self._operator = RobotdOperatorClient(sock)
-        self._oracle = SimOracle(self.body_port)
-        threads = [self._read_state, self._control, self._sample, self._watch]
+        if self.real:
+            threads = [self._read_state, self._control]
+        else:
+            self._oracle = SimOracle(self.body_port)
+            threads = [self._read_state, self._control, self._sample, self._watch]
         if self.home:
             threads.append(self._world_watch)
         for target in threads:
@@ -1118,7 +1200,7 @@ class LiveBody:
             except Exception:
                 pass
             try:
-                self._port = RobotdBodyPort(self._link.robotd_socket, backend="simulator", hz=25)
+                self._port = RobotdBodyPort(self._link.robotd_socket, backend=self._backend, hz=25)
             except Exception:
                 return False
             return True
@@ -1161,6 +1243,52 @@ class LiveBody:
             self.policy = observed.policy
             self.fallen = observed.safety.fallen
             self.state_at = time.monotonic()  # (a remote body: when the link last brought one)
+            if self.real:
+                self._real_sample(port.last_params)
+
+    def _real_sample(self, params: Mapping[str, Any] | None) -> None:
+        """A real duck's page frame from one robot.state, its own measurements only: the 15
+        joints, robotd's contact odometry and the IMU's tilt (:func:`real_frame_pose`); robotd's
+        pick-up pause is the only ``held``. Never a world, never the simulator's truth."""
+        if params is None:
+            return
+        try:
+            state = RobotState.from_wire(params)
+        except RobotdError:
+            return  # (a frame without the measured joints: nothing to draw from)
+        self._set_lifted(state.picked_up)
+        trunk, quat = real_frame_pose(state.odom_pos, state.odom_yaw, state.imu_quat, state.policy)
+        self.latest = {
+            "t": float(state.t),
+            "source": "odometry",
+            "mouth_measured_rad": None,
+            "mouth_source": "commanded_fallback",
+            "joints": {
+                name: float(state.joints[index])
+                for index, name in enumerate(WIRE_JOINTS)
+                if name != "mouth"
+            },
+            "trunk": trunk,
+            "quat": quat,
+            "policy": self.policy,
+            "fallen": self.fallen,
+            "realtime": 1.0,
+            "monitor": self.monitor_view(),
+        }
+        self._keep_frame(self.latest, time.time())
+
+    def _set_lifted(self, picked_up: bool) -> None:
+        """A real duck's robotd paused its legs because a hand lifted it (``safety.picked_up``):
+        held, walks dropped (robotd pauses the policy itself; nothing to ask of it). Set down: back
+        to the posture Duck Core wants (it may have asked while held), as a simulated set-down."""
+        with self._lock:
+            if picked_up == self._held:
+                return
+            self._held = picked_up
+            if picked_up:
+                self._walk = self._drive = None
+            elif self._awake and self._wanted is not None:
+                self._posture_request = self._wanted
 
     def _control(self) -> None:
         assert self._port is not None
@@ -1333,6 +1461,7 @@ class LiveBody:
             mouth_rad, mouth_source = self._mouth_readback(snap)
             self.latest = {
                 "t": float(snap.get("sim_time", 0.0)),
+                "source": "physics",
                 "mouth_measured_rad": mouth_rad,
                 "mouth_source": mouth_source,
                 "joints": {
@@ -1569,6 +1698,11 @@ class LiveBody:
         """One world op on the world server's port (``x_place``, ``x_hand``, ``x_people``, …),
         on a connection of its own. Raises RuntimeError with the world's words when it refuses
         (``{"error": ...}``) and ConnectionError when there is no world to ask."""
+        if self.real:
+            # A real duck: only its own sensors (the camera and ToF it offers on the link).
+            if op == "x_sensors":
+                return self._real_sensors()
+            raise NoWorld(op)
         if not self.home or self.body_port is None:
             raise ConnectionError("這個物理身體沒有物理世界（沒有房子、手和家人）")
         with self._world_lock:
@@ -1611,6 +1745,8 @@ class LiveBody:
         trust ("ok" | "suspect") and why_zh (reasons in plain Traditional Chinese); bodyhost
         adds a few more (robotd_hz_min_10s, since_write_ms, stalls_10s, ...).
         """
+        if self.real:
+            return real_monitor()  # (no simulated physics to stall; the link has its own numbers)
         monitor = self.monitor
         age = time.monotonic() - self._monitor_at
         if math.isfinite(age) and age > MONITOR_STALE_S:
@@ -1636,10 +1772,27 @@ class LiveBody:
             "error": self.error,
             "monitor": self.monitor_view(),
             "held": self._held,
+            "real": self.real,
+            "rehearsal": self.rehearsal,
         }
         if self._link is not None:
             status["remote"] = self._link.stats()
         return status
+
+    def _real_sensors(self) -> dict[str, Any]:
+        """A real duck's own sensors in ``x_sensors``'s shape: its camera (mediad's frame socket)
+        and its ToF (tofd) as this machine's ends of the link, offered only when its bridge
+        offers them; ``errors`` says why there is no camera."""
+        link = self._link
+        media = None if link is None else link.endpoint("media")
+        tofd = None if link is None else link.endpoint("tofd")
+        return {
+            "media": {"socket": None if media is None else str(media)},
+            "tofd": {"socket": None if tofd is None else str(tofd)},
+            "tof": {"fitted": tofd is not None},
+            "eye": {},
+            "errors": [] if media is not None else [msg("livebody.real_no_camera")],
+        }
 
     def _local_sensors(self, answer: dict[str, Any]) -> dict[str, Any]:
         """A remote world's ``x_sensors`` names its camera's and ToF's sockets on the body's

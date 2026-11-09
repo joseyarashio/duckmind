@@ -419,8 +419,11 @@ class SoundHub:
                 wake.set()  # (the world's truth is read again at once)
             _json(handler, HTTPStatus.OK, {"ok": True, **dict(answer)})
         except (ValueError, RuntimeError, ConnectionError) as error:
-            # (a refusal in plain words, not an HTTP error: the page says it, nothing broke)
-            _json(handler, HTTPStatus.OK, {"ok": False, "error": str(error)})
+            # (a refusal in plain words, not an HTTP error: the page says it, nothing broke; a
+            # real duck's — no world to play in — in the viewer's language)
+            from duckmind.simweb.i18nwire import keyed
+
+            _json(handler, HTTPStatus.OK, keyed({"ok": False, "error": str(error)}))
 
 
 def _json(handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any]) -> None:

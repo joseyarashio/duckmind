@@ -67,7 +67,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from duckmind.duckcore.api import _motion
-from duckmind.i18n import lst, msg
+from duckmind.i18n import Msg, lst, msg
 from duckmind.livebody import FRAME_JOINTS, LiveBody, LivePaths, RemoteBodySpec
 from duckmind.simweb.eyecam import EyeCam, page_size, taipei_now
 
@@ -119,6 +119,33 @@ EYE_PENDING = "pending"
 # 3D view gets (nearly) every physics sample (livebody FRAMES_*), not ~27 a second.
 NEURO_SAMPLE_HZ = 60
 HAND_TAKE = frozenset({"pickup", "place", "upright"})  # the hand moves the body
+# A real Microduck (``--body remote://…`` to a bridge whose backend is real, docs/real-microduck.md):
+# no simulated world anywhere. What the page must disable then, each with the one plain reason
+# (:func:`no_world`): the world's buttons (the hand, toys, 示範, 「用眼睛做」), the physics demo walk,
+# 「重設物理身體」, the layout editor, the family's visits, the page's stimuli, 「扶牠起來」, pointing at
+# the floor (go there), the family's pack swap, and drawing the world's truth (the room, the hand).
+REAL_REFUSES = (
+    "battery_swap",
+    "demo",
+    "family",
+    "gothere",
+    "help_up",
+    "layout",
+    "reset",
+    "stimuli",
+    "truth_overlay",
+    "world_buttons",
+)
+
+
+def no_world() -> Msg:
+    """The one plain reason a world action is refused on a real duck (``livebody.no_world``)."""
+    return msg("livebody.no_world")
+
+
+def is_real(body: Any) -> bool:
+    """Whether ``body`` is a real Microduck (``LiveBody.real``; False for every simulated body)."""
+    return bool(getattr(body, "real", False))
 
 
 def _in_posture(policy: Any, posture: str | None) -> bool:
@@ -329,6 +356,8 @@ class WorldPort:
         call = getattr(body, "world_call", None)
         if call is None or not self.bridge.ready:
             raise ConnectionError(msg("web.live.WorldPort.call"))
+        if self.bridge.real:  # (the family, the demonstrations: no world to ask)
+            raise ConnectionError(no_world())
         return dict(call(op, **params))
 
 
@@ -483,6 +512,11 @@ class LiveBridge:
         # A body on another machine (--body remote://host:port): its own launcher owns its
         # physics and home; None: the body is started here.
         self.remote = remote
+        # Whether that remote body is a real duck, once its bridge said so (None: not known yet —
+        # before the first handshake). It stays known through restarts and link drops: the same
+        # address is the same duck, so the page never flips back to a simulated home meanwhile.
+        self._known_real: bool | None = None if remote is not None else False
+        self._known_rehearsal = False  # (a real duck's: kept while its link dials again)
         self.body = self._new_body()
         self.error: str | None = None
         self.ready = False
@@ -643,11 +677,63 @@ class LiveBridge:
         return WorldPort(self)
 
     def world_ready(self) -> bool:
-        """The body runs in a world with the household (a hand and people to ask)."""
+        """The body runs in a world with the household (a hand and people to ask). Never on a
+        real duck: it has no world, whatever ops it lists."""
         if not self.ready or self.error is not None or getattr(self.body, "error", None):
+            return False
+        if self.real:
             return False
         ops = (getattr(self.body, "host_info", None) or {}).get("ops") or []
         return "x_hand" in ops and "x_people" in ops
+
+    # ── a real Microduck: no simulated world ─────────────────────────────────
+
+    @property
+    def real(self) -> bool:
+        """The body is a real Microduck (its bridge said ``backend: real``, now or at an earlier
+        handshake to the same address): the brain drives it with the duck's own senses only, and
+        nothing here may ask a world."""
+        if is_real(self.body):
+            self._known_real = True
+        elif self.ready and self.remote is not None and self._known_real is None:
+            self._known_real = False  # (its bridge answered: a simulated remote body)
+        return bool(self._known_real)
+
+    @property
+    def backend_pending(self) -> bool:
+        """A remote body whose bridge has not said yet whether it is a real duck: no home may be
+        drawn or changed until it has (it may be a real one)."""
+        return self.remote is not None and self._known_real is None and not self.real
+
+    def refuse_if_real(self) -> None:
+        """ValueError with the one plain reason (:func:`no_world`) when the body is a real duck."""
+        if self.real:
+            raise ValueError(no_world())
+
+    def real_view(self) -> dict[str, Any] | None:
+        """What the page must know of a real duck (None: a simulated body): ``rehearsal`` (the
+        bridge is ``sim-body --as-real`` on this Mac), ``reason`` (the plain words every disabled
+        control shows), ``refuses`` (the features the page disables, :data:`REAL_REFUSES`) and
+        ``battery`` (the duck's own pack from robotd, None until it says). A body known to be real
+        stays real while its link dials again (the page never flips to the simulated mode)."""
+        body = self.body
+        if is_real(body):
+            self._known_rehearsal = bool(getattr(body, "rehearsal", False))
+        elif not self.real:
+            return None
+        battery = None
+        read = getattr(body, "battery", None) if is_real(body) else None
+        if callable(read):
+            try:
+                battery = read()
+            except Exception:
+                battery = None
+        return {
+            "rehearsal": self._known_rehearsal,
+            "reason": no_world(),
+            "refuses": sorted(REAL_REFUSES),
+            "battery": dict(battery) if isinstance(battery, dict) else None,
+        }
 
     # ── the duck's-eye camera ──────────────────────────────────────────────
 
@@ -690,8 +776,13 @@ class LiveBridge:
         eye: Any
         if socket is not None:
             eye = WindowEye(socket, room_light=self._room_light, frozen=self._frozen)
-        elif has_camera:
-            eye = NoEye(msg("web.live.LiveBridge.start_eye"), why)
+        elif has_camera or is_real(body):
+            # (a real duck never gets a render of a scene: its own camera, else no picture)
+            if is_real(body):
+                head = msg("livebody.real_no_camera")
+                eye = NoEye(head, "" if str(why) == str(head) else why)
+            else:
+                eye = NoEye(msg("web.live.LiveBridge.start_eye"), why)
         else:
             scene = (getattr(body, "host_info", None) or {}).get("scene")
             eye = EyeCam(body.frame, scene=scene, clock=self._eye_clock)
@@ -849,15 +940,21 @@ class LiveBridge:
         room), ``placed_at`` (epoch ms of the last world operation that moved the body: None
         before the first) and ``placed_why`` ("start" | "sync"). Ground truth for the page and
         evaluators only, never for Duck Core: it reads the frame, nothing of the duck's own
-        state and nothing of its plan."""
+        state and nothing of its plan. A real duck has no world: the frame is robotd's contact
+        odometry (``frame`` "odometry") and nothing ever placed it (no ``placed_at``/``placed_why``)."""
         phys = physics_pose(frame)
         if phys is None:
             return None
-        placed = self._placed or {}
-        return {
+        where = {
             "x_mm": round(phys[0] * 1000),
             "y_mm": round(phys[1] * 1000),
             "yaw_mrad": round(phys[2] * 1000),
+        }
+        if self.real:
+            return {**where, "frame": "odometry"}
+        placed = self._placed or {}
+        return {
+            **where,
             "frame": "world",
             "placed_at": placed.get("at_ms"),
             "placed_why": placed.get("why"),
@@ -952,6 +1049,9 @@ class LiveBridge:
             "blocked_by": [],
             "why_zh": [],
         }
+        if self.real:  # (a real duck stays where it is: nothing can put it anywhere)
+            note["why_zh"] = [no_world()]
+            return note
         if not getattr(self.body, "home", None) or getattr(self.body, "world_call", None) is None:
             note["why_zh"] = [msg("web.live.LiveBridge.place.4af93e")]
             self._placed = note
@@ -1056,7 +1156,10 @@ class LiveBridge:
         return out
 
     def _hand(self, command: dict[str, Any]) -> None:
-        """One script of the world's hand (Duck Core's poses turned into the world's)."""
+        """One script of the world's hand (Duck Core's poses turned into the world's). None on a
+        real duck: there is no world's hand."""
+        if self.real:
+            return
         request = dict(command)
         pose = request.pop("pose", None)
         if pose is not None:
@@ -1148,7 +1251,8 @@ class LiveBridge:
     def upright(self) -> dict[str, Any]:
         """「扶起物理身體」 (owner decision D2): the world's hand takes the fallen physics body
         where it lies, turns it upright at the heading it fell with and sets it down. A world
-        operation: Duck Core is not told."""
+        operation: Duck Core is not told. Refused on a real duck (no world, no hand)."""
+        self.refuse_if_real()
         if not self.ready:
             raise ValueError(msg("web.live.LiveBridge.upright.d69176"))
         try:
@@ -1173,7 +1277,9 @@ class LiveBridge:
         Thin wrapper over the world's own ``x_place_prop`` (the same op
         ``demo.py`` uses for truth positioning). Places the thing and nothing
         else: no drive/skill command, no robotd write, no safety-chain change.
-        The brain is not told; it may notice the thing only through its senses."""
+        The brain is not told; it may notice the thing only through its senses. Refused on a
+        real duck."""
+        self.refuse_if_real()
         if not self.ready:
             raise ValueError(msg("web.live.LiveBridge.world_action"))
         try:
@@ -1191,7 +1297,8 @@ class LiveBridge:
 
     def world_action(self, op: str, **params: Any) -> dict[str, Any]:
         """A world button that is not Duck Core's (roll a ball, tidy up): the world's answer,
-        or ValueError in the world's words."""
+        or ValueError in the world's words (on a real duck: the one plain reason)."""
+        self.refuse_if_real()
         if not self.ready:
             raise ValueError(msg("web.live.LiveBridge.world_action"))
         try:
@@ -1203,8 +1310,9 @@ class LiveBridge:
 
     def set_clock(self, local: datetime, rate: float) -> None:
         """The world camera's light follows Duck Core's clock (``rate``: its seconds per wall
-        second; 0 while paused). Sent when it drifts or the rate changes (asynchronously)."""
-        if not self.ready or getattr(self.body, "world_call", None) is None:
+        second; 0 while paused). Sent when it drifts or the rate changes (asynchronously). A real
+        duck's light is the room's own: nothing is sent."""
+        if not self.ready or self.real or getattr(self.body, "world_call", None) is None:
             return
         now = time.time()
         sent = self._clock_sent
@@ -1309,7 +1417,9 @@ class LiveBridge:
         """Prototype mode: of what a Duck Core call produced, only the world's hand (a pickup,
         a put-down, setting it upright — what the page's buttons do to the duck) reaches the
         world; the neural duck senses it through its own body. Duck Core's motions do not
-        reach the body."""
+        reach the body. A real duck has no world's hand: nothing reaches it."""
+        if self.real:
+            return
         wall, mono = time.time(), time.monotonic()
         nest = bool(getattr(session.core.hw, "nest", False))
         with self._wake:
@@ -1444,7 +1554,9 @@ class LiveBridge:
     # ── physics demonstrations (never Duck Core) ────────────────────────────
 
     def demo_walk(self) -> None:
-        """A physics demonstration outside Duck Core: stand up and walk one short loop."""
+        """A physics demonstration outside Duck Core: stand up and walk one short loop. Refused
+        on a real duck (a demonstration of the simulated physics, not the duck's)."""
+        self.refuse_if_real()
         if not self.ready:
             raise ValueError("the physics body is still starting")
         if self.neuro is not None:
@@ -1459,9 +1571,11 @@ class LiveBridge:
     def demo(self, kind: str, thing: str, side: str | None = None) -> dict[str, Any]:
         """示範 (curiosity P0): bump, peck or kick ``thing`` — the duck walks over, the world
         puts the thing where the official skill meets it (truth positioning, 示範 only), the
-        skill runs and the world says what happened (:mod:`duckmind.simweb.demo`)."""
+        skill runs and the world says what happened (:mod:`duckmind.simweb.demo`). Refused on a
+        real duck (nothing can put the thing there)."""
         from duckmind.simweb.demo import LABEL_ZH, DemoRunner
 
+        self.refuse_if_real()
         if not self.world_ready():
             raise ValueError(msg("web.live.LiveBridge.demo.363966"))
         if self.neuro is not None:
@@ -1519,9 +1633,11 @@ class LiveBridge:
         """「用眼睛做」 (owner decision A6): one curiosity step through the duck-body and duck-eye
         processes (:class:`duckmind.simweb.eyedemo.EyeRun`). The world only puts ``thing`` on the
         floor about half a metre in front of the duck; the duck finds it with its own eyes, walks
-        up, aligns and acts. Duck Core is not told."""
+        up, aligns and acts. Duck Core is not told. Refused on a real duck (no world to set the
+        scene)."""
         from duckmind.simweb.eyedemo import VERBS, EyeRun, Sockets, floor_file
 
+        self.refuse_if_real()
         if self.neuro is not None:
             raise ValueError(NEURO_BUSY_ZH)
         if kind not in VERBS:
@@ -1636,7 +1752,22 @@ class LiveBridge:
         fingerprint; ``physical`` when the physics has the home's walls and furniture), Duck
         Core's origin in it (``frame``), the last placement and hand request, and — from the
         world's truth (x_world) — the hand, the people and their bodies, the things, the world
-        battery (display only, E1), the nest's contact and the backlight."""
+        battery (display only, E1), the nest's contact and the backlight. A real duck has no
+        world: no home, hand, people, things, nest or backlight — only the empty floor at its
+        odometry's origin (``real`` true; its battery is :meth:`real_view`'s)."""
+        if self.real:
+            return {
+                "home": None,
+                "asked": None,
+                "physical": False,
+                "frame": HomeFrame().view(),
+                "placed": None,
+                "hand_note": None,
+                "demo": None,
+                "sim_time": None,
+                "bodies": {},
+                "real": True,
+            }
         state = self._world() or {}
         home = state.get("home") or {}
         out: dict[str, Any] = {
@@ -1753,7 +1884,8 @@ class LiveBridge:
         :meth:`world_view`) and the duck's-eye status. ``error`` is the program's own words,
         ``error_zh`` the same in plain words. ``frames``: also every body sample after
         ``since_t`` (``frames``, compact: ``t``, ``w``, ``j`` in ``frame_joints`` order, ``p``,
-        ``q``, ``m``) for a page that plays them all."""
+        ``q``, ``m``) for a page that plays them all. ``real``: what the page must know of a
+        real duck (:meth:`real_view`; None for a simulated body)."""
         body = self.body
         status = body.status()
         frame = self._latest_frame()
@@ -1777,6 +1909,7 @@ class LiveBridge:
             # 我的小鴨 (the page's real-duck card): the link's own numbers for a body on another machine
             # (``--body remote://…``: up, round trips, drops, the deadman), None for a body run here
             "remote": status.get("remote"),
+            "real": self.real_view(),
         }
         if frames:
             out["frames"] = self.frames_since(since_t)

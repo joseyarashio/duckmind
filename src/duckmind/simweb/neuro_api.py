@@ -1102,6 +1102,8 @@ class DriverSource:
                 "reflex_body": [item for item in self._body_rows if item["seq"] > since],
                 "stimuli": self._buttons(),
                 "world": {"lights_on": self._lights_on},
+                # a real Microduck (no world): rehearsal, the one plain reason, what the page disables
+                **_real_fields(self._driver),
             }
             if self._driver is None:
                 out["waiting_zh"] = msg("neuro.waiting.b65b")
@@ -1444,6 +1446,16 @@ class DriverSource:
 
     def stop(self) -> None:
         return
+
+
+def _real_fields(driver: Any) -> dict[str, Any]:
+    """``{"real": …}``: the driver's real-duck view (``NeuroDriver.real_view``; None for a simulated
+    body) — or nothing while it has no body (no driver yet, starting, a restart, a link that does
+    not answer): the page keeps the mode it knows instead of flipping to the simulated one."""
+    if driver is None or not getattr(driver, "attached", True):
+        return {}
+    view = getattr(driver, "real_view", None)
+    return {"real": view() if callable(view) else None}
 
 
 def supported_by(driver: Any) -> set[str] | None:
@@ -2048,6 +2060,16 @@ class NeuroHub:
         except Exception:
             return None
 
+    def real_fields(self) -> dict[str, Any]:
+        """The real-duck view of the running driver (:func:`_real_fields`: ``real`` None for a
+        simulated body or the stub, left out while there is no body): the page disables the
+        stimuli, 「扶牠起來」 and go-there with its ``reason``."""
+        driver_of = getattr(self.source, "driver", None)
+        try:
+            return _real_fields(driver_of() if callable(driver_of) else None)
+        except Exception:
+            return {}
+
     def status(self) -> dict[str, Any]:
         if not self.enabled:
             return {"ok": True, "enabled": False, "schema": PAGE_SCHEMA}
@@ -2059,6 +2081,7 @@ class NeuroHub:
             "label_zh": LABEL_ZH,
             "source": source.kind if source is not None else None,
             "waiting_zh": "" if source is not None else msg("neuro.waiting.c692"),
+            **self.real_fields(),
             "stimuli": [
                 {
                     "key": item.key,

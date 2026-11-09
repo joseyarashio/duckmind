@@ -660,6 +660,17 @@ input[type="range"]:focus-visible { outline: 3px solid var(--orange); outline-of
 .tick-star { font-size: 14px; }
 .tick-note { font-weight: 700; letter-spacing: 0.06em; }
 .chip.floor[hidden] + .floor-star { display: none; }
+/* 真的小鴨 (realduck.js): which duck (cyan: the duck's own readings, never the physics truth's green),
+   the link (green up, magenta down), its own battery (orange; grey square while it is not known yet). */
+.chip.real::before { background: var(--cyan); }
+.chip.link::before { background: var(--green); }
+.chip.link[data-state="down"]::before { background: var(--magenta); }
+.chip.power::before { background: var(--orange); }
+.chip.power[data-state="unknown"]::before { background: var(--muted); }
+.stage-mode[data-mode="real"] { box-shadow: 4px 4px 0 var(--cyan); }
+/* The visible line under controls a real duck cannot do (touch has no hover to read their titles). */
+.real-note { font-weight: 700; color: var(--ink); border-left: 4px solid var(--magenta); padding-left: 8px; }
+.duck3d-live .real-note { flex: 1 1 100%; font-weight: 600; color: var(--yellow); }
 
 /* ---------- play ---------- */
 .who { max-width: 880px; margin: 0 auto 30px; }
@@ -1660,7 +1671,7 @@ line.mm-fixed { fill: none; stroke-linecap: round; }
 }
 .body-link-steps { margin: 8px 0 0; padding-left: 1.3em; display: grid; gap: 10px; font-size: 14px; line-height: 1.45; }
 .body-link-state { margin: 6px 0 0; padding: 6px 10px; border: 2px solid var(--ink); border-left-width: 8px; border-left-color: var(--blue); background: var(--white); font-weight: 700; overflow-wrap: anywhere; }
-.body-link-state[data-state="remote_up"] { border-left-color: var(--green); }
+.body-link-state[data-state="remote_up"], .body-link-state[data-state="real"] { border-left-color: var(--green); }
 .body-link-state[data-state="remote_down"], .body-link-state[data-state="error"], .body-link-state[data-state="offline"] { border-left-color: var(--magenta); }
 .body-link-state[data-state="off"], .body-link-state[data-state="loading"], .body-link-state[data-state="starting"] { border-left-color: var(--muted); }
 /* the lab: its jump list, then the brain beside the body, the motions and the emotions */

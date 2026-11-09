@@ -238,6 +238,10 @@ class RobotdBodyPort:
             raise
         self.backend = backend
         self._look_target: tuple[float, float, float, float] | None = None
+        # The latest ``robot.state`` params exactly as robotd sent them (observe() keeps them):
+        # the robot's own measurements (joints, contact odometry, IMU, safety) for a page that
+        # draws a real duck from what it measures. None before the first frame.
+        self.last_params: Mapping[str, Any] | None = None
 
     def close(self) -> None:
         self._state.close()
@@ -286,6 +290,7 @@ class RobotdBodyPort:
     def observe(self) -> RobotObservation:
         frame = self._state.wire.read(self._state.timeout_s)
         observation = _observation(frame, self.backend)
+        self.last_params = frame["params"]
         if self._look_target is None:
             return observation
         params = frame["params"]

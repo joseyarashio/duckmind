@@ -359,6 +359,7 @@
         </section>
         </details>
         <div id="neuroSoundMount" data-scenarios></div>
+        <p class="hint real-note" id="realNoteSound" data-real-note hidden data-i18n="page.real.note.sound">這是真的小鴨：聲音情境是模擬世界放的音樂和手，接真的小鴨時用不到。</p>
       </div>
       <div class="ctl-panel" role="tabpanel" id="ctl-trick" data-ctl-panel="trick" aria-labelledby="ctlTab-trick" hidden >
         <!-- 訓練 (tricks.js): the duck's own trick book (GET /api/life/growth → growth.learned.tricks) and a button per trick
@@ -433,7 +434,7 @@
           <li><span data-i18n="page.body.step.check">先檢查連線（只讀，小鴨不會動）：</span><pre><code>python -m duckmind.remotebody check remote://IP:8797</code></pre></li>
           <li><span data-i18n="page.body.step.restart">關掉模擬器，加上這一段重新開：</span><pre><code>--body remote://IP:8797</code></pre></li>
         </ol>
-        <p class="hint" data-i18n="page.body.note">還沒有接過真的 Microduck：目前只用另一個程式裡的模擬小鴨演練過。接上以後，牠的眼睛、耳朵和電量暫時還是從模擬世界來的。完整步驟在 docs/real-microduck.md。</p>
+        <p class="hint" data-i18n="page.body.note_real">目前只在這台電腦上用扮演真鴨的演練身體試過，還沒有接過真的 Microduck。接上以後，牠的關節、走過的路、鏡頭和電量都從牠自己來；聲音還沒有從機器鴨傳過來的路。要模擬世界的按鈕（拖東西、手、家人、擺設）會停用，並寫出原因。完整步驟在 docs/real-microduck.md。</p>
       </details>
     </section>
             <!-- 神經鴨原型（示範）: four contrasting ducks from Duck Core's diversity design, or one at random. -->
@@ -539,6 +540,8 @@
           <button class="btn" data-party="false" data-i18n="page.html.party_false.text">生日派對（2 小時）</button>
           <button class="btn" data-party="true" data-i18n="page.html.party_true.text">生日派對＋訪客模式</button>
         </div>
+        <!-- 真的小鴨 (realduck.js): shown only with a real duck, under its held-off controls -->
+        <p class="hint real-note" id="realNoteCore" data-real-note hidden data-i18n="page.real.no_world">這是真的小鴨：沒有模擬的世界，這件事做不到</p>
       </div>
     </div>
 
@@ -641,6 +644,7 @@
         </div>
         <p class="hint" id="worldHint" data-i18n="page.html.worldHint.text">要開真實物理（--live）才有用：物理身體自己走過去做給你看，東西由物理世界放到剛好的位置；小鴨自己不知道，也不會記得。</p>
         <p class="hint" data-i18n="page.html.worldTools.p.text">「用眼睛做」：東西只放在小鴨前面大約半公尺，小鴨用自己的鏡頭找、自己走過去對準再動手（第 3 期的鴨眼和鴨身程式），做到或做不到都照實說；大約要半分鐘到一分半。</p>
+        <p class="hint real-note" id="realNoteWorld" data-real-note hidden data-i18n="page.real.no_world">這是真的小鴨：沒有模擬的世界，這件事做不到</p>
       </div>
     </div>
   </section>
@@ -661,6 +665,13 @@
       <span class="tick-star" aria-hidden="true" data-neuro hidden>★</span>
       <span class="chip mode-awake" id="neuroChipNow" data-neuro hidden>—</span>
       <span class="tick-star" aria-hidden="true" data-neuro hidden>★</span>
+      <!-- 真的小鴨 (realduck.js, from /api/body real and remote): which duck, the link's quality, its own battery -->
+      <span class="chip real" id="chipReal" data-real hidden data-i18n="page.real.chip.real">真的小鴨</span>
+      <span class="tick-star" aria-hidden="true" data-real hidden>★</span>
+      <span class="chip link" id="chipLink" data-real hidden>—</span>
+      <span class="tick-star" aria-hidden="true" data-real hidden>★</span>
+      <span class="chip power" id="chipBattery" data-real hidden data-i18n="page.real.chip.battery_unknown">電量：還不知道（等小鴨回報）</span>
+      <span class="tick-star" aria-hidden="true" data-real hidden>★</span>
       <!-- 說話 (live_voice.js): shown only when the server runs --live-voice; says when the cloud is sending -->
       <span class="chip live-chip" id="liveChipCloud" data-sending="off" hidden data-i18n="page.live.cloud.label_off">雲端：關著</span>
       <span class="tick-star" id="liveChipStar" aria-hidden="true" hidden>★</span>
@@ -781,6 +792,7 @@
               <button type="button" class="btn ghost small" id="liveDemo" data-core title="不經過小鴨的決定，直接叫物理身體站起來走一小圈，用來看真實走路" data-i18n-attr="title:page.html.liveDemo.title" data-i18n="page.html.liveDemo.text">示範走一段</button>
               <button type="button" class="btn ghost small" id="liveUpright" data-core title="物理身體跌倒時，一隻看得到的手過來把牠扶起來坐好（不會改變小鴨自己；平常用這個）" data-i18n-attr="title:page.html.liveUpright.title" data-i18n="page.html.liveUpright.text">扶起物理身體</button>
               <button type="button" class="btn ghost small" id="liveReset" data-core title="備用：換一個新的物理身體在起點坐好（扶不起來、壞掉時才用；不會改變小鴨自己）" data-i18n-attr="title:page.html.liveReset.title" data-i18n="page.html.liveReset.text">重設物理身體</button>
+              <span class="real-note" id="realNoteLive" data-real-note data-core hidden data-i18n="page.real.no_world">這是真的小鴨：沒有模擬的世界，這件事做不到</span>
             </div>
           <!-- The physical home (phase 2): which home the physics runs, the nest's contact, the
                  world's hand and the family members who came over (app.js, from /api/body). -->
@@ -1022,6 +1034,7 @@
             </div>
           </div>
           <p class="hint" data-i18n="page.layout.save.apply_hint">套用會重新載入物理，約十幾秒；小鴨的心會留著，牠會回到原來的位置（那裡被擺了東西就回到起點）。</p>
+          <p class="hint real-note" id="realNoteLayout" data-real-note hidden data-i18n="page.real.note.layout">這是真的小鴨：沒有模擬的家，擺設套用不了；畫面上只有地板格子。</p>
         </section>
         <section class="card accent-cyan le-card" aria-labelledby="leCheckTitle">
           <h3 class="card-title" id="leCheckTitle" data-i18n="page.layout.problems.title">檢查結果</h3>
@@ -1095,6 +1108,7 @@
 <script src="/i18n.js"></script>
 <script src="/voice.js"></script>
 <script src="/eyeview.js"></script>
+<script src="/realduck.js"></script>
 <script src="/app.js"></script>
 <script src="/shell.js"></script>
 <script src="/capabilities.js"></script>

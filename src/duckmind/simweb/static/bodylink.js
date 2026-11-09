@@ -2,7 +2,9 @@
  * which body this duck's brain drives now, said plainly, and the link's own numbers when the body is on
  * another machine. It reads
  *   GET /api/body      enabled / starting / available / error, and remote: the link's stats (url, up,
- *                      rtt_ms_p50, connects, drops, max_gap_ms, deadman_ms), absent for a body run here
+ *                      rtt_ms_p50, connects, drops, max_gap_ms, deadman_ms), absent for a body run here;
+ *                      real: null for a simulated body, else {rehearsal, …} (a real Microduck, or a
+ *                      rehearsal body on this computer that plays one)
  * every 5 s while the 我的小鴨 tab is shown. It changes nothing: connecting a real duck is a restart
  * with --body remote://… (the card's steps).
  * Words: none here (page.body.*); the address is data. */
@@ -30,7 +32,15 @@
       };
       if (!remote.up) return { state: "remote_down", key: "page.body.state.remote_down", params: { url }, stats };
       const ms = remote.rtt_ms_p50;
-      if (typeof ms === "number") return { state: "remote_up", key: "page.body.state.remote_up", params: { url, ms: Math.round(ms) }, stats };
+      const known = typeof ms === "number";
+      // A real duck (or the rehearsal that plays one): said as such, with the same numbers.
+      if (answer.real && typeof answer.real === "object") {
+        const [withMs, without] = answer.real.rehearsal
+          ? ["page.body.state.rehearsal", "page.body.state.rehearsal_new"]
+          : ["page.body.state.real", "page.body.state.real_new"];
+        return { state: "real", key: known ? withMs : without, params: known ? { url, ms: Math.round(ms) } : { url }, stats };
+      }
+      if (known) return { state: "remote_up", key: "page.body.state.remote_up", params: { url, ms: Math.round(ms) }, stats };
       return { state: "remote_up", key: "page.body.state.remote_up_new", params: { url }, stats };
     }
     if (answer.starting) return { state: "starting", key: "page.body.state.starting", params: {}, stats: null };

@@ -21,6 +21,24 @@ const SNAP_M = 0.5;
 // 「物理真相」 and 「這是小鴨的計畫，不是物理」).
 export const TRUTH_TITLE = "page.truth.TRUTH_TITLE";
 export const PLAN_TITLE = "page.truth.PLAN_TITLE";
+// A real duck (/api/body `real`): the solid duck is the robot's own measured joints and odometry —
+// never called physics truth — on the plain floor grid (there is no room).
+export const REAL_TITLE = "page.truth.REAL_TITLE";
+export const REAL_WAIT_TITLE = "page.truth.REAL_WAIT_TITLE";
+
+// robotd's policy in the 3D line, in plain words (a catalog key). `held`: a real duck's robotd paused
+// its legs because a hand lifted it. null: a word the page has none for — a real duck's line leaves
+// it out (never robotd's own word); a simulated one's shows it as before.
+const POLICY_KEYS = {
+  sit: "page.duck3d.liveText.2bb395",
+  rise: "page.duck3d.liveText.6543ad",
+  walk: "page.duck3d.liveText.e5dca5",
+  stand: "page.duck3d.liveText.b52df7",
+};
+export function policyKey(policy, real) {
+  if (real && policy === "held") return "page.real.live.held";
+  return Object.hasOwn(POLICY_KEYS, policy) ? POLICY_KEYS[policy] : null;
+}
 
 // The heading (about the vertical) of a MuJoCo quaternion [w, x, y, z].
 export function yawOf(q) {
@@ -373,8 +391,14 @@ export function poseGap(a, b) {
 // body has an error (its plain reason is in 「物理不可信」); `oldServer`: the server sends
 // frames without the truth this page reads (an older version); `physicalHome`: the physics
 // has the drawn home's walls and furniture (phase 2) — else the translucent room is only on
-// the page; `held`: the world's hand holds the body up. The title and detail are catalog keys.
-export function modeLabel({ truth, enabled, on, available, fastForward, offline, demo, planFallen, physicsFallen, broken, oldServer, physicalHome, held }) {
+// the page; `held`: the world's hand holds the body up; `real`: a real duck (its frames are its
+// own joints and odometry: mode "real", the words never say physics). The title and
+// detail are catalog keys.
+export function modeLabel({ truth, enabled, on, available, fastForward, offline, demo, planFallen, physicsFallen, broken, oldServer, physicalHome, held, real }) {
+  if (real) {
+    if (truth) return { mode: "real", title: REAL_TITLE, detail: physicsFallen ? "page.truth.modeLabel.real_fallen" : "page.truth.modeLabel.real" };
+    return { mode: "plan", title: REAL_WAIT_TITLE, detail: offline ? "page.truth.modeLabel.ee7586" : "page.truth.modeLabel.real_wait" };
+  }
   if (truth) {
     let detail = physicalHome ? "page.truth.modeLabel.a501b2" : "page.truth.modeLabel.ad8793";
     if (demo) detail = "page.truth.modeLabel.403afa";

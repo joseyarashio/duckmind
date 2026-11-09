@@ -56,8 +56,13 @@ def load_manifest(path: Path | None = None) -> dict[str, Any] | None:
 
 
 def json_response() -> tuple[int, bytes]:
+    """The manifest, or ``{"ok": true, "ready": false}`` while none is published with this program
+    (outputs/ is not part of a checkout): a plain state the page shows, not a failure. A published
+    manifest that is not valid still fails closed (503)."""
     payload = load_manifest()
     if payload is None:
+        if not manifest_path().exists():
+            return HTTPStatus.OK, b'{"ok":true,"ready":false}'
         return HTTPStatus.SERVICE_UNAVAILABLE, b'{"ok":false,"error":"skill evidence not ready"}'
     return HTTPStatus.OK, json.dumps(payload, ensure_ascii=False).encode("utf-8")
 

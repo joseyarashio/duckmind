@@ -222,7 +222,8 @@
   const finite = (v) => typeof v === "number" && Number.isFinite(v);
 
   function takeBody(info) {
-    const live = !!(info && info.enabled);
+    // (a real duck: there is no simulated home to draw from above — the map stays put away)
+    const live = !!(info && info.enabled && !info.real);
     if (live !== S.live) {
       S.live = live;
       settle();

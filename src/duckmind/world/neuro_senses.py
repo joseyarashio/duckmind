@@ -1409,10 +1409,9 @@ class SenseHub:
         tof = tof_sense(depth, getattr(state, "t_ns", None))
         if not tof.present:
             sources["tof"] = "none"
-        # power (model; the PG pin is real)
+        # power (the world's model, or a remote body's robotd reading: real; the PG pin is real)
         power = self._power(t_ms, world, getattr(doors, "pg", None))
-        if self.battery is None:
-            sources["power"] = "none"
+        sources["power"] = power.source
         self.frames += 1
         frame = C.SensorFrame(
             t_ms=t_ms,
@@ -1616,12 +1615,18 @@ class SenseHub:
     def _power(self, t_ms: int, world: Any, pg: bool | None) -> C.PowerSense:
         battery = world.get("battery") if isinstance(world, Mapping) else None
         charging = False
+        # A remote body's pack is its robotd's own reading (robot.health, ``source: robotd``):
+        # a real sensor, taken as it is; the world's pack is a model read through a noisy meter.
+        measured = isinstance(battery, Mapping) and battery.get("source") == "robotd"
         if isinstance(battery, Mapping) and "percent" in battery:
             if t_ms - self.battery_ms >= 1000 or self.battery is None:
                 self.battery_ms = t_ms
-                soc = float(battery.get("soc_ppm", float(battery["percent"]) * 10_000)) / 1e6
-                noise = _rng("battery", self.seed, t_ms // 1000).gauss(0.0, BATTERY_NOISE)
-                self.battery = _clip(soc + noise)
+                if measured:
+                    self.battery = _clip(float(battery["percent"]) / 100.0)
+                else:
+                    soc = float(battery.get("soc_ppm", float(battery["percent"]) * 10_000)) / 1e6
+                    noise = _rng("battery", self.seed, t_ms // 1000).gauss(0.0, BATTERY_NOISE)
+                    self.battery = _clip(soc + noise)
             charging = bool(battery.get("charging"))
         on_dock = bool(pg) if pg is not None else False
         return C.PowerSense(
@@ -1629,7 +1634,7 @@ class SenseHub:
             on_dock=on_dock,
             charging=on_dock and charging,
             hot=False,
-            source="model" if self.battery is not None else "none",
+            source="none" if self.battery is None else "real" if measured else "model",
         )
 
     def view(self) -> dict[str, Any]:

@@ -161,19 +161,58 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    remote://127.0.0.1:8797` drives it (add `python -m duckmind.remotebody shim` in between to add
    delay, loss and cuts: type `cut` / `restore`).
 
-The simulator page itself drives **simulated** remote bodies only for now: its senses (camera,
-hearing, touch) and its 3D view still come from the simulated world. The **battery** already comes
-from the body: on a remote body the brain reads robotd's `robot.health` battery over the link
+### Opening the page on a real duck
+
+With the bridge running on the duck (step 4) and `check` content (step 5):
+
+```sh
+python -m duckmind.simweb --live --brain neuro --life ~/.duckmind/lives/<your-duck> --no-nest \
+    --microduck <microduck checkout> --microduck-rl <microduck_rl checkout> \
+    --policies <policy set> --robotd-bin <robotd built for this computer> \
+    --body remote://<duck-address>:8797 --body-token-file ~/.duckmind/remote-body.token
+```
+
+The four paths are the same ones a simulated body on this computer uses (the `python` needs
+`onnxruntime` installed, as there). The page reads the robot's model and the policy set from
+them; with `--body remote://…` it starts no robotd and no physics on this computer. Without them
+it stops at once with `--live needs --microduck, --microduck-rl, --policies and --robotd-bin`.
+`--no-nest` matters for a duck that hatches now (a new `--life` folder): the neural brain does
+not take a duck with a charging nest, and the page would stop while starting. Verified on
+2026-11-09 with exactly this command (a new life, `--port 8786`) against
+`sim-body --as-real`: the page came up in real-duck mode (*rehearsal*), with the duck's camera
+and robotd's battery.
+
+The page sees that the bridge's backend is real and switches to **real-duck mode**. The brain
+drives the duck with only what the duck itself measures and sends over the link. Nothing comes
+from a simulated world: there is none.
+
+| | In real-duck mode |
+|---|---|
+| 3D view | The duck's own 15 joints from `robot.state`, placed by robotd's contact odometry (x, y and height) and tilted by its IMU, turned to the odometry's heading. It stands on an empty floor grid: no rooms, no furniture, no minimap. Odometry drifts, so the place on the grid is where the duck *thinks* it is. The view's label says "the duck's own joints and odometry", never physics truth. |
+| Eye window | The duck's camera through the link (mediad's `media.frame` on the bridge's `media` channel). If the bridge offers no camera, the window says so. |
+| Status | Ticker chips for *real duck* (or *rehearsal*), the link (round trip, drops, longest silence; up or down) and the battery from robotd's `robot.health` (a placeholder until robotd answers; charging is unknown). The *real duck* card in 我的小鴨 shows the same. |
+| Works | The remote control (legs), the command bar (words, praise, treat, no), the motions and tricks the duck's robotd runs, emotions, the time of day, the talk panel. The brain's own senses that come from robotd work too: posture, falls, being lifted (robotd's `safety.picked_up`), the ToF when the bridge offers `tofd`. |
+| Refused, and the page says why | Everything the simulated world did: the play stimuli (sounds, toys, people, lights), the world's hand (help up, carry to the mat), family visits and battery swaps, the lab's world buttons (place, roll, tidy, show), the demo walk, *upright* and *reset the body*, applying a layout to the home, and pointing at the floor for go-there. Each such button is greyed out with the reason 「這是真的小鴨：沒有模擬的世界，這件事做不到」 (in the page's language) and a note under it; the server refuses the same requests with the same words. |
+| Not from the robot yet | The microphone and touch (below). |
+
+**Rehearse it without hardware.** `python -m duckmind.remotebody sim-body --as-real …` runs the
+simulated duck behind its bridge but presents it as a real duck: the bridge says `backend: real`
+and offers no world channel (only robotd, tofd and the camera). The page then runs in real-duck
+mode on this computer and its chip says *rehearsal*. The simulated world still runs on the body's
+side (it makes the camera's pictures and the ToF), but the brain and the page never see it.
+
+The **battery** comes from the body on every remote body: the brain reads robotd's `robot.health` battery over the link
 every 2 s (`LiveBody.battery()`, `duckmind/remotebody/battery.py`), never the simulated world's
 pack. robotd reports volts (the servos' supply, smoothed) and its own percentage of them (6.6 V is
 0 %, 8.2 V under load is 100 %), so it sags while the duck walks and recovers at rest; it has **no
 charging flag** (Pollen #470), so on a real duck "charging" is unknown and the brain sees it as
 not charging. The simulated body behind the bridge (`sim-body`) puts the world's pack into its
 robotd's `robot.health` (the loaded volts, robotd's percentage of them, and `charging`), so the
-rehearsal goes through the same path. A real duck needs the other senses from the robot first (see
-the checklist). The page's 我的小鴨 (my duck) tab has a
-*The real duck* card: it says which body the brain drives now (the simulated one on this computer,
-or the remote one with its round trip, drops and longest silence) and lists these steps.
+rehearsal goes through the same path. On a *simulated* remote body (plain `sim-body`) the page
+still draws and senses through that body's world, as it does for a body on this computer. The
+page's 我的小鴨 (my duck) tab has a *The real duck* card: it says which body the brain drives now
+(the simulated one on this computer, a rehearsal, or a real duck, with the link's round trip,
+drops and longest silence) and lists these steps.
 
 ### Microphone and touch on the production duck
 
@@ -246,7 +285,10 @@ the microphone.
   the GC2093, upright, about 85° × 55°: start duck-eye with `--board beta` (or `face-board-v1`).
 - [ ] **Microphone, touch:** no daemon serves the microphone and the duck has no touch sensor (see
   *Microphone and touch* above); today the brain's hearing and touch are the simulated world's.
-- [ ] **The page's 3D view** from `robot.state` joints instead of the simulator's truth.
+- [ ] **The page in real-duck mode:** the 3D view follows the real joints, odometry and tilt (the
+  code is ready and rehearsed with `sim-body --as-real`); check on the robot that the drawn pose
+  matches the duck (seated, standing, walking, lifted), that the eye window shows its camera, and
+  how far the odometry drifts in a few minutes of walking.
 - [ ] **Other doors on the duck:** the official `mediad` listens on `0.0.0.0:8443`/`8080` with no
   authentication and lets a LAN peer drive the robot; Bluetooth pairing (`btd`) is off by default.
   `check` says whether 8443/8080 answer from the computer; `docs/deploy/board.md` §5 has the

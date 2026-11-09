@@ -51,11 +51,16 @@ def _manifest(*clips: str) -> dict:
     }
 
 
-def test_manifest_not_ready_returns_503(monkeypatch, request, tmp_path: Path) -> None:
+def test_manifest_not_published_is_a_plain_answer_not_an_error(
+    monkeypatch, request, tmp_path: Path
+) -> None:
+    """Before: a tree without published evidence (a worktree, a fresh checkout, the computer that
+    opens the page on a real duck) answered 503, and every load of the 資料 view logged a console
+    error ("Failed to load resource") and showed a load failure with a retry button."""
     base = _serve(monkeypatch, request, tmp_path)
     status, body, _ = _get(base + "/api/skill-evidence")
-    assert status == 503
-    assert json.loads(body)["error"] == "skill evidence not ready"
+    assert status == 200
+    assert json.loads(body) == {"ok": True, "ready": False}
 
 
 def test_manifest_lists_allowlisted_clip_and_supports_exact_ranges(

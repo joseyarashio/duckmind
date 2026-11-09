@@ -303,6 +303,8 @@ class SimState:
             layout, home=home, default_home=self.layout_default, store=self.layouts
         )
         out["live"] = self.live is not None
+        # a real duck (no simulated world): the editor reads, but Apply / Reset / Load are refused
+        out["real"] = self.real_view()
         out["applying"] = bool(
             self.live is not None
             and (not self.live.ready or getattr(self.live, "restoring", False))
@@ -333,11 +335,44 @@ class SimState:
         )
         return {"same": same, "life": self.life_host is not None, "lasts": lasts}
 
+    def real_view(self) -> dict[str, Any] | None:
+        """What the page must know of a real duck (``LiveBridge.real_view``); None for a simulated
+        body or without live physics."""
+        view = getattr(self.live, "real_view", None)
+        return view() if callable(view) else None
+
+    @property
+    def real(self) -> bool:
+        """The live body is a real Microduck (no simulated world anywhere)."""
+        return self.live is not None and bool(getattr(self.live, "real", False))
+
+    def refuse_if_real(self) -> None:
+        """A world action asked of a real duck: ValueError with the one plain reason (the page
+        shows the error answer's words)."""
+        if self.real:
+            raise ValueError(msg("livebody.no_world"))
+
+    @property
+    def no_home(self) -> bool:
+        """No physics home to draw or change: a real duck, or a remote body whose bridge has not
+        said yet whether it is one (``LiveBridge.backend_pending``)."""
+        live = self.live
+        return self.real or bool(live is not None and getattr(live, "backend_pending", False))
+
+    def refuse_layout_if_real(self) -> None:
+        """A real duck has no physics home to reload: the layout editor's Apply, Reset and Load are
+        refused with the one plain reason (a normal answer: ``ok`` false, ``code`` "real"); so is a
+        remote body not known yet to be simulated."""
+        if self.no_home:
+            raise layouts.LayoutProblem("real", error=msg("livebody.no_world"))
+
     def layout_apply(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         """Run this layout in the simulator (None: the server's own default home). The physics is reloaded
         now; the duck's mind is kept (the life snapshot is taken first, the same neural driver goes on) and
         the duck is put back where it was if that spot is free in the new home, else at its spawn. A home in
-        another odometry frame (:meth:`layout_frame`) makes it relearn its places when the new body comes."""
+        another odometry frame (:meth:`layout_frame`) makes it relearn its places when the new body comes.
+        Refused on a real duck (:meth:`refuse_layout_if_real`)."""
+        self.refuse_layout_if_real()
         if raw is None:
             home = self.layout_default
             problems: list[dict[str, Any]] = []
@@ -832,8 +867,10 @@ class SimState:
         the fingerprint of the home the page has (``?home=``); when it is not this one, the
         answer carries the home to draw (``home_json``, see homeview). ``frames``
         (``?since_t=``, empty for "from now"): also every body sample after ``since_t``, so the
-        page plays the physics at its true speed (LiveBridge.frames_since)."""
+        page plays the physics at its true speed (LiveBridge.frames_since). A real duck has no
+        home (``home`` None, never ``home_json``) and no family visits."""
         home = homeview.home_payload(self.home())
+        real = self.real
         out: dict[str, Any]
         if self.live is None:
             out = {
@@ -850,12 +887,17 @@ class SimState:
                 "boot": self.boot,
                 **self.live.snapshot(since_t, frames=frames),
             }
-            if self.family is not None and isinstance(out.get("world"), dict):
+            if not real and self.family is not None and isinstance(out.get("world"), dict):
                 # (what the duck made of a visit is Duck Core's words: matched to its engine)
                 out["world"]["family"] = boundary.annotate(
                     {"visits": self.family.view(), "done": self.family_done},
                     boundary.engine_of(self.session),
                 )
+        if real or self.no_home:
+            # a real duck has no home: no room to draw, no home_json (the page draws the empty
+            # floor); nor has a remote body before its bridge said what it is
+            out["home"] = None
+            return out
         layout = home.get("layout") or {}
         out["home"] = boundary.annotate_home(
             {"name": home["name"], "zh": layout.get("zh"), "fingerprint": home.get("fingerprint")},
@@ -1235,6 +1277,7 @@ def make_handler(
                         HTTPStatus.OK, {"ok": True, "name": name, "saved": state.layouts.list()}
                     )
                 elif verb == "load":
+                    state.refuse_layout_if_real()
                     raw = state.layouts.read(str(body.get("name", "")))
                     self._json(
                         HTTPStatus.OK, {"ok": True, "layout": raw, "check": _layoutcheck.check(raw)}
@@ -1252,7 +1295,9 @@ def make_handler(
                 else:
                     self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
             except layouts.LayoutProblem as problem:
-                self._json(HTTPStatus.OK, {"ok": False, "code": problem.code, **problem.params})
+                # (a real duck's refusal carries the plain reason: its message rides along)
+                answer = {"ok": False, "code": problem.code, **problem.params}
+                self._json(HTTPStatus.OK, i18nwire.body_answer(answer))
             except Exception as error:
                 traceback.print_exc()
                 self._json(
@@ -1314,6 +1359,12 @@ def make_handler(
                 self._layout_get(path, query)
                 return
             if path == "/api/home":
+                if state.no_home:  # a real duck has no home: the page draws the empty floor
+                    self._json(
+                        HTTPStatus.OK,
+                        {"name": None, "layout": None, "fingerprint": None, "real": state.real},
+                    )
+                    return
                 self._json(HTTPStatus.OK, i18nwire.home_answer(homeview.home_payload(state.home())))
                 return
             if path == "/api/eye.jpg":
@@ -1529,6 +1580,7 @@ def make_handler(
                     elif method == "body_demo":
                         if state.live is None:
                             raise ValueError("live physics is off")
+                        state.refuse_if_real()
                         state.live.demo_walk()
                         result = {
                             "note": "示範：物理身體自己站起來走一小圈（不是小鴨的決定，"
@@ -1537,11 +1589,13 @@ def make_handler(
                     elif method == "body_reset":
                         if state.live is None:
                             raise ValueError("live physics is off")
+                        state.refuse_if_real()  # (a real duck's body is the robot's own)
                         state.live.restart()
                         result = {"note": "物理身體重新放回起點坐好（小鴨自己沒有改變）"}
                     elif method in WORLD_BUTTONS:
                         if state.live is None:
                             raise ValueError(msg("web.server.make_handler.Handler.do_POST.fb5df2"))
+                        state.refuse_if_real()
                         result = world_button(state.live, method, params)
                     else:
                         result = dispatch(state.session, method, params)

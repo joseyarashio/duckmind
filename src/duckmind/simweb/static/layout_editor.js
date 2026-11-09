@@ -853,6 +853,8 @@
     const del = root.querySelector('[data-le="delete"]');
     if (open) open.disabled = els.saved.disabled || !els.saved.value;
     if (del) del.disabled = els.saved.disabled || !els.saved.value;
+    // (a real duck: no simulated home — realduck.js holds Apply and Open off again, with the reason)
+    if (window.duckReal) window.duckReal.hold(root);
   }
 
   /* ---------------- buttons and keys ---------------- */
@@ -969,6 +971,7 @@
       S.catList = lib.categories;
       for (const item of lib.items) S.lib.set(item.id, item);
       S.srv = srv;
+      if (window.duckReal) window.duckReal.take(srv.real);
       S.layout = clone(srv.layout);
       if (!S.layout.placements) S.layout.placements = [];
       S.base = JSON.stringify(S.layout.placements);

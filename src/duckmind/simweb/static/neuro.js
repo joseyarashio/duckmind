@@ -21,6 +21,8 @@
   // The words: catalog keys (docs: i18n.js) in the viewer's language; a server text field comes with
   // its message in the same object (`_i18n`), F / FS take the one in the viewer's language.
   const tr = (key, params = {}) => (window.I18N ? window.I18N.t(key, params) : key);
+  // A button's own re-enable timer: on again — unless a real duck refuses it (realduck.js: real wins).
+  const letGo = (el) => (window.duckReal ? window.duckReal.release(el) : (el.disabled = false));
   const F = (obj, name) => (obj ? (window.I18N ? window.I18N.field(obj, name) : obj[name]) ?? "" : "");
   const FS = (obj, name) => (obj ? (window.I18N ? window.I18N.items(obj, name) : obj[name]) ?? [] : []);
   // (an element's words, remembered so a language switch writes them again by itself)
@@ -67,7 +69,7 @@
     keys: {},
     lastReflex: null,
     retry: 0,
-    noButtons: false,
+    stimNote: "page.play.note", // the key of the line under 「逗逗牠」's buttons
     rowOf: new Map(), // a reflex's seq → its row (a folded repeat → the row it went into)
     voice: null, // whose voice the calls have ({seed, gd}: voice.js)
     skillCards: null,
@@ -145,6 +147,8 @@
       document.title = tr("page.neuro.enable");
     }
     buildPicker(status);
+    // (a real duck: hold its world controls off now, over the titles just built)
+    if (window.duckReal) window.duckReal.take(status.real, true);
     if (status.duck) renderDuck(status.duck);
     if (status.waiting_zh) renderNote({ waiting_zh: status.waiting_zh, _i18n: status._i18n });
     window.dispatchEvent(new CustomEvent("duck:neuro", { detail: { on: true, who: whoOf(status.duck) } }));
@@ -257,6 +261,7 @@
       if (t && t.enabled === false) location.reload();
       return;
     }
+    if (window.duckReal) window.duckReal.take(t.real);
     // The source started over (a new duck, a restarted server): its numbers begin again.
     if (typeof t.seq === "number" && t.seq < nu.since) {
       nu.since = 0;
@@ -1023,15 +1028,18 @@
     const label = tr(nu.lights ? "page.neuro.renderButtons.24ac92" : "page.neuro.renderButtons.f5c48e");
     for (const lights of $$("[data-lights]")) if (lights.textContent !== label) lights.textContent = label;
     const can = t.stimuli || null;
+    const real = window.duckReal;
     for (const button of $$("#neuroStim [data-stim]")) {
+      if (real && real.blocked(button)) continue; // (a real duck: realduck.js holds it off, with the reason)
       const ok = !can || can[button.dataset.stim] !== false;
       const off = !ok || nu.sending;
       if (button.disabled !== off) button.disabled = off;
     }
     const none = !!can && Object.values(can).every((v) => v === false);
-    if (none !== nu.noButtons) {
-      nu.noButtons = none;
-      $("#neuroStimNote").textContent = tr(none ? "page.neuro.renderButtons.13153b" : "page.play.note");
+    const noteKey = real && real.refuses("stimuli") ? "page.real.note.stimuli" : none ? "page.neuro.renderButtons.13153b" : "page.play.note";
+    if (noteKey !== nu.stimNote) {
+      nu.stimNote = noteKey;
+      $("#neuroStimNote").textContent = tr(noteKey);
     }
   }
 
@@ -1371,12 +1379,17 @@
     const row = $("#neuroHelpRow");
     if (!row) return;
     const down = !!(body && body.waiting_help);
-    const stuck = !!(body && body.stuck) && !down;
+    // (a real duck: no simulated hand — 扶牠起來 stays, held off by realduck.js, and the note says
+    // to help it up by hand; being stuck offers nothing, there is no hand to carry it to the mat)
+    const real = !!(window.duckReal && window.duckReal.refuses("help_up"));
+    const stuck = !!(body && body.stuck) && !down && !real;
     const show = down || stuck;
     const kind = down ? "down" : stuck ? "stuck" : "";
-    if (show && row.dataset.kind !== kind) {
+    const noteKey = real ? "page.real.note.help" : stuck ? "page.neuro.renderHelp.944bf2" : "page.neuro.renderHelp.6103d3";
+    if (show && (row.dataset.kind !== kind || row.dataset.note !== noteKey)) {
       // (a new reason to offer help: say it; after a click the row keeps what the world did)
-      $("#neuroHelpNote").textContent = tr(stuck ? "page.neuro.renderHelp.944bf2" : "page.neuro.renderHelp.6103d3");
+      $("#neuroHelpNote").textContent = tr(noteKey);
+      row.dataset.note = noteKey;
     }
     row.dataset.kind = kind;
     if (row.hidden === show) row.hidden = !show;
@@ -1401,7 +1414,7 @@
     } catch (error) {
       note(tr("page.neuro.neuroMode.da0e07", { error: why(error, tr("page.neuro.neuroMode.da8b2b")) }));
     } finally {
-      setTimeout(() => (button.disabled = false), 3000);
+      setTimeout(() => letGo(button), 3000);
     }
   });
 
@@ -1424,7 +1437,7 @@
     } catch (error) {
       note(tr("page.neuro.neuroMode.d73ac1", { error: why(error, tr("page.neuro.neuroMode.e7a22d")) }));
     } finally {
-      setTimeout(() => (button.disabled = false), 3000);
+      setTimeout(() => letGo(button), 3000);
     }
   });
 

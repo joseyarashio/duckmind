@@ -916,7 +916,36 @@ class NeuroDriver:
             # sound's reflex. What reaches the duck still goes through its sensor models.
             self._aux_wake.set()
 
+    # ── a real Microduck: the brain has only the duck's own senses, there is no world ──
+
+    @property
+    def attached(self) -> bool:
+        """A body is attached (False: starting, let go for a restart, its link not answering)."""
+        return self._body is not None
+
+    @property
+    def real(self) -> bool:
+        """The attached body is a real Microduck (``LiveBody.real``): no world to ask anything."""
+        return bool(getattr(self._body, "real", False))
+
+    def real_view(self) -> dict[str, Any] | None:
+        """What the page must know of a real duck (None: a simulated body, or none attached):
+        ``rehearsal``, ``reason`` (the one plain reason) and ``refuses`` (the features the page
+        disables; :data:`duckmind.simweb.live.REAL_REFUSES`)."""
+        body = self._body
+        if not bool(getattr(body, "real", False)):
+            return None
+        from duckmind.simweb.live import REAL_REFUSES
+
+        return {
+            "rehearsal": bool(getattr(body, "rehearsal", False)),
+            "reason": msg("livebody.no_world"),
+            "refuses": sorted(REAL_REFUSES),
+        }
+
     def _inject(self, name: str, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        if self.real:  # (every page stimulus is made by the simulated world: a real duck has none)
+            raise ValueError(msg("livebody.no_world"))
         params = dict(params or {})
         body = self._body
         call = getattr(body, "world_call", None) if body is not None else None
@@ -1117,8 +1146,10 @@ class NeuroDriver:
         return {**first, "ok": True, "kind": name, "note_zh": spec["zh"]}
 
     def stimuli_supported(self) -> set[str]:
-        """The page stimuli this driver can make in the world now."""
+        """The page stimuli this driver can make in the world now (none on a real duck)."""
         body = self._body
+        if self.real:
+            return set()
         ops = (getattr(body, "host_info", None) or {}).get("ops") or []
         battery = {"swap_battery"} if "x_battery" in ops else set()
         if "x_hand" in ops:
@@ -1154,7 +1185,10 @@ class NeuroDriver:
 
     def help_up(self) -> dict[str, Any]:
         """「扶牠起來」: the world's visible hand sets the fallen body upright (a world act; the
-        duck feels it through its own body: righted with help)."""
+        duck feels it through its own body: righted with help). Refused on a real duck (no world's
+        hand: a person rights the robot itself)."""
+        if self.real:
+            raise ValueError(msg("livebody.no_world"))
         body = self._body
         call = getattr(body, "world_call", None) if body is not None else None
         if not callable(call):
@@ -1645,7 +1679,15 @@ class NeuroDriver:
         and the odometry last agreed: the contact odometry's yaw is exact in the simulator and its position creeps
         about 3 cm per 60 s walked (docs/design/neural-duck/LASTING-MAP-2026-10-11.md), so a click is placed
         to within ~3 cm plus the page's own picking error (a pixel, ~1 cm at the stage's zoom). On a real body there is no
-        world frame: the family's point would come from the duck's own camera, and this method is the seam to replace."""
+        world frame: the family's point would come from the duck's own camera, and this method is the seam to replace.
+        Until then a real duck refuses it (``reason`` "real", the one plain reason)."""
+        if self.real:
+            return {
+                "ok": False,
+                "refused": True,
+                "reason": "real",
+                "reason_zh": msg("livebody.no_world"),
+            }
         try:
             x, y = float(x_m), float(y_m)
         except (TypeError, ValueError):
@@ -1925,17 +1967,22 @@ class NeuroDriver:
 
     def _aux(self, body: Any, stop: threading.Event) -> None:
         """A few times a second: the dock contact (``pg``: the PG pin, a real door), the world's
-        truth and the physics frame for the world-side sensor models, the duck's clock."""
+        truth and the physics frame for the world-side sensor models, the duck's clock. A real
+        duck has no world: no pg op, no world truth, no physics frame (its odometry frame is the
+        duck's own, never truth), no walk-by to end."""
         period = 1.0 / AUX_HZ
         while not stop.is_set():
-            call = getattr(body, "world_call", None)
+            real = bool(getattr(body, "real", False))
+            call = None if real else getattr(body, "world_call", None)
             if callable(call):
                 try:
                     self._pg = bool(call("pg").get("pg"))
                 except Exception:
                     self._pg = None
-            world = getattr(body, "world", None)
-            frame = getattr(body, "frame", None)
+            elif real:
+                self._pg = None
+            world = None if real else getattr(body, "world", None)
+            frame = None if real else getattr(body, "frame", None)
             try:
                 self._world = with_body_battery(body, world() if callable(world) else None)
                 self._truth = frame() if callable(frame) else None

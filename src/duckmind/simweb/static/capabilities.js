@@ -266,6 +266,15 @@
       const response = await fetch(API, { cache: "no-store", headers: { Accept: "application/json" } });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
+      if (payload && payload.ready === false) {
+        // (no evidence published with this program: a plain line, not a load failure)
+        evidence = null;
+        loadError = null;
+        byId("capError").hidden = true;
+        if (window.I18N) window.I18N.text(byId("capUpdated"), "page.cap.no_data");
+        else escText(byId("capUpdated"), t("page.cap.no_data"));
+        return;
+      }
       if (!payload || payload.schema_version !== 1 || !Array.isArray(payload.skills)) {
         throw new Error("schema_version 1 required");
       }

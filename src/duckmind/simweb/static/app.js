@@ -2028,7 +2028,9 @@ function renderEye(info) {
   else if (eyeFast()) note = T("page.app.renderEye.410644");
   else if (eye.frozen && eye.age_s != null) note = T("page.app.renderEye.1e415b", { age_s: Math.max(0, Math.round(eye.age_s)) });
   else if (eye.age_s != null) {
-    note = T("page.app.renderEye.555e95", { age_s: Math.max(0, Math.round(eye.age_s)) });
+    // (a real duck's picture is its camera's, never one the computer drew)
+    const realEye = !!(window.duckReal && window.duckReal.on);
+    note = T(realEye ? "page.real.eye.age" : "page.app.renderEye.555e95", { age_s: Math.max(0, Math.round(eye.age_s)) });
     routine = true;
   } else note = eyeUi.why || F(eye, "note") || T("page.app.renderEye.54ee10");
   if (note !== eyeUi.noteKey) {
@@ -2087,6 +2089,8 @@ function renderMode2d(info) {
 }
 
 function takeBody(info) {
+  // (a real duck first: realduck.js holds its world controls off before they are drawn here)
+  if (window.duckReal) window.duckReal.takeBody(info);
   eyeUi.body = info;
   eyeUi.bodyAt = Date.now();
   renderTrust(info);
@@ -2140,12 +2144,16 @@ function takeHome(home) {
 window.addEventListener("duck:home", (event) => takeHome(event.detail));
 
 function renderWorld(info) {
-  const world = info && info.enabled ? info.world : null;
+  // A real duck (realduck.js): no simulated world — its buttons are held off there, with the reason;
+  // the battery bar is the duck's own; there is no home, hand or family to describe.
+  const real = !!(window.duckReal && window.duckReal.on);
+  const world = info && info.enabled && !real ? info.world : null;
   const line = $("#worldLine");
   // Card 09 works only with live physics: without it its buttons stay greyed out (the card's
   // hint says why) instead of each click ending in a refusal.
   const physics = !!(info && info.enabled);
   for (const button of document.querySelectorAll("#worldTools [data-world]")) {
+    if (real && window.duckReal.blocked(button)) continue;
     if (button.disabled !== !physics) {
       button.disabled = !physics;
       button.title = physics ? "" : T("page.app.renderWorld.75c8b7");
@@ -2155,7 +2163,7 @@ function renderWorld(info) {
   if (info && info.home_json) takeHome(info.home_json);
   const box = $("#worldBattery");
   const battery = world && world.battery;
-  box.hidden = !battery;
+  if (!real) box.hidden = !battery;
   if (battery) {
     const pct = Math.max(0, Math.min(100, Number(battery.percent) || 0));
     const said = `${pct}%${battery.charging ? T("page.app.renderWorld.d33e82") : ""}`;

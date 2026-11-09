@@ -65,18 +65,20 @@ def neural_duck_body(environ: MutableMapping[str, str]) -> dict[str, Any]:
     return {**installed, "world_extensions": environ["DUCKMIND_SIMHOME_EXT"]}
 
 
-def channels_for(body: Any) -> dict[str, Channel]:
+def channels_for(body: Any, *, as_real: bool = False) -> dict[str, Channel]:
     """What this simulated body offers a brain: robotd (its ``robot.health`` carrying the world's
     pack, as a real duck's robotd carries its own: :mod:`duckmind.remotebody.battery`), the world
-    server and, when the world runs them, tofd and the camera's frame socket."""
+    server and, when the world runs them, tofd and the camera's frame socket. ``as_real``: what a
+    real duck's bridge offers — robotd, tofd and the camera, never the world."""
     from duckmind.remotebody.battery import world_health_battery
 
     channels = {
         "robotd": Channel(
             "robotd", unix=str(body.robotd_socket), answers=world_health_battery(body.world)
         ),
-        "world": Channel("world", tcp=("127.0.0.1", int(body.body_port))),
     }
+    if not as_real:
+        channels["world"] = Channel("world", tcp=("127.0.0.1", int(body.body_port)))
     if body.home:
         sensors = body.world_call("x_sensors")
         tofd = (sensors.get("tofd") or {}).get("socket")
@@ -86,6 +88,24 @@ def channels_for(body: Any) -> dict[str, Channel]:
         if media:
             channels["media"] = Channel("media", unix=str(media))
     return channels
+
+
+def body_info(body: Any, *, as_real: bool = False) -> dict[str, Any]:
+    """What the bridge tells a brain about this body. ``as_real``: a real duck's bridge's words
+    (``backend: real``, its networks' hashes) plus ``rehearsal`` — the page then drives it as it
+    would a real Microduck, with only the duck's own senses."""
+    if as_real:
+        return {"backend": "real", "rehearsal": True, "policies": body.policy_hashes()}
+    return {
+        "backend": "simulator",
+        "home": body.home,
+        "collision": body.collision,
+        "lockstep": body.lockstep,
+        "pose_joints": body.pose_joints_ok,
+        "tof": body.tof,
+        "head_alpha": body.robotd_head_alpha,
+        "policies": body.policy_hashes(),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -109,6 +129,12 @@ def main(argv: list[str] | None = None) -> int:
         "duck world side (the neural duck's page sets all three up for its own body; so does "
         "this, unless --plain)",
     )
+    parser.add_argument(
+        "--as-real",
+        action="store_true",
+        help="present this simulated duck as a real one (a test of the page's real-duck mode "
+        "without hardware): the bridge says backend real and offers no world channel",
+    )
     args = parser.parse_args(argv)
     from duckmind.livebody import LiveBody
 
@@ -129,22 +155,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         body.start()
         body.passive = True  # one writer: the brain (or the bridge's safety keeper)
-        channels = channels_for(body)
+        channels = channels_for(body, as_real=args.as_real)
         bridge = Bridge(
             listen=host_port(args.listen),
             token=token,
             channels=channels,
             keeper=keeper_for(str(body.robotd_socket), "simulator", sit=not args.no_sit, log=log),
-            body_info={
-                "backend": "simulator",
-                "home": body.home,
-                "collision": body.collision,
-                "lockstep": body.lockstep,
-                "pose_joints": body.pose_joints_ok,
-                "tof": body.tof,
-                "head_alpha": body.robotd_head_alpha,
-                "policies": body.policy_hashes(),
-            },
+            body_info=body_info(body, as_real=args.as_real),
             deadman_s=args.deadman_ms / 1000.0,
             log=log,
         )
