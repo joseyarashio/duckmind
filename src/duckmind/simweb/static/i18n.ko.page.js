@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / page (2008 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "page", {
 "fmt.sep.and_then": ", 그리고 ",
 "fmt.sep.babble": "·",
@@ -1835,6 +1835,19 @@ DuckI18n.load("ko", "page", {
 "page.point.why.stopped": "멈추라는 말을 들었어요",
 "page.point.why.stuck": "중간에 걸려서 못 갔어요",
 "page.point.why.timeout": "너무 오래 걸려서 그만뒀어요",
+"page.public.chip_ended": "체험 시간 끝",
+"page.public.chip_left": "체험 {time} 남음",
+"page.public.end_download": "오리 파일 내려받기",
+"page.public.end_gone": "내려받는 시간도 끝났어요. {name}와(과) 놀아 줘서 고마워요!",
+"page.public.end_text": "{name}이(가) 앉아서 쉬고 있어요. 데려가려면 {time} 안에 오리 파일을 내려받으세요.",
+"page.public.end_title": "시간이 끝났어요",
+"page.public.ended_grace": "체험 시간이 끝났어요. 오리가 앉아서 쉬고 있어요. {minutes}분 안에는 오리 파일을 내려받을 수 있어요.",
+"page.public.model": "3D 모델: Pollen Robotics의 Microduck",
+"page.public.notice": "비상업용이에요. 요금도 광고도 없어요. 이 오리는 당신을 위해 무작위로 태어났어요.",
+"page.public.off": "체험에서 안 되는 것: 다른 오리로 바꾸기, 실험실, 원격, 말하기, 오리 파일 가져오기, 진짜 오리 연결.",
+"page.public.refused": "공개 체험에서는 이 기능을 쓸 수 없어요.",
+"page.public.repo": "duckmind 소스 코드",
+"page.public.title": "공개 체험",
 "page.real.battery.title": "오리가 스스로 알려 주는 배터리 양(오리의 제어 프로그램 robotd에서 와요)",
 "page.real.battery.title_no_dock": "오리가 스스로 알려 주는 배터리 양(오리의 제어 프로그램 robotd에서 와요). 이 오리는 충전대가 없어요. 배터리가 부족하면 배터리를 갈아 주거나 충전해 주세요",
 "page.real.battery.unknown": "아직 몰라요(오리 소식 기다리는 중)",

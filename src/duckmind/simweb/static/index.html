@@ -53,6 +53,22 @@
   </nav>
   <div class="lang-slot" data-i18n-picker></div>
 </header>
+<!-- 公開試玩 (public.js; python -m duckmind.simweb --public): shown only when /api/ping says public. The time left, the
+     non-commercial notice, what is not open, Pollen's 3D model and its licence, the repository; at the end, the download. -->
+<section class="public-bar" id="publicBar" data-public hidden aria-label="公開試玩" data-i18n-attr="aria-label:page.public.title">
+  <div class="public-main">
+    <strong class="public-title" data-i18n="page.public.title">公開試玩</strong>
+    <span class="public-left" id="publicLeft" role="timer">—</span>
+    <span class="public-notice" data-i18n="page.public.notice">非商業用途：不收費、沒有廣告。這隻小鴨是為你隨機孵出來的。</span>
+  </div>
+  <div class="public-end" id="publicEnd" role="status" aria-live="polite" hidden>
+    <strong data-i18n="page.public.end_title">時間到了</strong>
+    <span id="publicEndText"></span>
+    <a class="btn primary" id="publicDownload" href="/api/life/duckfile/export" download data-i18n="page.public.end_download">下載小鴨檔案</a>
+  </div>
+  <p class="public-offlist" data-i18n="page.public.off">試玩不開放：換一隻小鴨、實驗室、遙控、說話、匯入小鴨檔案、接真的小鴨。</p>
+  <p class="public-links"><a href="https://github.com/pollen-robotics/microduck_rl" target="_blank" rel="noopener" data-i18n="page.public.model">3D 模型：Pollen Robotics 的 Microduck</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener" translate="no">CC BY-NC-SA 4.0</a> · <a href="https://github.com/joseyarashio/duckmind" target="_blank" rel="noopener" data-i18n="page.public.repo">duckmind 的原始碼</a></p>
+</section>
 
 <main id="top">
 <div id="viewSim" class="view view-sim">
@@ -659,6 +675,9 @@
   <div class="ticker" aria-label="小鴨現在的狀態" data-i18n-attr="aria-label:page.html.top.ticker.aria">
     <div class="ticker-inner">
     <div class="ticker-track" id="tickerTrack">
+      <!-- 公開試玩 (public.js): the time left in the visit -->
+      <span class="chip public" id="chipPublic" data-public hidden>—</span>
+      <span class="tick-star" aria-hidden="true" data-public hidden>★</span>
       <span class="chip mode-warn" data-neuro hidden data-i18n="page.html.neuroFlag.text">神經鴨原型（示範）</span>
       <span class="tick-star" aria-hidden="true" data-neuro hidden>★</span>
       <span class="chip stage" id="neuroChipDuck" data-neuro hidden>—</span>
@@ -1109,6 +1128,7 @@
 <script src="/voice.js"></script>
 <script src="/eyeview.js"></script>
 <script src="/realduck.js"></script>
+<script src="/public.js"></script>
 <script src="/app.js"></script>
 <script src="/shell.js"></script>
 <script src="/capabilities.js"></script>

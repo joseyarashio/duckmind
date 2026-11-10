@@ -76,5 +76,7 @@ grows into a new voice later, the new library is made from that computer's own v
 * **Private.** The file holds people's names and looks (as numbers, not photos). The command line
   writes it readable by you only (a download from the page is saved by your browser), the program
   never sends it anywhere, and the simulator's export and import answer only a browser on the same
-  computer. The checksums find damage and accidental changes; they are not a signature, so only
+  computer. (Public play, `python -m duckmind.simweb --public`, is the one exception: there the
+  visitor's own fresh duck, which knows no family's names, is exported to the visitor's browser,
+  and import is not offered.) The checksums find damage and accidental changes; they are not a signature, so only
   import files you made or trust.

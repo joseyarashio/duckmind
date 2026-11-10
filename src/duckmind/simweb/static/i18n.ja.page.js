@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / page (2008 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "page", {
 "fmt.sep.and_then": "、それに",
 "fmt.sep.babble": "・",
@@ -1835,6 +1835,19 @@ DuckI18n.load("ja", "page", {
 "page.point.why.stopped": "止まるように言われました",
 "page.point.why.stuck": "途中で動けなくなりました",
 "page.point.why.timeout": "時間がかかりすぎてやめました",
+"page.public.chip_ended": "デモの時間終了",
+"page.public.chip_left": "デモ残り {time}",
+"page.public.end_download": "ファイルをダウンロード",
+"page.public.end_gone": "ダウンロードの時間も終わりました。{name}と遊んでくれてありがとう！",
+"page.public.end_text": "{name}は座って休んでいます。連れて帰るなら、{time} 以内にアヒルのファイルをダウンロードしてください。",
+"page.public.end_title": "時間になりました",
+"page.public.ended_grace": "時間になりました。アヒルは座って休んでいます。あと{minutes}分は、アヒルのファイルをダウンロードできます。",
+"page.public.model": "3D モデル：Pollen Robotics の Microduck",
+"page.public.notice": "非営利です。料金も広告もありません。このアヒルは、あなたのためにランダムに生まれました。",
+"page.public.off": "デモで使えないもの：アヒルを変える、ラボ、リモート、話す、ファイルの読み込み、本物のアヒルにつなぐ。",
+"page.public.refused": "公開デモでは、この機能は使えません。",
+"page.public.repo": "duckmind のソースコード",
+"page.public.title": "公開デモ",
 "page.real.battery.title": "アヒル自身が知らせる電池の残り（アヒルの制御プログラム robotd から）",
 "page.real.battery.title_no_dock": "アヒル自身が知らせる電池の残り（アヒルの制御プログラム robotd から）。このアヒルには充電台がありません。電池が少なくなったら、電池を交換するか充電してあげてください",
 "page.real.battery.unknown": "まだわかりません（アヒルの知らせ待ち）",

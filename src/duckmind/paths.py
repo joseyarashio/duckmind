@@ -7,13 +7,16 @@ Each folder is chosen in this order: its environment variable, else the machine'
   are here too).
 * ``data_dir()`` — caches, live records and measurement records (the voice banks, the motion
   table, the voice-stream helper build): ``$DUCKMIND_DATA_DIR``, else ``data`` in
-  ``paths.toml``, else ``<home>/data``.
+  ``paths.toml``, else ``<home>/data``. ``motions_dir()`` is the trained-motion table's folder
+  inside it (``<data>/live/motions``).
 * ``loops_dir(life)`` — a server's loop-watcher captures: ``$DUCKMIND_LOOP_DIR``, else
   ``<life>/loops``, else a temporary folder of the process's own (never the live duck's).
 * ``policy_root()`` — the ONNX policy sets: ``$DUCKMIND_POLICY_ROOT``, else ``policies`` in
   ``paths.toml``, else ``<home>/policies``. Inside it, ``policy_dir()`` (the shipped set:
-  ``$DUCKMIND_POLICY_DIR``, else ``<policy root>/current``) and ``v5_policy_dir()`` (the v5
-  release: ``$DUCKMIND_V5_DIR``, else ``<policy root>/releases/seed-v5``).
+  ``$DUCKMIND_POLICY_DIR``, else ``<policy root>/current``), ``v5_policy_dir()`` (the v5
+  release: ``$DUCKMIND_V5_DIR``, else ``<policy root>/releases/seed-v5``) and ``v9_policy_dir()``
+  (the v9 release the live duck walks with: ``$DUCKMIND_V9_DIR``, else
+  ``<policy root>/releases/v9``).
 * ``upstream_root()`` — the folder holding the upstream ``microduck/`` and ``microduck_rl/``
   checkouts (``python -m duckmind.setup_cmd`` clones them there): ``$DUCKMIND_UPSTREAM``, else
   ``upstream`` in ``paths.toml``, else ``<home>/upstream``. ``microduck_mjcf_dir()`` is the robot model
@@ -43,6 +46,7 @@ DATA_ENV = "DUCKMIND_DATA_DIR"
 POLICY_ROOT_ENV = "DUCKMIND_POLICY_ROOT"
 POLICY_ENV = "DUCKMIND_POLICY_DIR"
 V5_ENV = "DUCKMIND_V5_DIR"
+V9_ENV = "DUCKMIND_V9_DIR"
 UPSTREAM_ENV = "DUCKMIND_UPSTREAM"
 MJCF_ENV = "DUCKMIND_MICRODUCK_MJCF"
 LOOP_ENV = "DUCKMIND_LOOP_DIR"
@@ -97,6 +101,11 @@ def data_dir() -> Path:
     return _pick(DATA_ENV, "data", "data")
 
 
+def motions_dir() -> Path:
+    """The trained-motion table (``skills.json`` and its networks): ``<data>/live/motions``."""
+    return data_dir() / "live" / "motions"
+
+
 def policy_root() -> Path:
     """The folder of ONNX policy sets."""
     return _pick(POLICY_ROOT_ENV, "policies", "policies")
@@ -112,6 +121,12 @@ def v5_policy_dir() -> Path:
     """The v5 release set: ``$DUCKMIND_V5_DIR``, else ``<policy root>/releases/seed-v5``."""
     raw = os.environ.get(V5_ENV)
     return Path(raw).expanduser() if raw else policy_root() / "releases" / "seed-v5"
+
+
+def v9_policy_dir() -> Path:
+    """The v9 release set: ``$DUCKMIND_V9_DIR``, else ``<policy root>/releases/v9``."""
+    raw = os.environ.get(V9_ENV)
+    return Path(raw).expanduser() if raw else policy_root() / "releases" / "v9"
 
 
 def loops_dir(life: Path | None = None) -> Path:

@@ -106,7 +106,9 @@ names) are kept as they are.
 
 ## Quick start
 
-You need Python 3.12 or newer, `git`, and [`uv`](https://docs.astral.sh/uv/).
+You need Python 3.12 or newer, `git`, [`uv`](https://docs.astral.sh/uv/), and Rust
+([rustup](https://rustup.rs)) to build Pollen's `robotd`, the program that moves the
+duck's body. A Mac with Apple silicon or Linux.
 
 ```bash
 git clone https://github.com/joseyarashio/duckmind.git
@@ -114,29 +116,46 @@ cd duckmind
 uv run --python 3.12 --extra sim python -m duckmind.setup_cmd
 ```
 
-`python -m duckmind.setup_cmd` downloads what duckmind uses but does not ship:
+`python -m duckmind.setup_cmd` downloads and builds what duckmind uses but does not ship:
 
-- Pollen's `microduck` code (robotd and the duck's sounds) at a pinned commit,
+- Pollen's `microduck` code at its `daemon-v0.18.5` release, with duckmind's small
+  `poseJoints` patch (it lets the duck go limp when it plays dead). setup builds `robotd`,
+  `tofd` and the duck's sounds from it with Rust. Without Rust, setup says how to
+  install it and does the rest; the page then runs without `robotd` (no live physics),
 - Pollen's `microduck_rl` code and 3D robot model at a pinned commit. The 3D meshes
   are licensed CC BY-NC-SA 4.0 (non-commercial). setup shows that licence and
   downloads them only if you type "yes",
-- Pollen's v5 policy set from Hugging Face, checked file by file against pinned
-  sha256 values.
+- Pollen's v9 policy set from Hugging Face (the walk Pollen's real duck uses now), and
+  the older v5 set the tests use,
+- duckmind's seven trained motions from Hugging Face
+  ([`joseyarashio/duckmind-motion-skills`](https://huggingface.co/joseyarashio/duckmind-motion-skills),
+  Apache-2.0: bow, turn, hop over, startle, comfort, panic run, quick turn), and the
+  table that tells `robotd` how to play them.
 
-Files go under `~/.duckmind` by default (`DUCKMIND_HOME` changes that). setup never
-changes something that is already there.
+Every downloaded file is checked against a pinned sha256 value. Files go under
+`~/.duckmind` by default (`DUCKMIND_HOME` changes that). setup never changes something
+that is already there.
 
-Then start the simulator page. setup prints this command with your own path:
+Then start the duck. setup prints this command with your own paths:
 
 ```bash
-uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 \
-  --microduck-mjcf ~/.duckmind/upstream/microduck_rl/src/mjlab_microduck/robot/microduck
+DUCKMIND_ROBOTD_SKILLS=~/.duckmind/data/live/motions/skills.json \
+uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 --live --brain neuro \
+  --microduck ~/.duckmind/upstream/microduck \
+  --microduck-rl ~/.duckmind/upstream/microduck_rl \
+  --policies ~/.duckmind/policies/releases/v9 \
+  --robotd-bin ~/.duckmind/upstream/microduck/target/aarch64-apple-darwin/debug/robotd
 # open http://127.0.0.1:8765/
 ```
 
-The server listens only on your own computer. More in
-[docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md); live
-physics with robotd is in [docs/validation/run-live-sim.md](docs/validation/run-live-sim.md).
+(On Linux `robotd` is in `target/debug/`.) The duck at home now walks like the one on
+the public play page: Pollen's `robotd` and v9 walk move its body in MuJoCo physics, and
+duckmind's trained motions run on top. The server listens only on your own computer.
+More in [docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md).
+
+Ran setup before? Your files stay as they are. Run setup again to add v9, the motions
+and `robotd`. If `upstream/microduck` is at another commit, move that folder aside
+first: setup never changes a checkout at another commit.
 
 The cloud voice (Google Gemini Live) is off by default. Read [PRIVACY.md](PRIVACY.md)
 before you turn it on.

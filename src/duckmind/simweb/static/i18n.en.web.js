@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / web (169 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / web (171 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "web", {
 "web.demo.DemoRunner.finish": "Demo: {kind}",
 "web.demo.DemoRunner.set_up": "Can't put the thing in front of the duck",
@@ -128,6 +128,8 @@ DuckI18n.load("en", "web", {
 "web.live.plain_error.777d08": "Can't find the upstream files real physics needs (robotd, the body server or the walking network)",
 "web.live.plain_error.941e54": "The physics body's server stopped or isn't answering; press \"Reset physics body\" to start again",
 "web.live.world_words": "The physics world isn't answering (the body server may have stopped)",
+"web.public.ended_grace": "Time's up: the duck sat down to rest. You can still download its duck file for {minutes, plural, one {# minute} other {# minutes}}.",
+"web.public.refused": "This isn't open in the public demo.",
 "web.robot_model.ATTRIBUTION": "3D model: Pollen Robotics microduck_rl (CC BY-NC-SA 4.0), read from the local checkout, not copied into duckmind.",
 "web.robot_model.load_model.074f38": "No upstream model location given (add --microduck-mjcf FOLDER when starting)",
 "web.robot_model.load_model.b008b4": "The MJCF has no body",

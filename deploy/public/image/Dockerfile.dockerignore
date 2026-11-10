@@ -1,0 +1,11 @@
+# The build context is the repository root; the image needs only these.
+*
+!pyproject.toml
+!README.md
+!LICENSE
+!NOTICE
+!src/
+!third_party/microduck_emotions/robotd-poseJoints-0.18.5.patch
+!deploy/public/image/
+**/__pycache__
+**/*.pyc

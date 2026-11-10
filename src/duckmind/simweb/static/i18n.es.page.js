@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / page (2008 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "page", {
 "fmt.sep.and_then": " y además ",
 "fmt.sep.babble": "·",
@@ -1835,6 +1835,19 @@ DuckI18n.load("es", "page", {
 "page.point.why.stopped": "le dijeron que parara",
 "page.point.why.stuck": "se quedó atascado",
 "page.point.why.timeout": "tardó demasiado y se rindió",
+"page.public.chip_ended": "Se acabó la demo",
+"page.public.chip_left": "Demo: quedan {time}",
+"page.public.end_download": "Descargar archivo",
+"page.public.end_gone": "También se acabó el tiempo para descargar. ¡Gracias por acompañar a {name}!",
+"page.public.end_text": "{name} se sentó a descansar. Para llevártelo, descarga su archivo de patito en menos de {time}.",
+"page.public.end_title": "Se acabó el tiempo",
+"page.public.ended_grace": "Se acabó el tiempo: el patito se sentó a descansar. Aún puedes descargar su archivo de patito durante {minutes, plural, one {# minuto} other {# minutos}}.",
+"page.public.model": "Modelo 3D: Microduck de Pollen Robotics",
+"page.public.notice": "Sin fines comerciales: sin pagos ni anuncios. Este patito nació al azar, solo para ti.",
+"page.public.off": "No está en la demo: cambiar de patito, el laboratorio, el control remoto, hablar, importar un archivo, conectar un patito de verdad.",
+"page.public.refused": "Esto no está abierto en la demo pública.",
+"page.public.repo": "Código de duckmind",
+"page.public.title": "Demo pública",
 "page.real.battery.title": "El nivel de batería que informa el propio pato (de su programa de control, robotd)",
 "page.real.battery.title_no_dock": "El nivel de batería que informa el propio pato (de su programa de control, robotd). Este pato no tiene base de carga: cuando la batería esté baja, cámbiale la batería o cárgasela",
 "page.real.battery.unknown": "Aún no se sabe (esperando al pato)",

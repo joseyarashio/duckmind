@@ -11,10 +11,11 @@ sponsored by Pollen Robotics. Please do not describe your change as official.
 
 ## Getting started
 
-Requires Python 3.12+, `git` and [`uv`](https://docs.astral.sh/uv/).
+Requires Python 3.12+, `git`, [`uv`](https://docs.astral.sh/uv/) and Rust
+([rustup](https://rustup.rs), to build `robotd`).
 
 ```bash
-uv run --python 3.12 python -m duckmind.setup_cmd      # the upstream checkouts and the v5 policies
+uv run --python 3.12 python -m duckmind.setup_cmd      # upstream checkouts, robotd, policies v9 and v5, motions
 uv run --python 3.12 --extra dev pytest -m "not heavy" # the fast tier: under three minutes
 uv run --python 3.12 --extra dev ruff check src tests
 uv run --python 3.12 --extra dev ruff format --check src tests

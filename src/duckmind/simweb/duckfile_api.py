@@ -39,10 +39,12 @@ MEDIA_TYPE = "application/vnd.duckmind.duck+zip"
 
 class DuckFileHub:
     """``/api/life/duckfile/…`` for a server (``state``: its :class:`~duckmind.simweb.server.SimState`;
-    ``state.life_host`` is the duck it lives, or None)."""
+    ``state.life_host`` is the duck it lives, or None). ``any_client``: public play — the export answers the
+    visitor wherever they are (their duck has no family's names; the import is not routed there)."""
 
-    def __init__(self, state: Any) -> None:
+    def __init__(self, state: Any, *, any_client: bool = False) -> None:
         self.state = state
+        self.any_client = any_client
 
     @staticmethod
     def handles(path: str) -> bool:
@@ -80,7 +82,7 @@ class DuckFileHub:
         if path != ROUTE + "/export":
             _send(handler, HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
             return
-        if not _local(handler):
+        if not (self.any_client or _local(handler)):
             _send(handler, HTTPStatus.FORBIDDEN, _refusal("web.duckfile.not_local"))
             return
         host = self._host()

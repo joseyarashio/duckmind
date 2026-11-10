@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hans / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hans / page (2008 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hans", "page", {
 "fmt.sep.and_then": "，又",
 "fmt.sep.babble": "·",
@@ -1835,6 +1835,19 @@ DuckI18n.load("zh-Hans", "page", {
 "page.point.why.stopped": "有人叫它停下",
 "page.point.why.stuck": "卡住了，走不过去",
 "page.point.why.timeout": "走太久了，不去了",
+"page.public.chip_ended": "试玩时间到了",
+"page.public.chip_left": "试玩还剩 {time}",
+"page.public.end_download": "下载小鸭文件",
+"page.public.end_gone": "下载的时间也过了。谢谢你来陪 {name}！",
+"page.public.end_text": "{name} 坐下来休息了。想带它回家，就在 {time} 内下载它的小鸭文件。",
+"page.public.end_title": "时间到了",
+"page.public.ended_grace": "试玩时间到了，小鸭坐下来休息了。{minutes} 分钟内还可以下载它的小鸭文件。",
+"page.public.model": "3D 模型：Pollen Robotics 的 Microduck",
+"page.public.notice": "非商业用途：不收费、没有广告。这只小鸭是为你随机孵出来的。",
+"page.public.off": "试玩不开放：换一只小鸭、实验室、遥控、说话、导入小鸭文件、接真的小鸭。",
+"page.public.refused": "公开试玩不开放这个功能。",
+"page.public.repo": "duckmind 的源代码",
+"page.public.title": "公开试玩",
 "page.real.battery.title": "小鸭自己回报的电量（从小鸭的控制程序 robotd 来）",
 "page.real.battery.title_no_dock": "小鸭自己回报的电量（从小鸭的控制程序 robotd 来）。这只小鸭没有充电座：电量低了，请帮它换电池或充电",
 "page.real.battery.unknown": "还不知道（等小鸭回报）",

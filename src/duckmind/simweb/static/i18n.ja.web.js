@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / web (169 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / web (171 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "web", {
 "web.demo.DemoRunner.finish": "デモ：{kind}",
 "web.demo.DemoRunner.set_up": "アヒルの前にものを置けません",
@@ -128,6 +128,8 @@ DuckI18n.load("ja", "web", {
 "web.live.plain_error.777d08": "本物の物理に必要なアップストリームのファイル（robotd、体のサーバー、歩き用ネットワーク）が見つかりません",
 "web.live.plain_error.941e54": "物理の体のサーバーが止まったか返事がありません。「物理の体をリセット」を押して、やり直してください",
 "web.live.world_words": "物理の世界から返事がありません（体のサーバーが止まっているかもしれません）",
+"web.public.ended_grace": "時間になりました。アヒルは座って休んでいます。あと{minutes}分は、アヒルのファイルをダウンロードできます。",
+"web.public.refused": "公開デモでは、この機能は使えません。",
 "web.robot_model.ATTRIBUTION": "3Dモデル：Pollen Robotics microduck_rl（CC BY-NC-SA 4.0）。このパソコンの checkout から読みこんでいて、duckmind にはコピーしていません。",
 "web.robot_model.load_model.074f38": "アップストリームのモデルの場所が指定されていません（起動時に --microduck-mjcf フォルダ を付けてください）",
 "web.robot_model.load_model.b008b4": "MJCF に本体がありません",

@@ -1,0 +1,9 @@
+# The public duck's Python packages (simulator + neural brain; no voice, no Gemini, no training).
+# duckmind itself is installed with --no-deps: its base dependency google-genai (cloud voice) is
+# never used in public mode and is left out.
+mujoco==3.10.0
+onnxruntime==1.27.0
+numpy==2.5.3
+pupil-apriltags==1.0.4.post11
+pillow==12.3.0
+pyopengl==3.1.10

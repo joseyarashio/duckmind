@@ -54,7 +54,6 @@ V5_SHA256 = {
     "alpha_sitstand.onnx": "c6c40e35e726eabd803d633e090d112994f469921152448367953fbaf9799bc8",
     "alpha_stand.onnx": "1569268713e40deea795dd2922dba50d3621e15a872855408b6b1b125b1c094b",
 }
-V5_HF_URL = "https://huggingface.co/pollen-robotics/microduck-policies/resolve/v5/{name}"
 
 # ── the robot and robotd ─────────────────────────────────────────────────────────────────────
 CONTROL_HZ = 50

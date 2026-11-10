@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hant / web (169 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hant / web (171 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hant", "web", {
 "web.demo.DemoRunner.finish": "示範：{kind}",
 "web.demo.DemoRunner.set_up": "東西放不到小鴨前面",
@@ -128,6 +128,8 @@ DuckI18n.load("zh-Hant", "web", {
 "web.live.plain_error.777d08": "找不到真實物理需要的上游檔案（robotd、身體伺服器或走路網路）",
 "web.live.plain_error.941e54": "物理身體的伺服器停了或沒有回應；按「重設物理身體」重新開始",
 "web.live.world_words": "物理世界沒有回應（身體伺服器可能停了）",
+"web.public.ended_grace": "試玩時間到了，小鴨坐下來休息了。{minutes} 分鐘內還可以下載牠的小鴨檔案。",
+"web.public.refused": "公開試玩不開放這個功能。",
 "web.robot_model.ATTRIBUTION": "3D 模型：Pollen Robotics microduck_rl（CC BY-NC-SA 4.0），從本機 checkout 讀取，未複製進 duckmind。",
 "web.robot_model.load_model.074f38": "沒有指定上游模型位置（啟動時加 --microduck-mjcf 資料夾）",
 "web.robot_model.load_model.b008b4": "MJCF 沒有機身",

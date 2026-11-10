@@ -4,6 +4,11 @@ This uses official `microduck` and `microduck_rl` components, but deliberately
 starts only `duck-body` and `robotd`. It does **not** run the broader official
 `scripts/duck-sim` launcher (which currently selects an older gait).
 
+This gate is pinned to an older `microduck` commit and policy set v5 so its traces stay
+comparable. The everyday live simulator (`python -m duckmind.setup_cmd`, the README's quick
+start) runs `robotd` 0.18.5 with policy set v9 instead: see
+[run-duck-simulator.md](run-duck-simulator.md#live-physics---live).
+
 ## Inputs to pin
 
 - `microduck`: `a9ec4b2079ef8ee7904014089c885bb07d57d63c`

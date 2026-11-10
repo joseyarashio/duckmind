@@ -101,7 +101,9 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 
 ## 빠른 시작
 
-Python 3.12 이상, `git`, [`uv`](https://docs.astral.sh/uv/)가 필요합니다.
+Python 3.12 이상, `git`, [`uv`](https://docs.astral.sh/uv/), 그리고 Rust
+([rustup](https://rustup.rs))가 필요합니다. Rust는 오리의 몸을 움직이는 프로그램인 Pollen의
+`robotd`를 빌드하는 데 씁니다. Apple 실리콘 Mac이나 Linux에서 돌아갑니다.
 
 ```bash
 git clone https://github.com/joseyarashio/duckmind.git
@@ -109,28 +111,44 @@ cd duckmind
 uv run --python 3.12 --extra sim python -m duckmind.setup_cmd
 ```
 
-`python -m duckmind.setup_cmd`은 duckmind가 쓰지만 함께 배포하지 않는 것을 내려받습니다.
+`python -m duckmind.setup_cmd`은 duckmind가 쓰지만 함께 배포하지 않는 것을 내려받고 빌드합니다.
 
-- Pollen의 `microduck` 코드(robotd와 오리 울음소리), 고정된 커밋.
+- Pollen의 `microduck` 코드, `daemon-v0.18.5` 릴리스. 여기에 duckmind의 작은 패치 `poseJoints`
+  (죽은 척할 때 오리가 몸에 힘을 뺄 수 있게 해 줌)를 적용합니다. setup은 여기서 Rust로 `robotd`,
+  `tofd`, 오리 울음소리를 빌드합니다. Rust가 없으면 설치 방법을 알려 주고 나머지를 계속합니다.
+  그때 페이지는 `robotd` 없이(실시간 물리 없이) 돌아갑니다.
 - Pollen의 `microduck_rl` 코드와 3D 로봇 모델, 고정된 커밋. 3D 메시의 라이선스는
   CC BY-NC-SA 4.0(비상업)입니다. setup은 이 라이선스를 보여 주고, 여러분이 "yes"를 입력할 때만
   내려받습니다.
-- Hugging Face에 있는 Pollen의 v5 정책. 파일마다 고정된 sha256과 대조합니다.
+- Hugging Face에 있는 Pollen의 v9 정책(Pollen의 실제 오리가 지금 쓰는 걸음)과, 테스트가 쓰는
+  예전 v5.
+- Hugging Face에 있는 duckmind가 학습시킨 동작 7가지([`joseyarashio/duckmind-motion-skills`](https://huggingface.co/joseyarashio/duckmind-motion-skills),
+  Apache-2.0: 인사, 돌기, 넘어가기, 깜짝 놀라기, 달래기, 허둥지둥 도망치기, 빠르게 돌기)와, 그것을
+  `robotd`가 어떻게 할지 알려 주는 동작 표.
 
-파일은 기본으로 `~/.duckmind` 아래에 저장됩니다(`DUCKMIND_HOME`으로 바꿀 수 있습니다).
-이미 있는 것은 setup이 절대 바꾸지 않습니다.
+내려받은 파일은 모두 고정된 sha256과 대조합니다. 파일은 기본으로 `~/.duckmind` 아래에
+저장됩니다(`DUCKMIND_HOME`으로 바꿀 수 있습니다). 이미 있는 것은 setup이 절대 바꾸지 않습니다.
 
-그다음 시뮬레이터 페이지를 시작합니다. setup이 여러분의 경로로 이 명령을 출력합니다.
+그다음 오리를 시작합니다. setup이 여러분의 경로로 이 명령을 출력합니다.
 
 ```bash
-uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 \
-  --microduck-mjcf ~/.duckmind/upstream/microduck_rl/src/mjlab_microduck/robot/microduck
+DUCKMIND_ROBOTD_SKILLS=~/.duckmind/data/live/motions/skills.json \
+uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 --live --brain neuro \
+  --microduck ~/.duckmind/upstream/microduck \
+  --microduck-rl ~/.duckmind/upstream/microduck_rl \
+  --policies ~/.duckmind/policies/releases/v9 \
+  --robotd-bin ~/.duckmind/upstream/microduck/target/aarch64-apple-darwin/debug/robotd
 # http://127.0.0.1:8765/ 열기
 ```
 
-서버는 여러분의 컴퓨터에서 오는 연결만 받습니다. 자세한 내용은
-[docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md)에 있고, robotd를
-쓰는 실시간 물리는 [docs/validation/run-live-sim.md](docs/validation/run-live-sim.md)에 있습니다.
+(Linux에서는 `robotd`가 `target/debug/`에 있습니다.) 이제 집의 오리도 공개 체험 페이지의 오리처럼
+걷습니다. Pollen의 `robotd`와 v9 걸음이 MuJoCo 물리 안에서 몸을 움직이고, 그 위에서 duckmind가
+학습시킨 동작이 돌아갑니다. 서버는 여러분의 컴퓨터에서 오는 연결만 받습니다. 자세한 내용은
+[docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md)에 있습니다.
+
+전에 setup을 실행했나요? 여러분의 파일은 그대로입니다. setup을 다시 실행하면 v9, 동작, `robotd`가
+더해집니다. `upstream/microduck`이 다른 커밋이면 먼저 그 폴더를 옮겨 두세요. 다른 커밋의
+체크아웃은 setup이 절대 바꾸지 않습니다.
 
 클라우드 음성(Google Gemini Live)은 기본으로 꺼져 있습니다. 켜기 전에 [PRIVACY.md](PRIVACY.md)를
 읽어 주세요.

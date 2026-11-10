@@ -241,6 +241,13 @@ plain words under the stage and the duck has only its speech bubbles.
 
 ## Live physics (`--live`)
 
+`python -m duckmind.setup_cmd` gets everything this needs and prints the command with your
+own paths (the README's quick start): Pollen's `microduck` at `daemon-v0.18.5` with duckmind's
+poseJoints patch and `robotd`, `tofd` and `sounds` built from it, Pollen's policy set v9 for
+`--policies`, and duckmind's trained-motion table on v9 (`DUCKMIND_ROBOTD_SKILLS`, in
+`<data>/live/motions/`). The pins are in `src/duckmind/pins/`, which the public play image
+is built from too.
+
 With `--live` (and `--microduck`, `--microduck-rl`, `--policies`, `--robotd-bin`) every
 motion is also played on the official `robotd --sim` and MuJoCo body
 (`duckmind.livebody`). The body server is started through `duckmind.bodyhost`, which

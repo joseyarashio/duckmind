@@ -886,6 +886,8 @@ class NeuroDriver:
 
         self.emotions = EmotionHost(self)
         self.remote = RemoteHand()  # remote mode (neuro/remote.py): the family's hand on the legs
+        # public play's end (simweb.public): the legs sit and stay seated; the head and the voice go on
+        self.resting = False
         self.live_voice: Any = (
             None  # the live conversation's host (cloud_on(), calls_seen()), when there is one
         )
@@ -1658,7 +1660,8 @@ class NeuroDriver:
         kept = self.remote.push(vx, vyaw, time.monotonic(), vy=vy, key_to_recv_ms=key_to_recv_ms)
         return {"ok": self.remote.on, "vx": kept[0], "vyaw": kept[1], "on": self.remote.on}
 
-    def _remote_request(self, request: BodyRequest, twist: tuple[float, float]) -> BodyRequest:
+    @staticmethod
+    def _remote_request(request: BodyRequest, twist: tuple[float, float]) -> BodyRequest:
         """What the legs get while remote mode has them: the person's twist and nothing of the brain's (no
         approach, docking, panic, pivot, trained skill or posture change); the head, the beak and the
         body link's own gates (fall, righting, lift, ToF stop, stall) stay."""
@@ -1677,6 +1680,22 @@ class NeuroDriver:
             toward=None,
             posture=None,
         )
+
+    def rest(self) -> None:
+        """Public play's end (simweb.public): from the next tick the legs sit down and stay seated
+        (:meth:`rest_request`); an errand under way is over. The brain steps on: its head, its voice."""
+        stop = getattr(getattr(self.lanes, "brain", None), "stop_errand", None)
+        if callable(stop):
+            with self._tick_lock:
+                stop("rest")
+        self.resting = True
+
+    @staticmethod
+    def rest_request(request: BodyRequest) -> BodyRequest:
+        """What the legs get while the duck rests: no walk, no trained skill, no approach or flight, and
+        the seated posture (the body link sits it down the way it always does: the head settles first;
+        its own gates — righting after a fall — stay)."""
+        return replace(NeuroDriver._remote_request(request, (0.0, 0.0)), posture="sit")
 
     # ── go there: a place somebody pointed at on the floor (neuro/errand.py) ──
 
@@ -2286,6 +2305,8 @@ class NeuroDriver:
             self._answer_play(refused="late")
         else:
             request = self._skill_request(link, cmd, state, request, brain_tel, t_ms)
+        if self.resting:
+            request = self.rest_request(request)
         battery_pct = None if battery is None else int(round(battery * 100))
         out = link.tick(state, request, depth=depth, battery_pct=battery_pct)
         if remote_twist is not None:

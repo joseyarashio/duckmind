@@ -1,0 +1,403 @@
+{
+ "about": "the skill guard's caps of duckmind's live motion table (the s1b table's halved caps where its BAM strain gate was over); duckmind.skilltrain.motion_table.install reads this file's guard block (base_table)",
+ "guard": {
+  "global_per_hour": 60,
+  "rules": {
+   "roulade": {
+    "per_hour": 4,
+    "min_gap_s": 120.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": "forward roll (the flip trick): standing only, a roll passes every tilt",
+    "abort_tilt_deg": 360.0,
+    "free_continue": false,
+    "counted": true
+   },
+   "startle_1": {
+    "per_hour": 15,
+    "min_gap_s": 2.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "flinch — cap halved: bam strain over"
+   },
+   "startle_2": {
+    "per_hour": 15,
+    "min_gap_s": 2.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "cap halved: bam strain over"
+   },
+   "startle_2b": {
+    "per_hour": 15,
+    "min_gap_s": 2.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "cap halved: bam strain over"
+   },
+   "startle_3": {
+    "per_hour": 6,
+    "min_gap_s": 5.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "cap halved: bam strain over"
+   },
+   "startle_4": {
+    "per_hour": 4,
+    "min_gap_s": 10.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "deep crouch — cap halved: bam strain over"
+   },
+   "freeze_2": {
+    "per_hour": 3,
+    "min_gap_s": 20.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [
+     "freeze",
+     "startle"
+    ],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "held crouch — cap halved: bam strain over"
+   },
+   "freeze_3": {
+    "per_hour": 3,
+    "min_gap_s": 20.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [
+     "freeze",
+     "startle"
+    ],
+    "max_walk_mps": 0.55,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "held crouch — cap halved: bam strain over"
+   },
+   "freeze_4": {
+    "per_hour": 2,
+    "min_gap_s": 30.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [
+     "freeze",
+     "startle"
+    ],
+    "max_walk_mps": 0.4,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "held deep crouch — cap halved: bam strain marginal"
+   },
+   "hop_back": {
+    "per_hour": 2,
+    "min_gap_s": 60.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": "quick back-steps (D5) — cap halved: bam strain over"
+   },
+   "shake_1": {
+    "per_hour": 8,
+    "min_gap_s": 60.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": ""
+   },
+   "shake_2": {
+    "per_hour": 2,
+    "min_gap_s": 120.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": "cap halved: bam strain marginal"
+   },
+   "stretch_tall": {
+    "per_hour": 6,
+    "min_gap_s": 120.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": ""
+   },
+   "stretch_sit": {
+    "per_hour": 6,
+    "min_gap_s": 120.0,
+    "settle_s": 3.0,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "sit"
+    ],
+    "note": ""
+   },
+   "startle_release": {
+    "per_hour": null,
+    "min_gap_s": 0.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "skill"
+    ],
+    "note": "ends a running crouch"
+   },
+   "skill_abort": {
+    "per_hour": null,
+    "min_gap_s": 0.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "skill"
+    ],
+    "note": "hands a running skill to velstand"
+   },
+   "turn_left": {
+    "per_hour": 30,
+    "min_gap_s": 2.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [],
+    "max_walk_mps": 0.4,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "turn on the spot",
+    "abort_tilt_deg": null,
+    "free_continue": false,
+    "counted": true
+   },
+   "turn_right": {
+    "per_hour": 30,
+    "min_gap_s": 2.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [],
+    "max_walk_mps": 0.4,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "turn on the spot",
+    "abort_tilt_deg": null,
+    "free_continue": false,
+    "counted": true
+   },
+   "bow": {
+    "per_hour": 6,
+    "min_gap_s": 60.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": "play bow (strain over: halved)",
+    "abort_tilt_deg": 50.0,
+    "free_continue": false,
+    "counted": true
+   },
+   "lie_low": {
+    "per_hour": 4,
+    "min_gap_s": 90.0,
+    "settle_s": 1.5,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "stand"
+    ],
+    "note": "lie low",
+    "abort_tilt_deg": 50.0,
+    "free_continue": false,
+    "counted": true
+   },
+   "bow_release": {
+    "per_hour": null,
+    "min_gap_s": 0.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 0.0,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": null,
+    "postures": [
+     "skill"
+    ],
+    "note": "ends lie_low",
+    "abort_tilt_deg": 50.0,
+    "free_continue": false,
+    "counted": true
+   },
+   "hop_over_2": {
+    "per_hour": 10,
+    "min_gap_s": 20.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.5,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "step over a low strip",
+    "abort_tilt_deg": 45.0,
+    "free_continue": false,
+    "counted": true
+   },
+   "hop_over_4": {
+    "per_hour": 6,
+    "min_gap_s": 30.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": false,
+    "continues": [],
+    "max_walk_mps": 0.5,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "step over a higher strip",
+    "abort_tilt_deg": 70.0,
+    "free_continue": false,
+    "counted": true
+   },
+   "panic_run": {
+    "per_hour": null,
+    "min_gap_s": 0.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [],
+    "max_walk_mps": 0.6,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "panic flight (the panic network)",
+    "abort_tilt_deg": null,
+    "free_continue": true,
+    "counted": false
+   },
+   "quick_turn_left": {
+    "per_hour": null,
+    "min_gap_s": 0.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [],
+    "max_walk_mps": 0.5,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "quick turn on the spot",
+    "abort_tilt_deg": null,
+    "free_continue": true,
+    "counted": false
+   },
+   "quick_turn_right": {
+    "per_hour": null,
+    "min_gap_s": 0.0,
+    "settle_s": 0.0,
+    "rise_settle_s": 1.5,
+    "hold": true,
+    "continues": [],
+    "max_walk_mps": 0.5,
+    "postures": [
+     "stand",
+     "walk"
+    ],
+    "note": "quick turn on the spot",
+    "abort_tilt_deg": null,
+    "free_continue": true,
+    "counted": false
+   }
+  }
+ }
+}

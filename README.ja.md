@@ -102,7 +102,9 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 
 ## はじめかた
 
-Python 3.12 以降、`git`、[`uv`](https://docs.astral.sh/uv/) が必要です。
+Python 3.12 以降、`git`、[`uv`](https://docs.astral.sh/uv/)、それに Rust
+（[rustup](https://rustup.rs)）が必要です。Rust は Pollen の `robotd`（アヒルの体を動かすプログラム）を
+ビルドするのに使います。Apple シリコンの Mac か Linux で動きます。
 
 ```bash
 git clone https://github.com/joseyarashio/duckmind.git
@@ -110,28 +112,45 @@ cd duckmind
 uv run --python 3.12 --extra sim python -m duckmind.setup_cmd
 ```
 
-`python -m duckmind.setup_cmd` は、duckmind が使うけれど同梱していないものをダウンロードします。
+`python -m duckmind.setup_cmd` は、duckmind が使うけれど同梱していないものをダウンロードし、ビルドします。
 
-- Pollen の `microduck` のコード（robotd とアヒルの鳴き声）。固定したコミットです。
+- Pollen の `microduck` のコード。`daemon-v0.18.5` リリースに、duckmind の小さなパッチ `poseJoints`
+  （死んだふりのときにアヒルが体の力を抜けるようにするもの）を当てます。setup はここから Rust で
+  `robotd`、`tofd`、アヒルの鳴き声をビルドします。Rust がないときは、入れ方を表示して残りを
+  続けます。そのときページは `robotd` なし（リアルタイム物理なし）で動きます。
 - Pollen の `microduck_rl` のコードと 3D ロボットモデル。固定したコミットです。3D メッシュの
   ライセンスは CC BY-NC-SA 4.0（非営利）です。setup はこのライセンスを表示し、あなたが
   「yes」と入力したときだけダウンロードします。
-- Hugging Face にある Pollen の v5 ポリシー。ファイルごとに固定した sha256 と照合します。
+- Hugging Face にある Pollen の v9 ポリシー（Pollen の実機のアヒルが今使っている歩き方）と、
+  テストが使う古い v5。
+- Hugging Face にある duckmind が学習させた 7 つの動き（[`joseyarashio/duckmind-motion-skills`](https://huggingface.co/joseyarashio/duckmind-motion-skills)、
+  Apache-2.0：おじぎ、向きを変える、またぐ、びっくり、なだめる、あわてて逃げる、すばやく回る）と、
+  それを `robotd` にどう動かすかを伝える動きの表。
 
-ファイルは既定で `~/.duckmind` の下に置かれます（`DUCKMIND_HOME` で変えられます）。
-すでにあるものを setup が書き換えることはありません。
+ダウンロードしたファイルは、すべて固定した sha256 と照合します。ファイルは既定で `~/.duckmind`
+の下に置かれます（`DUCKMIND_HOME` で変えられます）。すでにあるものを setup が書き換えることは
+ありません。
 
-次にシミュレーターのページを起動します。setup があなたのパスでこのコマンドを表示します。
+次にアヒルを起動します。setup があなたのパスでこのコマンドを表示します。
 
 ```bash
-uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 \
-  --microduck-mjcf ~/.duckmind/upstream/microduck_rl/src/mjlab_microduck/robot/microduck
+DUCKMIND_ROBOTD_SKILLS=~/.duckmind/data/live/motions/skills.json \
+uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 --live --brain neuro \
+  --microduck ~/.duckmind/upstream/microduck \
+  --microduck-rl ~/.duckmind/upstream/microduck_rl \
+  --policies ~/.duckmind/policies/releases/v9 \
+  --robotd-bin ~/.duckmind/upstream/microduck/target/aarch64-apple-darwin/debug/robotd
 # http://127.0.0.1:8765/ を開く
 ```
 
-サーバーはあなた自身のパソコンからの接続だけを受け付けます。詳しくは
-[docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md)、robotd を使った
-リアルタイム物理は [docs/validation/run-live-sim.md](docs/validation/run-live-sim.md) を見てください。
+（Linux では `robotd` は `target/debug/` にあります。）家のアヒルも、公開のお試しページのアヒルと
+同じように歩くようになりました。Pollen の `robotd` と v9 の歩き方が MuJoCo の物理の中で体を動かし、
+その上で duckmind が学習させた動きが動きます。サーバーはあなた自身のパソコンからの接続だけを
+受け付けます。詳しくは [docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md) を見てください。
+
+前に setup を実行したことがある場合も、あなたのファイルはそのままです。もう一度 setup を実行すると、
+v9、動き、`robotd` が加わります。`upstream/microduck` が別のコミットなら、先にそのフォルダーを
+よけてください。別のコミットのチェックアウトを setup が書き換えることはありません。
 
 クラウド音声（Google Gemini Live）は既定でオフです。オンにする前に [PRIVACY.md](PRIVACY.md)
 を読んでください。

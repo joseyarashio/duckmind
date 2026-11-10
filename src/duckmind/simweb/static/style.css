@@ -671,6 +671,38 @@ input[type="range"]:focus-visible { outline: 3px solid var(--orange); outline-of
 /* The visible line under controls a real duck cannot do (touch has no hover to read their titles). */
 .real-note { font-weight: 700; color: var(--ink); border-left: 4px solid var(--magenta); padding-left: 8px; }
 .duck3d-live .real-note { flex: 1 1 100%; font-weight: 600; color: var(--yellow); }
+/* 公開試玩 (public.js): the visit's bar under the top bar (yellow, ink rules; the time left in a white box with
+   a magenta shadow), the end card (white, ink border, magenta shadow), the countdown chip (magenta square), and
+   what is not open greyed out like a disabled button (inert: nothing reacts). */
+.public-bar {
+  display: grid; gap: 6px; padding: 10px var(--gutter);
+  background: var(--yellow); color: var(--ink);
+  border-bottom: 3px solid var(--ink);
+  font-weight: 700; overflow-wrap: anywhere;
+}
+.public-bar[hidden] { display: none; }
+.public-main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.public-title { font: 400 20px/1.1 var(--font-display); letter-spacing: 0.03em; text-transform: uppercase; }
+.public-left {
+  font: 700 15px/1.2 var(--font-mono); background: var(--white);
+  border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--magenta); padding: 3px 9px;
+}
+.public-notice, .public-offlist, .public-links { font-size: 13px; margin: 0; }
+.public-offlist, .public-links { font-weight: 600; }
+.public-links a { color: var(--ink); text-decoration-thickness: 2px; white-space: nowrap; }
+.public-end {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  background: var(--white); border: 2.5px solid var(--ink); box-shadow: 6px 6px 0 var(--magenta);
+  padding: 10px 14px; margin: 2px 6px 6px 0;
+}
+.public-end[hidden] { display: none; }
+.public-end .btn { text-decoration: none; }
+.public-end .btn[hidden] { display: none; }
+.chip.public::before { background: var(--magenta); }
+.public-gated { opacity: 0.45; cursor: not-allowed; }
+/* (a card: its contents grey, the line that says why stays full ink) */
+.public-gated-card { cursor: not-allowed; }
+.public-gated-card > :not([data-public-note]) { opacity: 0.45; }
 
 /* ---------- play ---------- */
 .who { max-width: 880px; margin: 0 auto 30px; }

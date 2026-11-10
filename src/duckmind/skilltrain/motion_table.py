@@ -46,7 +46,7 @@ from duckmind.skilltrain import guard as G
 from duckmind.skilltrain import hop_contract as H
 from duckmind.skilltrain import table as T
 
-DEFAULT_DIR = paths.data_dir() / "live" / "motions"
+DEFAULT_DIR = paths.motions_dir()
 DEFAULT_TABLE = "skills.json"
 NO_TABLE = ("none", "off", "0", "false")
 DELAY_ENV = "DUCKMIND_BODY_COMMAND_DELAY_MS"

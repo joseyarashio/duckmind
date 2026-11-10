@@ -105,7 +105,9 @@ familia (el nombre del pato, los nombres de las personas) se muestran tal cual.
 
 ## Inicio rápido
 
-Necesitas Python 3.12 o posterior, `git` y [`uv`](https://docs.astral.sh/uv/).
+Necesitas Python 3.12 o posterior, `git`, [`uv`](https://docs.astral.sh/uv/) y Rust
+([rustup](https://rustup.rs)) para compilar `robotd` de Pollen, el programa que mueve el
+cuerpo del pato. Funciona en un Mac con Apple silicon o en Linux.
 
 ```bash
 git clone https://github.com/joseyarashio/duckmind.git
@@ -113,29 +115,45 @@ cd duckmind
 uv run --python 3.12 --extra sim python -m duckmind.setup_cmd
 ```
 
-`python -m duckmind.setup_cmd` descarga lo que duckmind usa pero no incluye:
+`python -m duckmind.setup_cmd` descarga y compila lo que duckmind usa pero no incluye:
 
-- el código `microduck` de Pollen (robotd y los sonidos del pato), en un commit fijo;
+- el código `microduck` de Pollen en su versión `daemon-v0.18.5`, con un pequeño parche de
+  duckmind, `poseJoints` (deja que el pato se afloje cuando se hace el muerto). setup compila
+  con Rust `robotd`, `tofd` y los sonidos del pato. Sin Rust, setup te dice cómo instalarlo y
+  hace el resto; la página funciona entonces sin `robotd` (sin física en vivo);
 - el código `microduck_rl` de Pollen y el modelo 3D del robot, en un commit fijo. Las
   mallas 3D tienen licencia CC BY-NC-SA 4.0 (no comercial). setup muestra esa licencia
   y solo las descarga si escribes "yes";
-- el conjunto de políticas v5 de Pollen desde Hugging Face, comprobando cada archivo
-  con su sha256 fijado.
+- el conjunto de políticas v9 de Pollen desde Hugging Face (el andar que usa ahora el pato
+  real de Pollen), y el v5, más antiguo, que usan las pruebas;
+- los siete movimientos entrenados de duckmind desde Hugging Face
+  ([`joseyarashio/duckmind-motion-skills`](https://huggingface.co/joseyarashio/duckmind-motion-skills), Apache-2.0: reverencia, girar, pasar por encima,
+  sobresalto, calma, huida de pánico, giro rápido), y la tabla que le dice a `robotd` cómo
+  hacerlos.
 
-Por defecto, los archivos van en `~/.duckmind` (`DUCKMIND_HOME` lo cambia). setup
-nunca modifica lo que ya existe.
+Cada archivo descargado se comprueba con su sha256 fijado. Por defecto, los archivos van en
+`~/.duckmind` (`DUCKMIND_HOME` lo cambia). setup nunca modifica lo que ya existe.
 
-Después, abre la página del simulador. setup imprime este comando con tu propia ruta:
+Después, arranca el pato. setup imprime este comando con tus propias rutas:
 
 ```bash
-uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 \
-  --microduck-mjcf ~/.duckmind/upstream/microduck_rl/src/mjlab_microduck/robot/microduck
+DUCKMIND_ROBOTD_SKILLS=~/.duckmind/data/live/motions/skills.json \
+uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 --live --brain neuro \
+  --microduck ~/.duckmind/upstream/microduck \
+  --microduck-rl ~/.duckmind/upstream/microduck_rl \
+  --policies ~/.duckmind/policies/releases/v9 \
+  --robotd-bin ~/.duckmind/upstream/microduck/target/aarch64-apple-darwin/debug/robotd
 # abre http://127.0.0.1:8765/
 ```
 
-El servidor solo acepta conexiones desde tu propio ordenador. Más detalles en
-[docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md); la
-física en vivo con robotd está en [docs/validation/run-live-sim.md](docs/validation/run-live-sim.md).
+(En Linux, `robotd` está en `target/debug/`.) El pato de casa ahora camina como el de la
+página pública para jugar: `robotd` de Pollen y el andar v9 mueven su cuerpo en la física de
+MuJoCo, y los movimientos entrenados de duckmind van encima. El servidor solo acepta
+conexiones desde tu propio ordenador. Más detalles en [docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md).
+
+¿Ya habías ejecutado setup? Tus archivos se quedan como están. Ejecuta setup otra vez para
+añadir v9, los movimientos y `robotd`. Si `upstream/microduck` está en otro commit, aparta
+antes esa carpeta: setup nunca modifica un checkout que está en otro commit.
 
 La voz en la nube (Google Gemini Live) está desactivada por defecto. Lee
 [PRIVACY.md](PRIVACY.md) antes de activarla.

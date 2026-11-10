@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / web (169 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / web (171 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "web", {
 "web.demo.DemoRunner.finish": "Demostración: {kind}",
 "web.demo.DemoRunner.set_up": "No se puede poner la cosa delante del patito",
@@ -128,6 +128,8 @@ DuckI18n.load("es", "web", {
 "web.live.plain_error.777d08": "No se encuentran los archivos originales que necesita la física real (robotd, el servidor del cuerpo o la red de caminar)",
 "web.live.plain_error.941e54": "El servidor del cuerpo físico se detuvo o no responde; pulsa “Reiniciar cuerpo físico” para empezar de nuevo",
 "web.live.world_words": "El mundo físico no responde (quizá se detuvo el servidor del cuerpo)",
+"web.public.ended_grace": "Se acabó el tiempo: el patito se sentó a descansar. Aún puedes descargar su archivo de patito durante {minutes, plural, one {# minuto} other {# minutos}}.",
+"web.public.refused": "Esto no está abierto en la demo pública.",
 "web.robot_model.ATTRIBUTION": "Modelo 3D: Pollen Robotics microduck_rl (CC BY-NC-SA 4.0), leído de una copia local; no está copiado en duckmind.",
 "web.robot_model.load_model.074f38": "No se indicó dónde está el modelo original (añade --microduck-mjcf con la carpeta al iniciar)",
 "web.robot_model.load_model.b008b4": "El MJCF no tiene cuerpo del robot",

@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / page (2008 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "page", {
 "fmt.sep.and_then": ", and also ",
 "fmt.sep.babble": "·",
@@ -1835,6 +1835,19 @@ DuckI18n.load("en", "page", {
 "page.point.why.stopped": "it was told to stop",
 "page.point.why.stuck": "it got stuck on the way",
 "page.point.why.timeout": "it took too long, so it gave up",
+"page.public.chip_ended": "Demo time is up",
+"page.public.chip_left": "Demo: {time} left",
+"page.public.end_download": "Download duck file",
+"page.public.end_gone": "The download time is over too. Thanks for keeping {name} company!",
+"page.public.end_text": "{name} sat down to rest. To take it home, download its duck file within {time}.",
+"page.public.end_title": "Time's up",
+"page.public.ended_grace": "Time's up: the duck sat down to rest. You can still download its duck file for {minutes, plural, one {# minute} other {# minutes}}.",
+"page.public.model": "3D model: Pollen Robotics' Microduck",
+"page.public.notice": "Non-commercial: no fees, no ads. This duck hatched at random, just for you.",
+"page.public.off": "Not in the demo: switching ducks, the lab, remote control, talking, importing a duck file, connecting a real duck.",
+"page.public.refused": "This isn't open in the public demo.",
+"page.public.repo": "duckmind source code",
+"page.public.title": "Public demo",
 "page.real.battery.title": "The battery level the duck reports itself (from its control program, robotd)",
 "page.real.battery.title_no_dock": "The battery level the duck reports itself (from its control program, robotd). This duck has no charging dock: when the battery is low, swap or charge its battery for it",
 "page.real.battery.unknown": "Not known yet (waiting for the duck)",

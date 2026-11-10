@@ -42,6 +42,7 @@ import itertools
 import json
 import math
 import os
+import shutil
 import signal
 import sys
 import threading
@@ -56,6 +57,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs
 
 import duckmind.world.legacy  # noqa: F401  (registers LegacyWorld: a v4_1 duck lives in it)
+from duckmind import paths as dm_paths
 from duckmind.duckcore.api import (
     ENGINE_REV,
     Config,
@@ -202,6 +204,8 @@ class SimState:
         self.life = life
         self.clock = clock
         self.life_host: Any = None  # life_host.LifeHost, set by main()
+        # public play (--public): /api/ping says so, and the page shows the visit (public.js)
+        self.public = False
         # the page's fast-forward of throwaway test ducks (growth G4), made on first use
         self.fastforward: Any = None
         # The layout editor (docs/design/REAL-HOME-2026-10-xx.md): the saved layouts, and the home this
@@ -920,6 +924,7 @@ class SimState:
             "api": API_VERSION,
             "boot": self.boot,
             "realtime": self.realtime,
+            "public": self.public,
             "now_ms": round(time.time() * 1000),
         }
 
@@ -1081,7 +1086,11 @@ def make_handler(
     voice_bank: voice.VoiceBank | None = None,
     live_hub: LiveHub | None = None,
     voice_commands: Any = None,
+    public: Any = None,
 ) -> type[BaseHTTPRequestHandler]:
+    """The request handler. ``public``: a :class:`duckmind.simweb.public.PublicSession` — public play
+    (``--public``): only the visitor's endpoints exist, writes end with the visit, and no answer carries a
+    path of this machine."""
     static_root = resources.files("duckmind.simweb").joinpath("static")
     # The neural-duck prototype's page routes (/api/neuro/…, neuro_api): "off" without it.
     hub = neuro if neuro is not None else neuro_api.NeuroHub()
@@ -1098,7 +1107,8 @@ def make_handler(
     # The duck file (docs/duck-file.md): export the duck this server lives, import another as a new life.
     from duckmind.simweb.duckfile_api import DuckFileHub
 
-    duckfile_hub = DuckFileHub(state)
+    # (public play: the visitor's own duck goes home with them, from wherever they are)
+    duckfile_hub = DuckFileHub(state, any_client=public is not None)
     # 按住說話 (voice commands, voice_cmd_api): the page's clip, recognised on this computer. Off (no
     # recogniser) unless the server made one (--voice-commands).
     from duckmind.simweb.voice_cmd_api import VoiceHub
@@ -1670,13 +1680,38 @@ def make_handler(
                     {"ok": False, "error": f"{type(error).__name__}: {error}"},
                 )
 
-    return Handler
+    if public is None:
+        return Handler
+    from duckmind.simweb import public as public_mode
+
+    hidden = public_mode.secrets() + ([str(state.life.folder)] if state.life is not None else [])
+
+    class PublicHandler(public_mode.Scrubbing, Handler):
+        _dm_hidden = tuple(sorted(set(hidden), key=len, reverse=True))
+        sys_version = ""  # (the Server header names no Python build)
+
+        def do_GET(self) -> None:  # noqa: N802 - stdlib naming
+            if not public_mode.gate(self, public, "GET"):
+                super().do_GET()
+
+        def do_POST(self) -> None:  # noqa: N802 - stdlib naming
+            if not public_mode.gate(self, public, "POST"):
+                super().do_POST()
+
+    return PublicHandler
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Duck Core simulator (local web page)")
     parser.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help="public play (one visitor, one container): a new duck from $DUCKMIND_PUBLIC_SEED for "
+        "$DUCKMIND_PUBLIC_MINUTES (default 15) minutes, only the visitor's endpoints, then the duck file "
+        "for 3 more minutes and exit 0 (duckmind.simweb.public). Needs --live and its paths",
+    )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
         "--name",
@@ -1698,7 +1733,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--state-file",
         type=Path,
-        default=Path.home() / ".duckmind" / "simweb-duck.json",
+        default=dm_paths.duckmind_home() / "simweb-duck.json",
         help="where the duck is kept between runs (its config and inputs); '' to not keep it",
     )
     live.add_argument("--live", action="store_true")
@@ -1776,7 +1811,8 @@ def main(argv: list[str] | None = None) -> None:
         type=Path,
         default=None,
         help="the layout editor's folder (saved layouts, the one applied last); default: the life's "
-        "'layouts' folder with --life, else ~/.duckmind/layouts",
+        "'layouts' folder with --life, else 'layouts' in the duckmind home ($DUCKMIND_HOME, "
+        "default ~/.duckmind)",
     )
     life_group = parser.add_argument_group(
         "a life (docs/design/GROWTH-G1-2026-10-10.md)",
@@ -1873,6 +1909,16 @@ def main(argv: list[str] | None = None) -> None:
     )
     neuro_api.add_arguments(parser)  # (--neuro-stub: the prototype's page, made-up numbers)
     args = parser.parse_args(argv)
+    # Public play: the duck, its age and its folder are picked here; nothing leaves this machine.
+    public_plan = None
+    if args.public:
+        from duckmind.simweb import public as public_mode
+
+        try:
+            public_plan = public_mode.apply_args(args, parser.get_default, os.environ)
+        except public_mode.PublicConfigError as error:
+            parser.error(str(error))
+        public_mode.install_network_guard()
     # (--name given: the neural duck's card shows it; not given: each duck keeps its own name)
     args.name_given = (args.name or "").strip()
     if args.name is None:
@@ -1914,7 +1960,11 @@ def main(argv: list[str] | None = None) -> None:
     state_file = args.state_file if str(args.state_file) not in {"", "."} else None
     # A life (--life FOLDER): one duck's record, its calendar clock, Duck Core's save in the
     # folder and the neural duck's snapshot beside it (docs/design/GROWTH-G1-2026-10-10.md).
-    life, new_config = _open_life(args, parser)
+    # the duck's one clock (real time unless a test says otherwise): the neural duck's day and
+    # night, the room's lights, the world camera's and the duck's-eye light, Duck Core's growth days.
+    # (a public duck's day starts at 10:00, its active morning, whatever the visitor's hour)
+    clock = _make_clock(args, neuro=args.brain == "neuro")
+    life, new_config = _open_life(args, parser, birth=clock.calendar() if args.public else None)
     if life is not None:
         state_file = life.core_path
         args.seed, args.name, args.name_given = life.seed, life.name, life.name
@@ -1922,15 +1972,12 @@ def main(argv: list[str] | None = None) -> None:
     # environment's, else default_home; a layout applied from the --home home itself is that home as the
     # family arranged it, and runs. What 「回到預設」 goes back to is the first and the last of those.
     layouts_dir = args.layouts_dir or (
-        life.folder / "layouts" if life is not None else Path.home() / ".duckmind" / "layouts"
+        life.folder / "layouts" if life is not None else dm_paths.duckmind_home() / "layouts"
     )
     layout_store = layouts.LayoutStore(Path(layouts_dir).expanduser())
     home_default = args.home or os.environ.get("DUCKMIND_LIVE_HOME") or "default_home"
     home_asked = layout_store.home_at_start(args.home)
     homeview.set_home(home_asked)
-    # the duck's one clock (real time unless a test says otherwise): the neural duck's day and
-    # night, the room's lights, the world camera's and the duck's-eye light, Duck Core's growth days
-    clock = _make_clock(args, neuro=args.brain == "neuro")
     # The duck's voice: upstream's `sounds` binary in the official checkout (live physics or
     # not), each duck's bank rendered once into the data folder's voices/ (owner 2026-09-28).
     voice_bank = voice.VoiceBank.from_microduck(
@@ -1946,11 +1993,14 @@ def main(argv: list[str] | None = None) -> None:
         voice_bank=voice_bank,
         life=life,
         clock=clock,
-        resume_time=bool(life is not None and (args.clock_speed != 1.0 or args.life_birth)),
+        resume_time=bool(
+            life is not None and not args.public and (args.clock_speed != 1.0 or args.life_birth)
+        ),
         # the neural duck lives this life: Duck Core simulates nothing of its own
         attach_neural=bool(life is not None and bridge is not None and args.brain == "neuro"),
     )
     state.layouts = layout_store
+    state.public = public_plan is not None
     state.layout_default = home_default
     state.layout_pinned = args.home
     if bridge is not None:
@@ -1975,8 +2025,15 @@ def main(argv: list[str] | None = None) -> None:
     # (bound before the physics body starts: a port in use never leaves a body behind)
     live_hub = LiveHub()
     voice_hub = _voice_commands(args.voice_commands, hub)
+    # Public play: the visit's time runs from here (the server answers in a moment, the body follows).
+    visit = None
+    if public_plan is not None:
+        from duckmind.simweb.public import PublicSession
+
+        visit = PublicSession(public_plan.seed, public_plan.name, public_plan.minutes)
     server = SimServer(
-        (args.host, args.port), make_handler(state, hub, voice_bank, live_hub, voice_hub)
+        (args.host, args.port),
+        make_handler(state, hub, voice_bank, live_hub, voice_hub, public=visit),
     )
     life_host: Any = None
     if bridge is not None and args.brain == "neuro":
@@ -2070,15 +2127,42 @@ def main(argv: list[str] | None = None) -> None:
     threading.Thread(
         target=_settle_heap_every, args=(HEAP_SETTLE_S,), name="heap-settle", daemon=True
     ).start()
+    stop_visit = threading.Event()
+    if visit is not None:
+        # the time is up: the duck sits and rests; the duck file's grace is over: the server stops (exit 0)
+        visit.on_end.append(lambda: _public_rest(bridge, life_host))
+        visit.on_exit.append(server.shutdown)
+        threading.Thread(
+            target=visit.run, args=(stop_visit,), name="public-visit", daemon=True
+        ).start()
+        print(
+            f"公開試玩：{visit.name}（seed {visit.seed}），成長日 {state.session.core.s.gd}，"
+            f"玩到 {visit.view()['ends_at']}，之後 3 分鐘內可以下載小鴨檔案，然後結束",
+            file=sys.stderr,
+        )
     try:
         serve_until_stopped(server, state, life, life_host)
     finally:
+        stop_visit.set()
         server.server_close()
         if live_hub.voice is not None:  # (the cloud connection first: nothing leaves after this)
             live_hub.voice.close()
         if bridge is not None:
             bridge.stop()
         hub.stop()
+        if public_plan is not None:  # (the visitor's duck leaves no trace in the container)
+            shutil.rmtree(public_plan.folder, ignore_errors=True)
+
+
+def _public_rest(bridge: Any, life_host: Any) -> None:
+    """The visit's time is up: the duck's mind is saved (the duck file has it), and its legs sit down and
+    stay seated (``NeuroDriver.rest``: no walk, no skill; its head and its voice go on)."""
+    if life_host is not None:
+        life_host.snapshot_now("public_end")
+    driver = getattr(bridge, "neuro", None)
+    rest = getattr(driver, "rest", None)
+    if callable(rest):
+        rest()
 
 
 def settle_heap() -> int:
@@ -2157,15 +2241,17 @@ def _stop_on_term(signum: int, frame: Any) -> None:
 
 def _make_clock(args: argparse.Namespace, *, neuro: bool) -> DuckClock:
     """The duck's one clock: the real calendar, or (tests) ``--neuro-time`` today at that time,
-    at ``--clock-speed``."""
+    at ``--clock-speed``; a public duck's (``--public``): today from 10:00, its active morning."""
     speed = float(args.clock_speed)
     if not speed > 0.0:
         raise SystemExit("--clock-speed must be above 0")
     clock: DuckClock
     if neuro:
-        from duckmind.simweb.neuro_live import DayClock, parse_day_time
+        from duckmind.simweb.neuro_live import DAY_START_MINUTE, DayClock, parse_day_time
 
         minute = parse_day_time(args.neuro_time) if args.neuro_time else None
+        if getattr(args, "public", False):
+            minute = DAY_START_MINUTE
         clock = DayClock(minute, speed=speed)
     else:
         clock = DuckClock(speed=speed)
@@ -2173,10 +2259,10 @@ def _make_clock(args: argparse.Namespace, *, neuro: bool) -> DuckClock:
 
 
 def _open_life(
-    args: argparse.Namespace, parser: argparse.ArgumentParser
+    args: argparse.Namespace, parser: argparse.ArgumentParser, birth: datetime | None = None
 ) -> tuple[LifeRecord | None, Config | None]:
-    """The duck record of ``--life`` (hatched now when the folder is new) and the Config to
-    start its Duck Core with (None: not a life)."""
+    """The duck record of ``--life`` (hatched now when the folder is new; ``birth``: hatched then, a public
+    duck's morning, before its backdated days) and the Config to start its Duck Core with (None: not a life)."""
     if args.life is None:
         return None, None
     if args.neuro_time:
@@ -2203,7 +2289,8 @@ def _open_life(
         else:
             from duckmind.simweb.life_host import BRANCH_FROM_DUCK_CORE
 
-            birth = datetime.fromisoformat(args.life_birth) if args.life_birth else None
+            if birth is None and args.life_birth:
+                birth = datetime.fromisoformat(args.life_birth)
             life = LifeRecord.create(
                 folder,
                 name=args.name_given or args.name or "小鴨",
@@ -2304,7 +2391,6 @@ def _live_bridge(args: argparse.Namespace) -> LiveBridge:
         raise SystemExit("--live needs --microduck, --microduck-rl, --policies and --robotd-bin")
     remote = None
     if args.body:
-        from duckmind import paths as dm_paths
         from duckmind.livebody import RemoteBodySpec
         from duckmind.remotebody.link import parse_url
 

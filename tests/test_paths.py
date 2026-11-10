@@ -16,6 +16,7 @@ ENVS = (
     paths.POLICY_ROOT_ENV,
     paths.POLICY_ENV,
     paths.V5_ENV,
+    paths.V9_ENV,
     paths.UPSTREAM_ENV,
     paths.MJCF_ENV,
 )
@@ -36,6 +37,8 @@ def test_without_a_file_every_folder_is_under_the_home(clean: Path) -> None:
     assert paths.policy_root() == clean / "policies"
     assert paths.policy_dir() == clean / "policies" / "current"
     assert paths.v5_policy_dir() == clean / "policies" / "releases" / "seed-v5"
+    assert paths.v9_policy_dir() == clean / "policies" / "releases" / "v9"
+    assert paths.motions_dir() == clean / "data" / "live" / "motions"
     assert paths.upstream_root() == clean / "upstream"
     assert paths.microduck_dir() == clean / "upstream" / "microduck"
     assert paths.microduck_rl_dir() == clean / "upstream" / "microduck_rl"
@@ -76,9 +79,12 @@ def test_environment_beats_the_file(
     assert paths.upstream_root() == tmp_path / "u"
     monkeypatch.setenv(paths.POLICY_ENV, str(tmp_path / "shipped"))
     monkeypatch.setenv(paths.V5_ENV, str(tmp_path / "v5"))
+    monkeypatch.setenv(paths.V9_ENV, str(tmp_path / "v9"))
     monkeypatch.setenv(paths.MJCF_ENV, str(tmp_path / "mjcf"))
     assert paths.policy_dir() == tmp_path / "shipped"
     assert paths.v5_policy_dir() == tmp_path / "v5"
+    assert paths.v9_policy_dir() == tmp_path / "v9"
+    assert paths.motions_dir() == tmp_path / "d" / "live" / "motions"
     assert paths.microduck_mjcf_dir() == tmp_path / "mjcf"
 
 

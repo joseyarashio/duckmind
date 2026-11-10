@@ -106,7 +106,9 @@ une langue de la page.)
 
 ## Démarrage rapide
 
-Il vous faut Python 3.12 ou plus récent, `git` et [`uv`](https://docs.astral.sh/uv/).
+Il vous faut Python 3.12 ou plus récent, `git`, [`uv`](https://docs.astral.sh/uv/) et Rust
+([rustup](https://rustup.rs)) pour compiler `robotd` de Pollen, le programme qui fait bouger
+le corps du canard. Sur un Mac avec puce Apple ou sous Linux.
 
 ```bash
 git clone https://github.com/joseyarashio/duckmind.git
@@ -114,31 +116,47 @@ cd duckmind
 uv run --python 3.12 --extra sim python -m duckmind.setup_cmd
 ```
 
-`python -m duckmind.setup_cmd` télécharge ce que duckmind utilise sans le fournir :
+`python -m duckmind.setup_cmd` télécharge et compile ce que duckmind utilise sans le fournir :
 
-- le code `microduck` de Pollen (robotd et les sons du canard), à un commit fixé ;
+- le code `microduck` de Pollen dans sa version `daemon-v0.18.5`, avec un petit correctif de
+  duckmind, `poseJoints` (il laisse le canard se relâcher quand il fait le mort). setup en
+  compile avec Rust `robotd`, `tofd` et les sons du canard. Sans Rust, setup explique comment
+  l'installer et fait le reste ; la page fonctionne alors sans `robotd` (pas de physique en
+  direct) ;
 - le code `microduck_rl` de Pollen et le modèle 3D du robot, à un commit fixé. Les
   maillages 3D sont sous licence CC BY-NC-SA 4.0 (non commerciale). setup affiche
   cette licence et ne les télécharge que si vous tapez « yes » ;
-- le jeu de politiques v5 de Pollen depuis Hugging Face, chaque fichier étant
-  vérifié par rapport à son sha256 fixé.
+- le jeu de politiques v9 de Pollen depuis Hugging Face (la marche qu'utilise maintenant le
+  vrai canard de Pollen), et l'ancien jeu v5 qu'utilisent les tests ;
+- les sept mouvements entraînés de duckmind depuis Hugging Face
+  ([`joseyarashio/duckmind-motion-skills`](https://huggingface.co/joseyarashio/duckmind-motion-skills), Apache-2.0 : révérence, tourner, enjamber,
+  sursaut, apaisement, fuite paniquée, demi-tour rapide), et la table qui dit à `robotd`
+  comment les jouer.
 
-Par défaut, les fichiers vont dans `~/.duckmind` (`DUCKMIND_HOME` permet de changer).
-setup ne modifie jamais ce qui existe déjà.
+Chaque fichier téléchargé est vérifié par rapport à son sha256 fixé. Par défaut, les fichiers
+vont dans `~/.duckmind` (`DUCKMIND_HOME` permet de changer). setup ne modifie jamais ce qui
+existe déjà.
 
-Lancez ensuite la page du simulateur. setup affiche cette commande avec votre propre
-chemin :
+Lancez ensuite le canard. setup affiche cette commande avec vos propres chemins :
 
 ```bash
-uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 \
-  --microduck-mjcf ~/.duckmind/upstream/microduck_rl/src/mjlab_microduck/robot/microduck
+DUCKMIND_ROBOTD_SKILLS=~/.duckmind/data/live/motions/skills.json \
+uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 --live --brain neuro \
+  --microduck ~/.duckmind/upstream/microduck \
+  --microduck-rl ~/.duckmind/upstream/microduck_rl \
+  --policies ~/.duckmind/policies/releases/v9 \
+  --robotd-bin ~/.duckmind/upstream/microduck/target/aarch64-apple-darwin/debug/robotd
 # ouvrez http://127.0.0.1:8765/
 ```
 
-Le serveur n'accepte que les connexions de votre propre ordinateur. Plus de détails
-dans [docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md) ;
-la physique en direct avec robotd est décrite dans
-[docs/validation/run-live-sim.md](docs/validation/run-live-sim.md).
+(Sous Linux, `robotd` est dans `target/debug/`.) Le canard de la maison marche maintenant comme
+celui de la page publique pour jouer : `robotd` de Pollen et la marche v9 font bouger son corps
+dans la physique MuJoCo, et les mouvements entraînés de duckmind s'y ajoutent. Le serveur
+n'accepte que les connexions de votre propre ordinateur. Plus de détails dans [docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md).
+
+Vous aviez déjà lancé setup ? Vos fichiers restent tels quels. Relancez setup pour ajouter v9,
+les mouvements et `robotd`. Si `upstream/microduck` est à un autre commit, déplacez d'abord ce
+dossier : setup ne modifie jamais un checkout à un autre commit.
 
 La voix dans le cloud (Google Gemini Live) est désactivée par défaut. Lisez
 [PRIVACY.md](PRIVACY.md) avant de l'activer.

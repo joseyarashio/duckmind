@@ -5,8 +5,8 @@ longer version, with the reasons, is [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - **No machine paths.** Never write an absolute path of the machine you run on into
   code, tests or docs. Folders outside the repo come from `duckmind.paths`
-  (`duckmind_home()`, `data_dir()`, `policy_dir()`, `v5_policy_dir()`,
-  `upstream_root()`, `microduck_mjcf_dir()`), which honour the `DUCKMIND_*`
+  (`duckmind_home()`, `data_dir()`, `motions_dir()`, `policy_dir()`, `v5_policy_dir()`,
+  `v9_policy_dir()`, `upstream_root()`, `microduck_mjcf_dir()`), which honour the `DUCKMIND_*`
   environment variables and an optional `paths.toml`.
 - **No personal data or secrets** in code, tests, fixtures or commit messages: no
   real names, e-mail addresses, IP addresses, host names, tokens or API keys. Test

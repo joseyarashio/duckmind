@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / web (169 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / web (171 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "web", {
 "web.demo.DemoRunner.finish": "시범: {kind}",
 "web.demo.DemoRunner.set_up": "오리 앞에 물건을 놓을 수 없어요",
@@ -128,6 +128,8 @@ DuckI18n.load("ko", "web", {
 "web.live.plain_error.777d08": "실제 물리에 필요한 업스트림 파일(robotd, 몸 서버, 걷기 신경망)을 찾을 수 없어요",
 "web.live.plain_error.941e54": "물리 몸의 서버가 멈췄거나 응답이 없어요. 「물리 몸 초기화」를 눌러 다시 시작하세요",
 "web.live.world_words": "물리 세계가 응답하지 않아요(몸 서버가 멈췄을 수 있어요)",
+"web.public.ended_grace": "체험 시간이 끝났어요. 오리가 앉아서 쉬고 있어요. {minutes}분 안에는 오리 파일을 내려받을 수 있어요.",
+"web.public.refused": "공개 체험에서는 이 기능을 쓸 수 없어요.",
 "web.robot_model.ATTRIBUTION": "3D 모델: Pollen Robotics microduck_rl(CC BY-NC-SA 4.0). 이 컴퓨터의 checkout에서 읽고, duckmind에 복사하지 않았어요.",
 "web.robot_model.load_model.074f38": "업스트림 모델 위치가 지정되지 않았어요(시작할 때 --microduck-mjcf 폴더를 붙이세요)",
 "web.robot_model.load_model.b008b4": "MJCF에 몸체가 없어요",

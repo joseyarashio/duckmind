@@ -97,7 +97,9 @@ cognition -> behavior intent -> embodied skill -> robotd -> policy -> safety -> 
 
 ## 快速开始
 
-需要 Python 3.12 以上、`git` 和 [`uv`](https://docs.astral.sh/uv/)。
+需要 Python 3.12 以上、`git`、[`uv`](https://docs.astral.sh/uv/)，还有 Rust
+（[rustup](https://rustup.rs)），用来构建 Pollen 的 `robotd`，也就是让小鸭身体动起来的程序。
+电脑要是 Apple 芯片的 Mac 或 Linux。
 
 ```bash
 git clone https://github.com/joseyarashio/duckmind.git
@@ -105,26 +107,39 @@ cd duckmind
 uv run --python 3.12 --extra sim python -m duckmind.setup_cmd
 ```
 
-`python -m duckmind.setup_cmd` 会下载 duckmind 要用、但没有放在仓库里的东西：
+`python -m duckmind.setup_cmd` 会下载并构建 duckmind 要用、但没有放在仓库里的东西：
 
-- Pollen 的 `microduck` 代码（robotd 和小鸭的叫声），固定在一个锁定的版本；
+- Pollen 的 `microduck` 代码，版本是 `daemon-v0.18.5`，加上 duckmind 的一个小补丁 `poseJoints`
+  （让小鸭装死时能整个软下来）。setup 用 Rust 从它构建出 `robotd`、`tofd` 和小鸭的叫声。
+  没有 Rust 的话，setup 会告诉你怎么装，其他的照样做完；这时页面可以打开，但没有 `robotd`
+  （没有实时物理）；
 - Pollen 的 `microduck_rl` 代码和 3D 机器人模型，固定在一个锁定的版本。3D 网格的许可证是
   CC BY-NC-SA 4.0（非商业）。setup 会先显示这份许可证，你输入"yes"才会下载；
-- Hugging Face 上 Pollen 的 v5 策略，每个文件都会和锁定的 sha256 比对。
+- Hugging Face 上 Pollen 的 v9 策略（Pollen 的真鸭现在用的走路），还有测试用的旧版 v5；
+- Hugging Face 上 duckmind 自己训练的七个动作（[`joseyarashio/duckmind-motion-skills`](https://huggingface.co/joseyarashio/duckmind-motion-skills)，Apache-2.0：
+  鞠躬、转身、跨过、惊吓、安抚、慌张逃跑、快转），和告诉 `robotd` 怎么做这些动作的动作表。
 
-文件默认放在 `~/.duckmind` 下面（用 `DUCKMIND_HOME` 可以换位置）。已经存在的东西，setup 一律不改。
+每个下载的文件都会和锁定的 sha256 比对。文件默认放在 `~/.duckmind` 下面（用 `DUCKMIND_HOME`
+可以换位置）。已经存在的东西，setup 一律不改。
 
-然后启动模拟器页面。setup 会打印出这行命令，里面是你自己的路径：
+然后启动小鸭。setup 会打印出这行命令，里面是你自己的路径：
 
 ```bash
-uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 \
-  --microduck-mjcf ~/.duckmind/upstream/microduck_rl/src/mjlab_microduck/robot/microduck
+DUCKMIND_ROBOTD_SKILLS=~/.duckmind/data/live/motions/skills.json \
+uv run --python 3.12 --extra sim python -m duckmind.simweb --port 8765 --live --brain neuro \
+  --microduck ~/.duckmind/upstream/microduck \
+  --microduck-rl ~/.duckmind/upstream/microduck_rl \
+  --policies ~/.duckmind/policies/releases/v9 \
+  --robotd-bin ~/.duckmind/upstream/microduck/target/aarch64-apple-darwin/debug/robotd
 # 打开 http://127.0.0.1:8765/
 ```
 
-服务器只在你自己的电脑上接受连接。更多说明见
-[docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md)；
-接上 robotd 的实时物理见 [docs/validation/run-live-sim.md](docs/validation/run-live-sim.md)。
+（Linux 上 `robotd` 在 `target/debug/`。）家里的小鸭现在走起来和公开试玩页面上的一样：
+Pollen 的 `robotd` 和 v9 走路在 MuJoCo 物理里推动它的身体，duckmind 训练的动作叠在上面。
+服务器只在你自己的电脑上接受连接。更多说明见 [docs/validation/run-duck-simulator.md](docs/validation/run-duck-simulator.md)。
+
+以前运行过 setup？你的文件都不会动。再运行一次 setup，就会加上 v9、动作和 `robotd`。
+如果 `upstream/microduck` 是别的版本，先把那个文件夹移开：别的版本的 checkout，setup 一律不改。
 
 云端语音（Google Gemini Live）默认是关闭的。打开之前请先读 [PRIVACY.md](PRIVACY.md)。
 
