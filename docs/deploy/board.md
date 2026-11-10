@@ -174,10 +174,25 @@ emergency stop or a substitute for a board-level signal/physical kill test.
 The official `robot.look` path (checked on v5) did **not** track its returned
 absolute head pose in MuJoCo; the walk policy expects head deltas from HOME.
 The first game uses a fixed `+0.15 rad` head-pitch delta, verified against
-measured `robot.state` head joints in simulation (v5 on daemon 0.15.0; not yet
-re-run on 0.18.x + v8). Do not treat the simulator as proof that a physical head mechanism
-has the same sign or limits. With `[idle]` on, robotd's own look-around
-moves the head between the game's commands: turn it off first (section 1).
+measured `robot.state` head joints in simulation. Do not treat the simulator as
+proof that a physical head mechanism has the same sign or limits. With `[idle]`
+on, robotd's own look-around moves the head between the game's commands: turn it
+off first (section 1).
+
+**What the head profile was measured on, and what an approval may cover.** The one
+measurement behind this profile (`docs/upstream-validation.md`, "Head command
+mismatch") ran on this project's Mac in MuJoCo with `robotd` daemon **0.15.0**
+(its hello said API 37 and no build revision) and policy set **v5** (`velstand.onnx`
+in the walk slot). It has **not** been repeated on daemon 0.18.x with policy set
+**v8** (what the simulated duck runs today) or **v9** (what Pollen's next factory
+image ships), and never on a physical head. The code lets any daemon at or past
+API 37 with `velstand.onnx` in the walk slot speak the profile (a capability
+check, not a measurement). So before an approval drop-in is installed for a duck
+on v8 or v9: repeat the simulator measurement on that daemon and policy set
+(two measured head samples within 0.12 rad of HOME + delta, as the adapter
+checks), write the daemon version, the policy set and the `velstand.onnx` sha256
+into the bench report, and only then run this section's trial on the robot. An
+approval measured on one daemon/policy pair is not an approval for another.
 
 With the robot physically supported, clear of people/objects, battery healthy,
 official operator present and a physical power/torque kill path in reach:
@@ -284,40 +299,77 @@ signalling and 8080 its console page (mediad `src/main.rs`, `--port` and `--web-
 asks for a password — "there is no authorisation on the robot — a LAN peer may drive it" (mediad
 `src/route.rs`, module comment) — so anyone on the home network can drive the duck around the
 bridge and its deadman. `netpadd` (a gamepad over UDP port 4210) is off unless `[netpad]
-enabled = true` in `robotd.toml`. From the computer, `python -m duckmind.remotebody check
-remote://<duck>:8797` knocks on 8443 and 8080 and says whether they answer.
+enabled = true` in `robotd.toml`.
 
-Duck Mind and the bridge change nothing here: the duck stays as Pollen ships it unless you type
-the lines below. The table lives in memory only, so a reboot (or the delete line) gives Pollen's
-setup back. **Verify** on the factory Yocto image first that `nft` exists (`command -v nft`) and
-that the kernel answers `sudo nft list ruleset`.
+**The bridge refuses to serve a real duck while a door is open.** When
+`python -m duckmind.remotebody bridge --backend real …` starts, it knocks on TCP 8443 and 8080 at
+the duck's own LAN address (the `--listen` address; `--lan-address` names another) and looks
+whether anything holds UDP 4210. If a door is open it prints which, why it matters and the fix,
+logs `doors_open`, and exits with status 2 before it opens its own port. `--allow-open-mediad`
+serves anyway (the log and the brain's `check` then say so). From the computer,
+`python -m duckmind.remotebody check remote://<duck>:8797` knocks on 8443 and 8080 from where a
+LAN peer stands — the look that counts — and its last line is `ready: …` or `NOT READY: …`
+(exit status 1): it does not call the link ready while a door answers, or while the bridge found
+netpadd listening.
+
+**Close them with one command.** Duck Mind changes nothing on the duck by itself. Copy
+`tools/duck/close-mediad.sh` to the duck and run it there as root:
 
 ```sh
-# on the duck, while the bridge is in use: only the brain's computer reaches the bridge, and
-# nobody on the LAN reaches mediad's doors or netpadd (the duck's own processes still do)
-BRAIN=x.x.x.x   # the brain computer's LAN address (the bridge's link_up event logs it as "peer")
-sudo nft -f - <<EOF
+# on the computer
+duckctl scp tools/duck/close-mediad.sh :close-mediad.sh
+# on the duck (duckctl ssh). BRAIN: the computer's LAN address
+sudo sh close-mediad.sh --brain <BRAIN>             # close, in memory: a reboot opens them again
+sudo sh close-mediad.sh --brain <BRAIN> --at-boot   # close now and at every boot (a systemd unit)
+sudo sh close-mediad.sh --status                    # is the table in? is it kept at boot?
+sudo sh close-mediad.sh --undo                      # open again, and forget --at-boot
+sh close-mediad.sh --brain <BRAIN> --print          # only print the table; change nothing
+```
+
+It loads one nftables table, `inet duckmind` (replaced in one transaction when run again):
+
+```
 table inet duckmind {
   chain input {
     type filter hook input priority 0; policy accept;
-    iif "lo" accept
+    iif "lo" ip daddr 127.0.0.0/8 accept
+    iif "lo" ip6 daddr ::1 accept
     tcp dport { 8443, 8080 } drop
     udp dport 4210 drop
-    meta nfproto ipv4 tcp dport 8797 ip saddr != $BRAIN drop
+    meta nfproto ipv4 tcp dport 8797 ip saddr != <BRAIN> drop
     meta nfproto ipv6 tcp dport 8797 drop
   }
 }
-EOF
-sudo nft list table inet duckmind     # check it is in
-sudo nft delete table inet duckmind   # undo (or reboot)
 ```
 
-Then run `check` again from the computer: it should say `mediad's LAN doors: closed from this
-computer`. What it costs: Pollen's console page and the app's local WebRTC session stop working
-while the table is in; ssh (22), `duckctl`, Bluetooth and the duck's updates are untouched.
-Pollen's remote access goes out through its rendezvous service rather than in through 8443, so
-it should keep working (not verified on a duck). Without `nft`: the same drops with `iptables`
+Only the brain's computer reaches the bridge, and nobody on the LAN reaches mediad's doors or
+netpadd. The duck's own processes still reach them at `127.0.0.1`. Loopback is accepted **by
+address, not by interface**: a connection from the duck to its own LAN address also travels over
+`lo`, and it is dropped like a LAN peer's — that is how the bridge's start check, which runs on
+the duck, sees that the doors are closed. (An older table from this page with `iif "lo" accept`
+leaves the bridge refusing: run the script, it replaces the table.) A UDP door cannot be knocked
+on, so while netpadd is enabled the bridge refuses even with the table in: turn netpadd off
+(`[netpad] enabled = false` with `sudo robotctl configure`, then restart robotd), or start the
+bridge with `--allow-open-mediad` if you keep it on behind the table.
+
+`--at-boot` writes `/etc/duckmind/close-mediad.nft` and
+`/etc/systemd/system/duckmind-close-mediad.service` and enables the unit; `--undo` removes both.
+An OS update that replaces `/etc` removes them too: the bridge then refuses again and says so.
+
+**Not verified on a duck** (the hardware is awaiting delivery; the script's logic is tested with a
+stand-in `nft`). On the factory Yocto image check first that `nft` exists (`command -v nft`) and
+that the kernel answers `sudo nft list ruleset`. Then run `check` from the computer: it should
+say `mediad's LAN doors: closed from this computer` and end with `ready`. What it costs: Pollen's
+console page and the app's local WebRTC session stop working while the table is in; ssh (22),
+`duckctl`, Bluetooth and the duck's updates are untouched. Pollen's remote access goes out
+through its rendezvous service rather than in through 8443, so it should keep working (not
+verified on a duck). Without `nft`: the same drops with `iptables`
 (`sudo iptables -I INPUT -p tcp --dport 8443 -j DROP`, likewise 8080 and `-p udp --dport 4210`),
 also gone at the next reboot; or keep mediad off the LAN for good with a systemd drop-in that
 starts it with `--host 127.0.0.1` (that closes the console page too, and survives updates only
 as long as the drop-in does).
+
+**Wrong tokens.** An address that offers the bridge a wrong token 5 times within 60 s is locked
+out for 60 s: the bridge logs `peer_locked`, begins no handshake with it and tells it how long.
+A brain with a stale token file says "the body has locked this computer out … (check the token
+file)"; a right token forgets the wrong ones before it.

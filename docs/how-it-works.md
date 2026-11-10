@@ -104,12 +104,12 @@ New motions are trained in MuJoCo (mjlab-based RL on a GPU box) and must pass `d
 
 ## 7. Future improvements (honest list)
 
-- **Going to a spot** (remote "go there") arrives only about 26% of the time. Walk-tracking training was tried four times and failed its gate. Next: better path following in the brain on the lasting map, then retrain with a new reward.
+- **Going to a spot** (pointing at the floor, "go there"): measured on a fair click set (`python -m duckmind.bench gothere`, set `real_home-v1`: 800 clicks whose starts have room and whose places a body can reach), a duck that knows its home with the v8 walk arrives at a spot in the same room within 40 s **72% of the time** (433 of 600, 68–76%), and at a spot in another room 54%. By what is on the straight line: clear 89%, a small thing 62%, furniture 33%. The older figure of about 61% came from click sets with many unfair clicks (starts inside clutter, places with no room for the body). The 70% goal is met on the fair set, so this work is closed (2026-11-10) and the page no longer marks it experimental. A planner that knew the whole room would reach about 85% with today's reflexes and 96% if it owned the legs; that is the room left if it is reopened. A real duck refuses it for now (use the "come" command).
 - **Door sills (~20 mm)** still make it fall. Step-walk training (6 tries) and brain-side fixes failed. Next: a ramp option for the room, and a dedicated step skill.
 - **Real hardware** is not validated; everything here runs in simulation. Next: bench tests on a real body with the same gates.
 - **Duck file export/import** is built: [duck-file.md](duck-file.md).
 - **Remote body** (the brain on your computer, robotd on the duck over the home LAN): built and rehearsed with a simulated duck behind a network shim; no real duck connected yet. See [real-microduck.md](real-microduck.md).
-- **Voice recognition**: local, six-language recognition is planned; today praise is a button. The name detector (keyword spotting) failed acceptance. Next: retrain on more local voices, never using outside services.
+- **Voice recognition**: hold-to-speak commands, praise and scolding are recognised on your computer in six languages ([voice-commands.md](voice-commands.md)). Five languages passed the 90% target on the fixed test sentences; Traditional Chinese reached 82.9% and did not. The name detector (keyword spotting) failed acceptance. Next: retrain on more local voices, never using outside services.
 - **False "brushed a wall" guesses** sometimes steer walking. Next: require agreement between touch and ToF before it turns.
 - **Standing up takes ~1.9 s** to start (robotd's sit/stand switch). Next: a faster switch in the body layer.
 - **Personality check**: a χ² test that trick obedience really differs by temperament has not been run yet.

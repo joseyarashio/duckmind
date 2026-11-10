@@ -19,7 +19,7 @@
    "settle_s": 2.0
   }
  ],
- "about_stances": "The walk networks' standing stance (neuro/seatcal.py), proprio's raw units, 50 Hz neuro records of the live robotd in the simulator (real_home, 20 ms servo command delay): floor_low = the lowest load the legs stayed under for 0.3 s standing stopped on the floor (v8: 9.9 h of V8Fix, V8Brush and BrushModel roam / wall / righting / trick records, 2026-11-05/06; v5: 8.1 h of the same rigs: 19.3); held = the median load standing in the world's hand (V8Fix lift rig, 16 lifts, 480 in-hand ticks before the claim; ≤ 12.5 once the lift's swing is over); lift_load = the standing claim's level between them. The reference walk keeps proprio's own level (20.0).",
+ "about_stances": "The walk networks' standing stance (neuro/seatcal.py), proprio's raw units, 50 Hz neuro records of the live robotd in the simulator (real_home, 20 ms servo command delay): floor_low = the lowest load the legs stayed under for 0.3 s standing stopped on the floor (v8: 9.9 h of V8Fix, V8Brush and BrushModel roam / wall / righting / trick records, 2026-11-05/06; v5: 8.1 h of the same rigs: 19.3); held = the median load standing in the world's hand (V8Fix lift rig, 16 lifts, 480 in-hand ticks before the claim; ≤ 12.5 once the lift's swing is over); lift_load = the standing claim's level between them. v9 (V9Safety, 2026-11-10): its stance itself stays above 20, but a v9 duck standing with its beak resting on a thing (a basket, a sofa's edge) carries 17.2-19.9 on its legs for seconds and proprio's 20 claimed a pickup (4 in 3.0 h of headless roam, 1 in 0.5 h of live roam; floor_low 17.7 / 17.8); in the hand its legs settle at about 10 as v8's. The reference walk keeps proprio's own level (20.0).",
  "stance_reference": "1c659be55da94bc5753b707de5c6a3e7c49931e05ca3b6991615cef1a8ba9a45",
  "stances": [
   {
@@ -30,6 +30,15 @@
    "floor_low": 15.6,
    "held": 10.0,
    "lift_load": 14.0
+  },
+  {
+   "walk_sha256": "ce894d30b3343036d499bfac1102bdaa58d59a21c1b58401ecb70fb6a2f63e0a",
+   "name": "v9 velstand (microduck-policies v9 = v7)",
+   "body": "allcollisions_backlash",
+   "delay_ms": 20.0,
+   "floor_low": 17.7,
+   "held": 10.0,
+   "lift_load": 15.0
   }
  ]
 }

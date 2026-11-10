@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from duckmind.remotebody.doors import BOARD_DOC, CLOSE_SCRIPT, MEDIAD_PORTS, open_ports
+
 USAGE = """usage: python -m duckmind.remotebody <command> [options]
 
   token PATH   write a fresh shared token to PATH (mode 0600); copy the same file to the other machine
@@ -44,18 +46,14 @@ def main(argv: list[str] | None = None) -> int:
     return run(rest)
 
 
-# mediad's two LAN doors (mediad/src/main.rs: --host 0.0.0.0, --port 8443 signalling, --web-port
-# 8080 console): no authentication, and a LAN peer may drive the duck through them
-MEDIAD_PORTS = (8443, 8080)
-PORT_PROBE_S = 1.0
-
-
 def check(argv: list[str]) -> int:
     """Dial the body, hold the link for a few seconds, ask robotd who it is and how it is (hello,
     robot.health, robot.policies: read-only), and print the link's round trip, the clock offset,
     the battery, the camera's frame rate over the link, and whether mediad's LAN doors answer.
     ``--wifi-minutes M`` then holds the link M minutes and reports the home Wi-Fi's quality
-    (:mod:`duckmind.remotebody.quality`). Moves nothing."""
+    (:mod:`duckmind.remotebody.quality`). Moves nothing. The last line is the verdict: ``ready``
+    (exit 0), or ``NOT READY`` with why (exit 1) — the link dropped, or one of Pollen's LAN doors
+    is open (:mod:`duckmind.remotebody.doors`): a LAN peer could drive the duck around the bridge."""
     import argparse
     import json
     import time
@@ -114,14 +112,31 @@ def check(argv: list[str]) -> int:
             print("camera over the link: the bridge serves no camera (start it with --media)")
         elif args.camera_seconds > 0:
             print(describe_camera(camera_rate(media, args.camera_seconds)))
+        not_ready = []
         ports = [int(p) for p in str(args.mediad_ports).split(",") if p.strip()]
+        reachable = open_ports(link.url.host, ports) if ports else []
         if ports:
-            for line in describe_doors(link.url.host, open_ports(link.url.host, ports)):
+            for line in describe_doors(link.url.host, reachable):
                 print(line)
+        if reachable:
+            not_ready.append("mediad's LAN doors answer from this computer")
+        found = link.info.get("doors")
+        if isinstance(found, dict):
+            for line in describe_bridge_doors(found):
+                print(line)
+            if found.get("netpadd") is not None:
+                not_ready.append("netpadd listened on the duck when the bridge started")
         drops = int(stats["drops"])
         if args.wifi_minutes > 0:
             drops = wifi_quality(link, args.wifi_minutes * 60.0)["drops"]
-        return 0 if drops == 0 else 1
+        if drops:
+            not_ready.append(f"the link dropped {drops} time(s)")
+        if not_ready:
+            print("NOT READY: " + "; ".join(not_ready))
+            return 1
+        knocked = "no door round the bridge answered" if ports else "mediad's doors not knocked on"
+        print(f"ready: the link held, and {knocked}")
+        return 0
     except (OSError, ValueError, RuntimeError) as error:
         print(f"check failed: {error}", file=sys.stderr)
         return 1
@@ -201,30 +216,36 @@ def describe_camera(rate: dict[str, object]) -> str:
     )
 
 
-def open_ports(host: str, ports: list[int], timeout_s: float = PORT_PROBE_S) -> list[int]:
-    """The ``ports`` on ``host`` that accept a TCP connection from this computer."""
-    import socket
-
-    found = []
-    for port in ports:
-        try:
-            with socket.create_connection((host, port), timeout=timeout_s):
-                found.append(port)
-        except OSError:
-            pass
-    return found
-
-
 def describe_doors(host: str, reachable: list[int]) -> list[str]:
     if not reachable:
         return [f"mediad's LAN doors: closed from this computer (knocked on {host})"]
-    doors = ", ".join(str(p) for p in reachable)
+    ports = ", ".join(str(p) for p in reachable)
     return [
-        f"mediad's LAN doors OPEN from this computer: {host} port {doors} (no password; anyone on "
+        f"mediad's LAN doors OPEN from this computer: {host} port {ports} (no password; anyone on "
         "this network can drive the duck through them, around the bridge)",
-        "  to close them while the bridge is in use: docs/deploy/board.md, 'Closing mediad's "
-        "LAN doors' (nftables, gone at the next reboot)",
+        f"  to close them, on the duck: sudo sh {CLOSE_SCRIPT} --brain <this computer's "
+        f"address> ({BOARD_DOC})",
     ]
+
+
+def describe_bridge_doors(found: dict[str, object]) -> list[str]:
+    """What a real duck's bridge found at those doors, on the duck, when it started."""
+    out = []
+    if found.get("netpadd") is not None:
+        out.append(
+            f"netpadd's LAN door: something listened on UDP {found['netpadd']} on the duck when "
+            "the bridge started (a gamepad on the network drives the duck around the bridge)"
+        )
+        out.append(
+            "  turn it off on the duck: [netpad] enabled = false (sudo robotctl configure, "
+            "then restart robotd and the bridge)"
+        )
+    if found.get("allowed") and (found.get("tcp_open") or found.get("netpadd") is not None):
+        out.append(
+            "the bridge was started with --allow-open-mediad while a door was open: its "
+            "deadman does not cover that door"
+        )
+    return out
 
 
 def wifi_quality(link: object, seconds: float, minute_s: float = 60.0) -> dict[str, object]:

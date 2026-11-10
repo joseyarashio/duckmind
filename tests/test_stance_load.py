@@ -109,12 +109,68 @@ def test_v5_and_unmeasured_walks_keep_proprio_s_standing_number() -> None:
     }  # only the standing claim's level moves
 
 
-def test_a_v9_duck_sits_on_v8s_seat_and_stands_on_proprio_s_own_level() -> None:
-    # policy set v9 = v7's walk (ce894d30…) with v8's sit-stand (a6f102d9…, the same file): the seat is v8's measured one;
-    # v9's walk stood above 20 in every 0.3 s of its 1 h roam records (lowest 20.8 / 22.2; V9Check 2026-11-08), as v5's
-    # did, so it has no stance entry and the standing claim keeps proprio's own level
-    v9_walk = "ce894d30b3343036d499bfac1102bdaa58d59a21c1b58401ecb70fb6a2f63e0a"
+V9_WALK = "ce894d30b3343036d499bfac1102bdaa58d59a21c1b58401ecb70fb6a2f63e0a"
+V9_CASES = json.loads((Path(__file__).parent / "fixtures" / "lift" / "stance_v9.json").read_text())[
+    "cases"
+]
+
+
+def v9_seat_cfg() -> ProprioConfig:
+    """A v9 body's seat numbers (v8's sit-stand file) with proprio's own standing level."""
+    return TABLE.proprio_for(
+        ProprioConfig(), V8_SEAT.sitstand_sha256, V8_SEAT.body, V8_SEAT.delay_ms
+    )
+
+
+def v9_cfg() -> ProprioConfig:
+    """Everything the v9 body gets: v8's seat (the same sit-stand file) and its own stance."""
+    return TABLE.stand_proprio_for(v9_seat_cfg(), V9_WALK, "allcollisions_backlash", 20.0)
+
+
+def test_a_v9_duck_standing_with_its_beak_on_a_thing_is_not_a_pickup() -> None:
+    # policy set v9 = v7's walk (ce894d30…): its stance stays above 20, but standing with the beak resting on a basket or a
+    # sofa's edge the legs carry 17-20 for seconds, and proprio's own level (20) claimed a pickup and sat the duck down
+    # (V9Safety 2026-11-10: 4 in 3.0 h of headless roam, 1 in 0.5 h of live roam; none in v8's 2.5 h with its own level)
+    false = {n: c for n, c in V9_CASES.items() if c["kind"] == "false"}
+    assert len(false) >= 4
+    for name, case in false.items():
+        assert claims(case["frames"], v9_seat_cfg()) >= 1, (
+            name
+        )  # proprio's own level: the false claim
+        assert claims(case["frames"], v9_cfg()) == 0, name
+
+
+def test_a_v9_duck_standing_in_the_hand_is_still_claimed() -> None:
+    real = {n: c for n, c in V9_CASES.items() if c["kind"] == "real"}
+    assert len(real) >= 3
+    for (
+        name,
+        case,
+    ) in (
+        real.items()
+    ):  # the world's hand lifts the standing duck 2.0 s into the window ([pickup] off)
+        assert claims(case["frames"], v9_cfg()) == 1, name
+    # standing on the floor 3 s (v9 stands at about 33), then held: the legs settle at about 10 with a swing up to 13
+    frames = [(k * 20, 0.94, "stand", 0.02) for k in range(150)]
+    frames += [
+        (3000 + k * 20, 0.29 + 0.08 * max(0.0, math.sin(k / 4.0)), "stand", 0.02)
+        for k in range(100)
+    ]
+    assert claims(frames, v9_cfg()) == 1
+
+
+def test_a_v9_duck_sits_on_v8s_seat_and_has_its_own_standing_level() -> None:
+    # v9's sit-stand is v8's file (a6f102d9…): the seat is v8's measured one; its walk has its own stance entry, and v8's
+    # entry and v5's level are what they were
     base = ProprioConfig()
     assert TABLE.seat_for(V8_SEAT.sitstand_sha256, "allcollisions_backlash", 20.0) == V8_SEAT
-    assert TABLE.stance_for(v9_walk, "allcollisions_backlash", 20.0) is None
-    assert TABLE.stand_proprio_for(base, v9_walk, "allcollisions_backlash", 20.0) is base
+    v9 = TABLE.stance_for(V9_WALK, "allcollisions_backlash", 20.0)
+    assert v9 is not None and v9.held < v9.lift_load < v9.floor_low < base.lift_load
+    got = TABLE.stand_proprio_for(base, V9_WALK, "allcollisions_backlash", 20.0)
+    assert got.lift_load == v9.lift_load
+    assert {k: v for k, v in vars(got).items() if k != "lift_load"} == {
+        k: v for k, v in vars(base).items() if k != "lift_load"
+    }  # only the standing claim's level moves
+    assert TABLE.stand_proprio_for(base, V9_WALK, "allcollisions", 20.0) is base  # another body
+    assert V8_WALK.lift_load == 14.0 and V8_WALK.floor_low == 15.6  # v8's entry untouched
+    assert TABLE.stand_proprio_for(base, TABLE.stance_reference, "allcollisions", 20.0) is base

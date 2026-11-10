@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / neuro (1274 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "neuro", {
 "neuro.act.body_shake.body": "제자리에서 종종 발을 구르고 몸을 흔들흔들, 머리도 같이 털어요",
 "neuro.act.body_shake.name": "몸 털기",
@@ -509,6 +509,7 @@ DuckI18n.load("ko", "neuro", {
 "neuro.gate.skill": "온몸 동작은 이번엔 하지 않아요 (자세가 맞지 않거나, 횟수가 찼거나, 다른 동작 중)",
 "neuro.gate.stall": "막혔어요: 잠깐 멈춰요",
 "neuro.gate.stumble": "발이 걸렸어요: 일단 멈춰요",
+"neuro.gate.uncalibrated": "진짜 오리의 몸 보정을 아직 재지 않았어요: 머리만 움직이고 걷거나 서거나 앉지 않아요",
 "neuro.gate.unloaded": "발이 붕 뜬 것 같아요: 일단 멈춰요",
 "neuro.gate.veer": "방금 멈췄어요: 원을 그리며 비켜 돌 수만 있어요(부딪힌 반대쪽으로 돌아요)",
 "neuro.gothere.bad_point": "바닥의 한 곳을 가리켜 주세요",

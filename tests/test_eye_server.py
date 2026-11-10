@@ -264,7 +264,7 @@ class Body:
             self.yaw_deg += self.turn_deg_per_sample
             now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
             self.send(_pose(self.seq, now, self.yaw_deg).to_json())
-            time.sleep(0.04)
+            self.stop.wait(0.04)
 
     def look(self, look: p.EyeLook, *, fd: bool = True) -> dict[str, Any]:
         if fd:
@@ -289,6 +289,15 @@ class Body:
         self.sock.close()
 
 
+def _poses_arrived(server: es.EyeServer, count: int = 5) -> None:
+    """The eye has taken ``count`` samples of the pose tap (its own condition says when)."""
+    with server.new_pose:
+        arrived = server.new_pose.wait_for(
+            lambda: len(server.core.tap.samples) >= count, timeout=5.0
+        )
+    assert arrived, "the pose tap never reached the eye"
+
+
 @pytest.fixture
 def rig(folder: Path) -> Iterator[tuple[es.EyeServer, Any, Path]]:
     pytest.importorskip("numpy")
@@ -302,7 +311,7 @@ def rig(folder: Path) -> Iterator[tuple[es.EyeServer, Any, Path]]:
     def camera() -> None:
         while not stop.is_set():
             if shim.frames.demand.wait(0.05) and shim.frames.take_request():
-                time.sleep(0.03)  # a render's worth
+                stop.wait(0.03)  # a render's worth
                 shim.frames.deliver(ms.Frame(W, H, data, time.time_ns() // 1000))
 
     thread = threading.Thread(target=camera, daemon=True)
@@ -326,7 +335,7 @@ def test_duck_body_hands_the_eye_a_frame_and_gets_integers_back(rig):
         hello = p.EyeHello.from_json(body.read())
         assert hello.perception_hash == server.core.pv and "floor" in hello.tasks
         body.thread.start()
-        time.sleep(0.2)
+        _poses_arrived(server)
         now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
         look = _look(tasks=("floor",), pose_tap_ref=body.seq, not_before_ns=now + 50_000_000)
         answer = p.EyeResult.from_json(body.look(look))
@@ -396,7 +405,7 @@ def test_the_eye_answers_a_look_whose_head_keeps_turning_with_retake(rig):
         body.send(p.Hello().to_json())
         body.read()
         body.thread.start()
-        time.sleep(0.2)
+        _poses_arrived(server)
         answer = body.look(_look(tasks=("floor",), pose_tap_ref=body.seq))
         assert (answer["status"], answer["why"]) == ("retake", "head_moved")
         assert answer["retake_in_ms"] == p.RETAKE_IN_MS and answer["results"] == {}

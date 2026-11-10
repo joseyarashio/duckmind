@@ -7,13 +7,24 @@ The robot's own daemon, `robotd`, stays on the duck; a small **bridge** on the d
 brain on your home network reach it. This page says what is ready, how to connect a duck, and what
 still has to be checked on a real robot.
 
-> **Status (2026-11-08).** The link, the bridge and the safety stop are built and rehearsed with a
-> *simulated* duck on a second process behind a network shim (delay, jitter, loss, cuts). No real
-> Microduck has been connected yet. Every step below marked **verify** is a guess from the
-> official software until someone runs it on a robot. The robots that ship run Pollen's
-> production ("beta") main board with the V1.0 face board and the factory Yocto image: robotd
-> 0.18.x (API 49), policy set v8 (the next release moves to v9, which is v7's walk network), a
-> two-layer `robotd.toml` and an upright GC2093 camera. The simulator runs robotd 0.18.5 + v8.
+> **Status (2026-11-10).** The link, the bridge and the safety stop are built and rehearsed with a
+> *simulated* duck on a second process behind a network shim (delay, jitter, loss, cuts). The
+> page has a real-duck mode, rehearsed the same way (`sim-body --as-real`, 2026-11-09). **No real
+> Microduck has been connected yet.** Every step below marked **verify** is a guess from
+> Pollen's software until someone runs it on a robot.
+>
+> Not ready for a real robot yet: the brain's body-sense thresholds (lifted, set down) and its ToF
+> "at the face" rule are the simulator's numbers, not calibrated on a board, and a staged bring-up
+> plan (read-only checks → feet off the ground → standing → supervised walking → free roaming)
+> is still being written. Duck Mind never turns a real duck on, and pointing at the floor
+> ("go there") is refused on a real duck; "come" works when the duck sees a person.
+>
+> Versions: the robots that ship run Pollen's production ("beta") main board with the V1.0 face
+> board and the factory Yocto image, a two-layer `robotd.toml` and an upright GC2093 camera.
+> Daemon 0.16.2–0.18.8 and the factory image install policy set v8 (robotd 0.18.5 says API 49);
+> upstream pinned v9 (v7's walk network with v8's sit-stand) for the next release on 2026-11-06,
+> so a duck delivered from now on may run v9. The simulator runs robotd 0.18.5 + v8 with the
+> GC2093 camera; the brain has measured tables for the v5, v8 and v9 walks.
 
 ## How it fits together
 
@@ -134,6 +145,21 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    id. The bridge logs a `telemetry` event with what it found. `--keep-pollen-telemetry` leaves
    the switch alone. The simulator runs no `updaterd`, so nothing is sent from the computer.
 
+   **Close Pollen's own doors first.** The official `mediad` keeps two doors open on the LAN with
+   no password (TCP 8443 and 8080), and `netpadd` a third when it is enabled (UDP 4210): anyone
+   on the network can drive the duck through them, around the bridge and its deadman. So a real
+   duck's bridge knocks on them at the duck's own LAN address when it starts, and while one is
+   open it prints which, why it matters and how to close it, and **does not serve** (it exits
+   with status 2). Closing them is one command: copy `tools/duck/close-mediad.sh` to the duck
+   (`duckctl scp tools/duck/close-mediad.sh :close-mediad.sh`) and run
+   `sudo sh close-mediad.sh --brain <the computer's address>` there (in memory only, a reboot
+   opens them again; `--at-boot` keeps them closed at every start; `--undo` puts Pollen's setup
+   back; `--status` says what is in). Then start the bridge. To serve with a door open anyway,
+   add `--allow-open-mediad` (the events file and `check` on the computer then say so). The
+   details and what it costs are in `docs/deploy/board.md` §5; the script has not run on a real
+   duck yet. An address that offers a wrong token 5 times within 60 s is locked out for 60 s
+   (`peer_locked` in the events file).
+
 5. **Check the link from the computer** — it reads robotd's health and policies and moves nothing:
 
    ```sh
@@ -218,6 +244,12 @@ and offers no world channel (only robotd, tofd and the camera). The page then ru
 mode on this computer and its chip says *rehearsal*. The simulated world still runs on the body's
 side (it makes the camera's pictures and the ToF), but the brain and the page never see it.
 
+**A real duck (and a rehearsal) moves only its head until its body has been measured.** The body
+sense's leg-load levels and the ToF touch band are per body; without a valid calibration for the
+board and the two networks it runs, the brain sends nothing to the legs and the *real duck* card
+says why. The staged bring-up and the bench tool that measures it (`python -m duckmind.bringup`)
+are in [docs/deploy/bring-up.md](deploy/bring-up.md); for a rehearsal it is one command there.
+
 The **battery** comes from the body on every remote body: the brain reads robotd's `robot.health` battery over the link
 every 2 s (`LiveBody.battery()`, `duckmind/remotebody/battery.py`), never the simulated world's
 pack. robotd reports volts (the servos' supply, smoothed) and its own percentage of them (6.6 V is
@@ -230,6 +262,16 @@ still draws and senses through that body's world, as it does for a body on this 
 page's 我的小鴨 (my duck) tab has a *The real duck* card: it says which body the brain drives now
 (the simulated one on this computer, a rehearsal, or a real duck, with the link's round trip,
 drops and longest silence) and lists these steps.
+
+**A real duck has no charging dock.** No dock hardware exists yet (`docs/dock-hardware.md` is a
+design) and robotd reports no charging flag, so a real duck's bridge tells the brain that this
+body has no dock (`has_dock: false`): the brain never looks for a dock and never walks home to
+one. Its hunger simply follows the battery percentage — with a low pack it walks less, below
+30 % it does not walk — until the family swaps or charges the pack, and then the hunger is
+gone. The page says *no charging dock* beside the battery (six languages). When a dock exists,
+start the bridge with `--has-dock` (`sim-body --as-real --has-dock` rehearses it). Simulated
+ducks are unchanged, with a nest and without one (a duck without a nest still looks for one,
+lets it go after a while, and the family's battery help swaps its pack as before).
 
 ### Microphone and touch on the production duck
 
@@ -271,7 +313,7 @@ the microphone.
   refuses no client version).
 - [ ] **Policies:** `robot.subscribe` reports `walk: velstand.onnx`; `check` prints the walk and
   sit-stand sha256 and set version (record them as in `docs/deploy/board.md`) and whether the
-  brain was measured on them (v5, v8: yes; v9 = v7's walk: no).
+  brain was measured on them in the simulator (v5, v8 and v9 = v7's walk: yes).
 - [ ] **robotd.toml:** `check` prints the board and the merged `[idle]` / `[pickup]` /
   `limp_fall`; `[idle]` turned off in the owner layer (`sudo robotctl configure`). With
   `[pickup]` on, lift the duck: robotd pauses (`safety.picked_up`) and the brain says *lifted*
@@ -312,9 +354,12 @@ the microphone.
   page goes on by itself. Record which of Pollen's controls that is.
 - [ ] **Other doors on the duck:** the official `mediad` listens on `0.0.0.0:8443`/`8080` with no
   authentication and lets a LAN peer drive the robot; Bluetooth pairing (`btd`) is off by default.
-  `check` says whether 8443/8080 answer from the computer; `docs/deploy/board.md` §5 has the
-  nftables table that closes them while the bridge is in use (in memory only; nothing is changed
-  on the duck by default).
+  A real duck's bridge knocks on them when it starts and does not serve while one is open
+  (`--allow-open-mediad` serves anyway); `check` ends with `ready` or `NOT READY` and never says
+  ready while a door answers from the computer. `tools/duck/close-mediad.sh` closes them in one
+  command and `--undo` opens them again (`docs/deploy/board.md` §5). To confirm on the duck:
+  the factory image has `nft`, the script runs, `check` then says `closed` and `ready`, and
+  Pollen's remote access still works.
 - [ ] **CPU on the duck's board:** measured on the computer (Apple M5 Pro, % of one core;
   `tools/measure_bridge_cpu.py`: the bridge as its own process, fakes sending robotd 0.18.5-shaped
   `robot.state` lines of 5.4 kB, tofd's 8×8 frames and mediad's 720p UYVY frames): the link alone

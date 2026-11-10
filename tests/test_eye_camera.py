@@ -19,17 +19,20 @@ def test_the_eye_carries_the_family_calibration_of_the_world():
     assert ec.ROTATE == cm.ROTATE_DEG
 
 
-@pytest.mark.usefixtures("alpha_board")
+@pytest.mark.parametrize("family", [ec.ALPHA, ec.BETA], ids=lambda f: f.name)
 @pytest.mark.parametrize("label", list(cm.QUALITIES))
-def test_k_scales_with_the_frame_like_every_media_quality(label):
+def test_k_scales_with_the_frame_like_every_media_quality(label, family, monkeypatch):
+    board = next(name for name, camera in ec.BOARD_CAMERAS.items() if camera is family)
+    monkeypatch.setenv(cm.BOARD_ENV, board)  # the world's rungs carry the K of the board's camera
     q = cm.QUALITIES[label]
-    cam = ec.EyeCamera.for_frame(q.width, q.height, 90)
+    cam = ec.EyeCamera.for_frame(q.width, q.height, family.rotate, family)
     k = q.k
     assert (cam.fx, cam.fy, cam.cx, cam.cy) == pytest.approx((k.fx, k.fy, k.cx, k.cy))
-    up = k.upright()
+    up = k.upright() if family.rotate == 90 else k
     assert cam.upright_size == (up.width, up.height)
     assert cam.upright_k() == pytest.approx((up.fx, up.fy, up.cx, up.cy))
-    assert cam.upright_distortion() == pytest.approx(cm.upright_distortion())
+    turned = cm.upright_distortion(family.distortion) if family.rotate == 90 else family.distortion
+    assert cam.upright_distortion() == pytest.approx(turned)
 
 
 def test_rays_match_the_world_s_undistortion_and_invert_projection():
@@ -340,8 +343,8 @@ def test_each_family_s_field_of_view_is_its_lens_s(family):
     assert _pinhole_view_deg(family) == pytest.approx(family.view_deg, abs=0.1)
 
 
-def test_the_production_board_has_the_upright_gc2093_and_the_simulator_keeps_the_imx219():
-    assert ec.camera_family() is ec.ALPHA  # the simulator's camera, and an unset [board]
+def test_the_production_board_has_the_upright_gc2093_and_an_unset_board_reads_as_the_imx219():
+    assert ec.camera_family() is ec.ALPHA  # robotd's reading of an unset [board] version
     assert ec.camera_family("zero3") is ec.ALPHA
     assert ec.camera_family("beta") is ec.camera_family("face-board-v1") is ec.BETA
     assert ec.BETA.rotate == 0 and ec.BETA.k[0] == pytest.approx(695.6, abs=0.1)

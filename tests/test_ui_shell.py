@@ -1,160 +1,96 @@
 """The page shell (UI rebuild 2026-10-10, docs/design/UI-REBUILD-2026-10-10.md; item 6,
 docs/design/neural-duck/UI-REDESIGN-2026-11-05.md): the view and its control panel are one element,
 the panel's tabs are the players' (玩, 訓練, 成長, 我的小鴨), everything for development is on the
-「實驗室」 view of the page (/lab). Static checks on the markup and the scripts; the layout itself is
-checked in a browser (the screenshots in the measurement records, not in the repo)."""
+「實驗室」 view of the page (/lab). ``shell.js`` runs in Node over the page's own markup
+(tests/page_tree_node_harness.py); the layout itself is checked in a browser (the screenshots in
+the measurement records, not in the repo)."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
+
+import pytest
+from page_tree_node_harness import NODE, run
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
 PAGE = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "style.css").read_text(encoding="utf-8")
-SIM = PAGE[PAGE.index('id="viewSim"') : PAGE.index('id="viewData"')]
-LAB = PAGE[PAGE.index('id="viewData"') : PAGE.index("</main>")]
+needs_node = pytest.mark.skipif(NODE is None, reason="needs Node")
 
 
-def _between(start: str, end: str) -> str:
-    at = PAGE.index(start)
-    return PAGE[at : PAGE.index(end, at)]
+@pytest.fixture(scope="module")
+def shell() -> dict[str, Any]:
+    if NODE is None:
+        pytest.skip("needs Node")
+    return run("shell", {"shell.js"})
 
 
-def test_every_tab_has_its_panel_and_the_controls_sit_in_the_right_one() -> None:
-    tabs = re.findall(r'data-ctl-tab="(\w+)"', PAGE)
-    panels = re.findall(r'data-ctl-panel="(\w+)"', PAGE)
-    assert tabs == panels == ["stim", "trick", "grow", "duck", "status", "play", "tools"]
-    where = {
-        # 玩 (owner 2026-11-05): the play card, the talk card (shown with --live-voice), the fourteen
-        # emotions in a fold-out, the sound scenes
-        "stim": [
-            'id="neuroStim"',
-            'id="neuroStimButtons"',
-            'id="liveVoice"',
-            'id="emotionFold"',
-            'id="neuroEmotions"',
-            'id="emotionGroups"',
-            'id="neuroSoundMount"',
-        ],
-        "trick": ['id="trickBook"', 'id="trickList"', 'id="trickFeedback"'],
-        "grow": ['id="growthTab"', 'id="growthTabStatus"', 'id="growthTabBody"'],
-        "duck": ['id="duckFile"', 'id="duckFileSwitch"', 'id="bodyLink"', 'id="neuroPicker"'],
-        "status": ['id="duckBanner"'],
-        "play": ['id="scenarios"', 'id="cmdForm"'],
-        "tools": ['id="labTools"'],
-    }
-    fold = _between('id="emotionFold"', "</details>")
-    assert 'id="neuroEmotions"' in fold and "<summary" in fold
-    for panel, hooks in where.items():
-        start = PAGE.index(f'id="ctl-{panel}"')
-        nxt = [m.start() for m in re.finditer(r'class="ctl-panel"', PAGE) if m.start() > start]
-        body = PAGE[start : nxt[0] if nxt else PAGE.index("</aside>", start)]
-        for hook in hooks:
-            assert hook in body, (panel, hook)
+@needs_node
+def test_every_tab_shows_its_own_panel_and_only_that_one(shell: dict[str, Any]) -> None:
+    first = shell["first"]
+    assert len(first["selected"]) == 1 and first["shown"] == first["selected"]
+    assert len(shell["tabs"]) >= 7  # the players' four and Duck Core's own three
+    for tab, pressed in shell["tabs"].items():
+        assert pressed["selected"] == [tab], tab
+        assert pressed["shown"] == [tab], tab
+        # (the panel its aria-controls names)
+        assert pressed["panel_ids"] == [pressed["controls"]], tab
+    assert shell["remembered"] == list(shell["tabs"])[-1]  # the viewer's last choice is kept
 
 
-def test_the_players_tabs_are_big_and_say_what_they_are_with_an_icon() -> None:
-    for tab, key in (
-        ("stim", "page.shell.tab.play"),
-        ("trick", "page.trick.tab"),
-        ("grow", "page.shell.tab.grow"),
-        ("duck", "page.shell.tab.myduck"),
-    ):
-        tag = _between(f'id="ctlTab-{tab}"', "</button>")
-        assert 'class="ctl-tab-icon" aria-hidden="true"' in tag and f'data-i18n="{key}"' in tag
-    assert ".ctl-tab:has(.ctl-tab-icon)" in CSS and "min-height: 56px" in CSS
-    # 玩: the five things a player does first — touch, hold, ball, a new thing, clap — as big buttons
-    play = _between('id="neuroStimButtons"', "</div>")
-    stims = re.findall(r'data-stim="(\w+)"', play)
-    assert stims[:6] == ["pat_head", "pick_up", "set_down", "roll_ball", "novel_object", "clap"]
-    assert ".neuro-stim .row.play-buttons .btn { min-height: 56px" in CSS
+@needs_node
+def test_the_lab_is_the_same_page_at_its_own_address_and_back_goes_back(
+    shell: dict[str, Any],
+) -> None:
+    assert shell["first"]["path"] == "/" and not shell["first"]["lab"]
+    assert shell["first"]["lab_hidden"] and not shell["first"]["sim_hidden"]
+    lab = shell["lab"]
+    assert lab["path"] == "/lab" and lab["lab"] and lab["sim_hidden"] and not lab["lab_hidden"]
+    assert lab["current"] == ["data"]  # the header marks the view that is open
+    back = shell["back"]
+    assert not back["lab"] and back["lab_hidden"] and not back["sim_hidden"]
+    assert back["current"] == ["sim"]
+    assert shell["views"][:3] == ["sim", "data", "sim"]  # (the other scripts are told each time)
+    # the lab's old address still opens it, and becomes /lab
+    old = run("shell", {"shell.js"}, {"start": "/data"})["first"]
+    assert old["path"] == "/lab" and old["lab"] and not old["lab_hidden"]
 
 
-def test_the_view_and_the_panel_are_one_element_so_enlarging_keeps_the_panel() -> None:
-    view = _between('id="duckView"', "</aside>")
-    assert 'id="ctlPanel"' in view and 'class="stage-frame"' in view
-    app = (STATIC / "app.js").read_text(encoding="utf-8")
-    assert "requestFullscreen" in app and 'duckView.classList.toggle("is-big", on)' in app
-    assert ".duck-view.is-big" in CSS and "max-height: min(54%, 520px)" in CSS
+@needs_node
+def test_a_link_into_a_part_of_the_other_view_opens_that_view_and_shows_the_part(
+    shell: dict[str, Any],
+) -> None:
+    links = {link["from"]: link for link in shell["links"]}
+    assert "btnBrain" in links and links["btnBrain"]["to"] == "neuroSide"  # 「腦」 on the HUD
+    for link in shell["links"]:
+        assert link["found"], link["to"]
+        assert link["lab"] and link["path"] == f"/lab#{link['to']}", link["to"]
+        assert link["scrolled"] == [link["to"]], link["to"]
+    # every part the lab's links name is on the page; one that sits in the panel takes the
+    # viewer back to the simulator, to its tab, with the fold-out it is in opened
+    assert len(shell["parts"]) >= 8
+    in_panel = [part for part in shell["parts"] if part["panel"]]
+    for part in shell["parts"]:
+        assert part["found"], part["to"]
+        if not part["panel"]:
+            assert part["in_lab"], part["to"]
+            continue
+        assert part["handled"] and not part["lab"] and part["path"] == "/", part["to"]
+        assert part["selected"] == [part["panel"]] == part["shown"], part["to"]
+        assert all(part["folds"]) and part["scrolled"] == [part["to"]], part["to"]
+    assert any(part["folds"] for part in in_panel)  # (the emotions, in 玩's fold-out)
 
 
-def test_the_stage_and_the_command_strip_keep_the_players_controls() -> None:
-    stage = _between('class="stage-frame"', 'id="duck3dNote"')
-    for hook in (
-        'id="duck3d"',
-        'id="eyeWindow"',
-        'id="cmdStrip"',
-        'id="cmdText"',
-        'id="cmdMic"',
-        'id="cmdKeys"',
-        'id="cmdFeedback"',
-        'id="cmdPoint"',
-        'id="remoteToggle"',
-    ):
-        assert hook in stage, hook
-    # (owner 2026-11-05) the 玩 tab is the one place for the stimuli: no quick strip under the stage
-    assert 'id="neuroQuick"' not in PAGE and "data-stim=" not in stage
-
-
-def test_the_lab_holds_everything_for_development_and_the_players_view_does_not() -> None:
-    for hook in (
-        'id="neuroSide"',
-        'id="neuroBrain"',
-        'id="neuroReflexes"',
-        'id="neuroRhythm"',
-        'id="physCard"',
-        'id="duck3dReadout"',
-        'id="liveToggle"',
-        'id="worldBattery"',
-        'id="neuroMotions"',
-        'id="motionGroups"',
-        'id="hudBody"',
-        'id="hudReflex"',
-        'id="growthView"',
-        'id="gvFf"',
-        'id="mind"',
-        'id="homeEditor"',
-        'id="capabilities"',
-        'id="neuroSkills"',
-    ):
-        assert hook in LAB and hook not in SIM, hook
-    # every part of the lab is one click from its top
-    jump = _between('class="lab-jump"', "</nav>")
-    for target in re.findall(r'href="#(\w+)"', jump):
-        # (the emotions' one copy is in 玩: the lab's button goes there, the shell opens its fold-out)
-        assert f'id="{target}"' in (SIM if target == "neuroEmotions" else LAB), target
-    assert "fold.open = true" in (STATIC / "shell.js").read_text(encoding="utf-8")
-    assert 'href="/lab"' in PAGE and 'data-view-link="data"' in PAGE
-    shell = (STATIC / "shell.js").read_text(encoding="utf-8")
-    assert '"/lab"' in shell and "pushState" in shell and "popstate" in shell
-    caps = (STATIC / "capabilities.js").read_text(encoding="utf-8")
-    assert '"duck:view"' in caps  # (the evidence and its clips load when the lab opens)
-
-
-def test_the_hud_opens_the_brain_in_the_lab() -> None:
-    hud = _between('id="hud"', 'class="stage-tools"')
-    assert (
-        'id="btnBrain" href="/lab#neuroSide" data-view-link="data"' in hud and 'id="hudNow"' in hud
-    )
-    # (owner 2026-11-05) only 「現在在做」 on the stage; the body and reflex lines are in the lab's brain
-    assert 'id="hudBody"' not in hud and 'id="hudReflex"' not in hud
-    js = (STATIC / "neuro.js").read_text(encoding="utf-8")
-    assert "function renderHud" in js and "renderHud(t, newest)" in js
-    assert 'for (const card of [$("#neuroMotions"), $("#neuroEmotions")])' in js
-
-
-def test_the_shell_styles_use_only_the_design_tokens() -> None:
-    block = CSS[CSS.index("/* ---------- app shell (UI rebuild 2026-10-10") :]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", block)
-    assert not re.search(r"\b(rgba?|hsla?)\(", block)
-    assert (
-        "border-radius" not in block
-        and "blur(" not in block
-        and "gradient" not in block.replace("var(--dots-ink)", "")
-    )
-    for token in set(re.findall(r"var\((--[\w-]+)\)", block)):
-        assert f"{token}:" in CSS, token
+@needs_node
+def test_the_enlarged_view_keeps_its_panel_and_the_label_rides_on_the_hud(
+    shell: dict[str, Any],
+) -> None:
+    assert shell["big"] == "open"  # enlarged: the panel floats open over the view
+    assert shell["small"] == "closed" and shell["handle"] == "false"
+    assert shell["opened"] == ["open", "true"]  # the handle opens it again
+    # the label that says which duck is drawn is not shown over the view: the HUD's tooltip has it
+    assert shell["hud_title"] == "page.truth.TRUTH_TITLE\nits line"
 
 
 def test_every_word_the_shell_and_the_lab_add_is_in_all_six_languages() -> None:

@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / core (2120 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "core", {
 "bodyhost.assess.07fced96": "The control program (robotd) hasn't sent a command for {seconds, number, ::.0} s, so the physics stopped",
 "bodyhost.assess.1428e8f9": "The computer is too busy, so the simulation slowed down",
@@ -1754,6 +1754,7 @@ DuckI18n.load("en", "core", {
 "livebody.no_world": "This is the real duck: there is no simulated world, so this can't be done",
 "livebody.real_no_camera": "The duck's camera is not on the link (the bridge on the duck did not offer the camera)",
 "livebody.real_turn_on": "The duck is not on yet: turn it on with its own control. This program never turns it on; once it is on, the brain takes over by itself",
+"livebody.real_uncalibrated": "This real duck moves only its head for now and does not walk: {why, select, none {its body has not been measured yet} other_networks {its walk or sit-stand network changed, so the last body measurement no longer fits} invalid {its body calibration file cannot be read} unknown_body {the bridge on the duck did not say which board it is or which networks it runs} other {its body has not been measured yet}}. Measure it once with the bring-up steps and it will walk",
 "world.apartment.ZH.ball": "ball",
 "world.apartment.ZH.bed_base": "bed",
 "world.apartment.ZH.bed_blanket": "blanket",

@@ -141,7 +141,9 @@ def test_the_snapshot_tells_the_page_it_is_a_real_duck_and_draws_no_world(tmp_pa
         "reason": NO_WORLD,
         "refuses": sorted(REAL_REFUSES),
         "turn_on": None,
+        "walk_lock": None,
         "battery": body.pack,
+        "has_dock": False,  # (no dock hardware exists: the page says so beside the battery)
     }
     assert snap["remote"]["up"] is True  # (the link's own numbers stay)
     truth = snap["frame"]["truth"]
@@ -153,6 +155,8 @@ def test_the_snapshot_tells_the_page_it_is_a_real_duck_and_draws_no_world(tmp_pa
     assert world["bodies"] == {}
     body.pack = None  # (robotd has not said yet: the page shows its placeholder)
     assert bridge.snapshot()["real"]["battery"] is None
+    body.has_dock = True  # (its bridge was started with --has-dock)
+    assert bridge.snapshot()["real"]["has_dock"] is True
 
 
 def test_a_simulated_body_has_no_real_block(tmp_path):
@@ -167,7 +171,8 @@ def test_a_simulated_body_has_no_real_block(tmp_path):
 def test_the_body_snapshot_keeps_the_real_mode_while_the_link_dials_again(tmp_path):
     """Before: a body that had not said what it is yet (the link dialling again after a drop, a
     restart) made ``/api/body`` say ``real: null`` and the page flipped to the simulated mode."""
-    bridge, _ = _bridge(tmp_path)
+    bridge, body = _bridge(tmp_path)
+    body.has_dock = True
     assert bridge.snapshot()["real"]["rehearsal"] is True
 
     class Dialling(FakeRealBody):
@@ -183,7 +188,9 @@ def test_the_body_snapshot_keeps_the_real_mode_while_the_link_dials_again(tmp_pa
         "reason": NO_WORLD,
         "refuses": sorted(REAL_REFUSES),
         "turn_on": None,
+        "walk_lock": None,
         "battery": None,
+        "has_dock": True,  # (what its bridge said is kept while the link dials again)
     }
 
 
@@ -357,7 +364,12 @@ def test_api_neuro_advertises_the_real_mode_and_refuses_with_its_reason():
     driver._body = FakeRealBody()
     hub = neuro_api.NeuroHub(enabled=True)
     hub.attach(neuro_api.DriverSource(lambda: driver))
-    expected = {"rehearsal": True, "reason": NO_WORLD, "refuses": sorted(REAL_REFUSES)}
+    expected = {
+        "rehearsal": True,
+        "reason": NO_WORLD,
+        "walk_lock": None,  # (no body link yet: nothing is held)
+        "refuses": sorted(REAL_REFUSES),
+    }
     assert hub.status()["real"] == expected
     telemetry = hub.telemetry()
     assert telemetry["real"] == expected

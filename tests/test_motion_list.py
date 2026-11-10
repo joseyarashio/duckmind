@@ -124,6 +124,14 @@ def _doc(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _written(name: str) -> str:
+    """What the tool writes for ``name`` from the registries as they are now (the committed
+    file is compared with it once, in test_the_committed_lists_are_what_the_tool_writes)."""
+    rendered = _live()["rendered"]
+    assert isinstance(rendered, dict)
+    return str(rendered[name])
+
+
 def _section(text: str, number: int) -> str:
     """The body of the ``## <number>. …`` section (its ``###`` parts included)."""
     found = re.search(rf"(?ms)^## {number}\. .*?\n(.*?)(?=^## |\Z)", text)
@@ -176,14 +184,14 @@ def test_the_check_option_fails_for_a_missing_or_hand_edited_file(tmp_path: Path
     "kind", ["behaviours", "skills", "motions", "emotions", "reflexes", "verbs"]
 )
 def test_every_id_is_in_the_list_in_backticks(name: str, kind: str) -> None:
-    text = _doc(name)
+    text = _written(name)
     missing = [i for i in _ids(kind) if f"`{i}`" not in text]
     assert not missing, f"docs/{name} has no `id` for these {kind}: {missing}. {HOW_TO_FIX}"
 
 
 @pytest.mark.parametrize("name", FILES)
 def test_every_behaviour_and_reflex_is_one_row_in_sections_2_5_and_7(name: str) -> None:
-    text = _doc(name)
+    text = _written(name)
     rows = [i for n in (2, 5, 7) for i in _row_ids(_section(text, n))]
     wanted = sorted({*_ids("behaviours"), *_ids("reflexes")})
     assert sorted(rows) == wanted, (
@@ -195,7 +203,7 @@ def test_every_behaviour_and_reflex_is_one_row_in_sections_2_5_and_7(name: str) 
 
 @pytest.mark.parametrize("name", FILES)
 def test_skills_and_page_motions_are_rows_of_section_3(name: str) -> None:
-    rows = _row_ids(_section(_doc(name), 3))
+    rows = _row_ids(_section(_written(name), 3))
     skills, motions = _ids("skills"), _ids("motions")
     assert [i for i in rows if i in skills][: len(skills)] == skills
     assert sorted(i for i in rows if i not in skills) == sorted(
@@ -206,14 +214,14 @@ def test_skills_and_page_motions_are_rows_of_section_3(name: str) -> None:
 
 @pytest.mark.parametrize("name", FILES)
 def test_emotions_and_commands_are_the_rows_of_sections_4_and_6(name: str) -> None:
-    text = _doc(name)
+    text = _written(name)
     assert _row_ids(_section(text, 4)) == _ids("emotions")
     assert _row_ids(_section(text, 6)) == _ids("verbs")
 
 
 @pytest.mark.parametrize("name", FILES)
 def test_the_list_names_no_machine_path(name: str) -> None:
-    text = _doc(name)
+    text = _written(name)
     # an absolute home or temp path, or the private measurement folder
     pattern = re.compile(r"/(Users|home|tmp)/|duckmind[-_]data")
     found = pattern.search(text)
@@ -222,7 +230,7 @@ def test_the_list_names_no_machine_path(name: str) -> None:
 
 @pytest.mark.parametrize("name", FILES)
 def test_each_file_is_marked_generated_links_its_twin_and_says_simulator_only(name: str) -> None:
-    text = _doc(name)
+    text = _written(name)
     lines = text.splitlines()
     english = name == "motions.md"
     assert lines[0] == (

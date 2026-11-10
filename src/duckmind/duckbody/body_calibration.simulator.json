@@ -1,0 +1,24 @@
+{
+ "schema": "duckmind.body-calibration/1",
+ "board": "simulator",
+ "unit": "",
+ "walk_sha256": null,
+ "sitstand_sha256": null,
+ "source": "simulator",
+ "recorded": "2026-09-28",
+ "units": "the simulator's leg-force proxy: currents_ma = |actuator force| x 100, summed over the ten leg joints",
+ "proprio": {
+  "unsure_load": 24.0,
+  "unsure_load_sit": 20.5,
+  "unsure_load_reverse": 18.0,
+  "lift_load": 20.0,
+  "lift_load_sit": 18.5,
+  "flail_load": 100.0,
+  "floor_band": [28.0, 120.0],
+  "floor_band_sit": [21.5, 70.0]
+ },
+ "tof": {
+  "touch_zones": 32,
+  "too_close_mm": 100
+ }
+}

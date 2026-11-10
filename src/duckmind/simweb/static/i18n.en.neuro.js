@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / neuro (1274 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "neuro", {
 "neuro.act.body_shake.body": "stamps its feet in place, wiggles its body, head shaking along",
 "neuro.act.body_shake.name": "Shake it off",
@@ -509,6 +509,7 @@ DuckI18n.load("en", "neuro", {
 "neuro.gate.skill": "The whole-body move is skipped this time (wrong posture, limit reached, or another move is running)",
 "neuro.gate.stall": "Blocked: pausing a moment",
 "neuro.gate.stumble": "Tripped: stopping first",
+"neuro.gate.uncalibrated": "The real duck's body is not measured yet: head only, no walking, standing up or sitting down",
 "neuro.gate.unloaded": "Feet seem to be in the air: stopping first",
 "neuro.gate.veer": "Just stopped: can only turn away on an arc (away from whichever side it bumped)",
 "neuro.gothere.bad_point": "Point to a place on the floor",

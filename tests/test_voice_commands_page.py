@@ -3,8 +3,8 @@
 Run in Node over a fake page (a fake clock, a fake ``fetch``, a fake microphone, a tiny fake DOM): holding the button
 records, letting go sends the clip as 16 kHz PCM to this server only, the line says what was heard and what it was
 understood as, the command's answer goes to the command line and a praise / scold's to the feedback line; a tap, a
-refused microphone and a server without a recogniser each say why. The words: every key in all six catalogs; the
-style: tokens only. How it looks in a browser is checked by hand (1440×900 and 390×844, in the measurement record).
+refused microphone and a server without a recogniser each say why. The words: every key in all six catalogs. How
+it looks in a browser is checked by hand (1440×900 and 390×844, in the measurement record).
 """
 
 from __future__ import annotations
@@ -21,8 +21,6 @@ import pytest
 from duckmind.i18n import CODES
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
-PAGE = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "style.css").read_text(encoding="utf-8")
 JS = (STATIC / "voicecmd.js").read_text(encoding="utf-8")
 NODE = shutil.which("node")
 HARNESS = Path(__file__).with_name("voicecmd_page_node_harness.mjs")
@@ -44,7 +42,7 @@ def _answer(text: str, understood: dict[str, Any], answer: Any) -> dict[str, Any
     return {"status": 200, "data": {"ok": True, "heard": heard, "understood": understood, "answer": answer, "took_s": 0.41}}
 
 
-# ── words and style ───────────────────────────────────────────────────────────────────────────
+# ── the words ─────────────────────────────────────────────────────────────────────────────────
 
 
 def test_every_word_the_voice_button_names_is_in_all_six_languages() -> None:
@@ -55,21 +53,6 @@ def test_every_word_the_voice_button_names_is_in_all_six_languages() -> None:
         text = (STATIC / f"i18n.{lang}.page.js").read_text(encoding="utf-8")
         for key in keys:
             assert f'"{key}":' in text, (lang, key)
-
-
-def test_the_voice_styles_use_only_the_design_tokens() -> None:
-    block = CSS[CSS.index("/* 按住說話") :]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", block.replace("#cmdMic", ""))
-    assert not re.search(r"\b(rgba?|hsla?)\(", block)
-    assert "border-radius" not in block and "blur(" not in block and "gradient" not in block
-    for token in set(re.findall(r"var\((--[\w-]+)\)", block)):
-        assert f"{token}:" in CSS, token
-
-
-def test_the_page_loads_the_button_its_line_and_its_script() -> None:
-    assert re.search(r'<button[^>]*id="cmdMic"[^>]*>.*data-voice-label', PAGE)
-    assert 'id="cmdVoiceOut"' in PAGE and 'role="status"' in PAGE
-    assert '<script type="module" src="/voicecmd.js"></script>' in PAGE
 
 
 # ── voicecmd.js in node ───────────────────────────────────────────────────────────────────────

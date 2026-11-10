@@ -1,0 +1,15 @@
+{
+ "clicks": 205,
+ "flags": {
+  "point_on_solid": 11,
+  "point_tight": 69,
+  "route_too_long": 6,
+  "start_in_clutter": 122,
+  "unreachable": 5
+ },
+ "home": "real_home",
+ "layout": "aa2d123e49fa12acbb010c2c51301423136c90028f278d57393ceaded1ba2dcc",
+ "name": "legacy-205",
+ "schema": "bench-clicks-v1",
+ "source": "live clicks of the earlier go-there measurements, replayed"
+}

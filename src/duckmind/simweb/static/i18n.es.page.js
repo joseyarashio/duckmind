@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "page", {
 "fmt.sep.and_then": " y además ",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("es", "page", {
 "page.body.state.offline": "No se puede conectar con el servidor; se volverá a intentar pronto.",
 "page.body.state.real": "Conectado al pato de verdad ({url}), unos {ms} ms de ida y vuelta.",
 "page.body.state.real_new": "Conectado al pato de verdad ({url}).",
+"page.body.state.real_nowalk": "Conectado al pato de verdad ({url}), pero por ahora solo mueve la cabeza y no camina: {why, select, none {todavía no se ha medido su cuerpo} other_networks {cambió su red de caminar o de sentarse y levantarse, así que la última medición del cuerpo ya no sirve} invalid {no se puede leer su archivo de calibración del cuerpo} unknown_body {el puente del pato no dijo qué placa es ni qué redes usa} other {todavía no se ha medido su cuerpo}}. Mídelo una vez con los pasos de puesta en marcha y caminará.",
 "page.body.state.real_off": "Conectado al pato ({url}), pero aún no está encendido. Enciéndelo con su propio control; este programa nunca lo enciende, y cuando esté encendido el cerebro se hace cargo solo.",
 "page.body.state.rehearsal": "Conectado al pato de ensayo de este ordenador ({url}), unos {ms} ms de ida y vuelta: hace de pato de verdad, sin mundo simulado.",
 "page.body.state.rehearsal_new": "Conectado al pato de ensayo de este ordenador ({url}): hace de pato de verdad, sin mundo simulado.",
@@ -1819,7 +1820,7 @@ DuckI18n.load("es", "page", {
 "page.point.arrived": "Ya llegó",
 "page.point.gave_up": "No llegó: {why}",
 "page.point.gave_up.plain": "No llegó",
-"page.point.hint_beta": "(En prueba) Haz clic en el suelo para que vaya allí (arrastrar gira la vista)",
+"page.point.hint": "Haz clic en el suelo para que vaya allí (arrastrar gira la vista)",
 "page.point.hint_remote": "Con el control remoto activo, el clic en el suelo no hace nada (apágalo para usarlo)",
 "page.point.notfloor": "Eso no es suelo; haz clic en un hueco libre al lado",
 "page.point.sent": "Lo oyó y se prepara para ir",
@@ -1835,9 +1836,11 @@ DuckI18n.load("es", "page", {
 "page.point.why.stuck": "se quedó atascado",
 "page.point.why.timeout": "tardó demasiado y se rindió",
 "page.real.battery.title": "El nivel de batería que informa el propio pato (de su programa de control, robotd)",
+"page.real.battery.title_no_dock": "El nivel de batería que informa el propio pato (de su programa de control, robotd). Este pato no tiene base de carga: cuando la batería esté baja, cámbiale la batería o cárgasela",
 "page.real.battery.unknown": "Aún no se sabe (esperando al pato)",
 "page.real.chip.battery": "Batería {pct} %",
 "page.real.chip.battery_charging": "Batería {pct} % (cargando)",
+"page.real.chip.battery_no_dock": "Batería {pct} % (sin base de carga)",
 "page.real.chip.battery_unknown": "Batería: aún no se sabe (esperando a que el pato lo diga)",
 "page.real.chip.link_down": "Conexión: caída, reconectando (cortes: {drops})",
 "page.real.chip.link_new": "Conexión: conectado · cortes: {drops} · silencio más largo: {gap} ms",

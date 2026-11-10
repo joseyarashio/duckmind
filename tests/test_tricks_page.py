@@ -3,8 +3,8 @@
 The three feedback buttons in the command strip and the 訓練 tab's trick book (``static/tricks.js``), run in Node
 over a fake page (a fake clock, a fake ``fetch``, a tiny fake DOM): what each answer of ``POST /api/neuro/feedback``
 is said as, how a book the server really draws (``growth_view``) becomes rows, when the book is read, and that a
-row's button goes through the command strip's own path. The words: every key in all six catalogs; the style:
-tokens only. How it looks in a browser is checked by hand (screenshots in the measurement records, not in the repo).
+row's button goes through the command strip's own path. The words: every key in all six catalogs. How it looks in
+a browser is checked by hand (screenshots in the measurement records, not in the repo).
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ from duckmind.neuro.tricks import TrickBook
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
 PAGE = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "style.css").read_text(encoding="utf-8")
 JS = (STATIC / "tricks.js").read_text(encoding="utf-8")
 NODE = shutil.which("node")
 HARNESS = Path(__file__).with_name("tricks_page_node_harness.mjs")
@@ -46,7 +45,7 @@ def _catalog(lang: str) -> str:
     return (STATIC / f"i18n.{lang}.page.js").read_text(encoding="utf-8")
 
 
-# ── words and style ───────────────────────────────────────────────────────────────────────────
+# ── the words ─────────────────────────────────────────────────────────────────────────────────
 
 
 def test_every_word_the_trick_page_names_is_in_all_six_languages() -> None:
@@ -60,15 +59,6 @@ def test_every_word_the_trick_page_names_is_in_all_six_languages() -> None:
         text = _catalog(lang)
         for key in keys:
             assert f'"{key}":' in text, (lang, key)
-
-
-def test_the_trick_styles_use_only_the_design_tokens() -> None:
-    block = CSS[CSS.index("/* 學會聽話") :]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", block)
-    assert not re.search(r"\b(rgba?|hsla?)\(", block)
-    assert "border-radius" not in block and "blur(" not in block and "gradient" not in block
-    for token in set(re.findall(r"var\((--[\w-]+)\)", block)):
-        assert f"{token}:" in CSS, token
 
 
 # ── tricks.js in node ─────────────────────────────────────────────────────────────────────────

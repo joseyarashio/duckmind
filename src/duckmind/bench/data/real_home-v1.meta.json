@@ -1,0 +1,30 @@
+{
+ "block": 100,
+ "block_same": 75,
+ "blocks": 8,
+ "clicks": 800,
+ "dropped": {
+  "place_no_room": 1466,
+  "place_outside": 1856,
+  "place_route_too_long": 25,
+  "place_unreachable": 0,
+  "place_wrong_room": 3721,
+  "start_no_place": 110
+ },
+ "home": "real_home",
+ "layout": "aa2d123e49fa12acbb010c2c51301423136c90028f278d57393ceaded1ba2dcc",
+ "name": "real_home-v1",
+ "rules": {
+  "body_radius_m": 0.1,
+  "cell_m": 0.02,
+  "path_max_m": 4.0,
+  "point_clear_m": 0.12,
+  "range_m": [
+   0.8,
+   1.6
+  ],
+  "start_clear_m": 0.25
+ },
+ "schema": "bench-clicks-v1",
+ "seed": 20261110
+}

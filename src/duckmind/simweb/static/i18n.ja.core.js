@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / core (2120 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "core", {
 "bodyhost.assess.07fced96": "制御プログラム（robotd）から{seconds, number, ::.0}秒間指令が来ておらず、物理が止まっています",
 "bodyhost.assess.1428e8f9": "パソコンが忙しく、シミュレーションが遅くなっています",
@@ -1754,6 +1754,7 @@ DuckI18n.load("ja", "core", {
 "livebody.no_world": "これは本物のアヒル：シミュレーションの世界がないので、これはできません",
 "livebody.real_no_camera": "アヒルのカメラが接続につながっていません（アヒル側のブリッジがカメラを開いていません）",
 "livebody.real_turn_on": "アヒルはまだ起動していません。アヒル自身の操作で起動してください。このプログラムが代わりに起動することはありません。起動すると、脳が自分で引き継ぎます",
+"livebody.real_uncalibrated": "この本物のアヒルは今は頭だけ動かして歩きません：{why, select, none {体の校正をまだ測っていません} other_networks {歩行か座り立ちのネットワークが変わったので、前に測った体の校正は使えません} invalid {体の校正ファイルが読めません} unknown_body {アヒル側のブリッジが、どの基板でどのネットワークを動かしているかを伝えていません} other {体の校正をまだ測っていません}}。立ち上げの手順で一度測ると歩けるようになります",
 "world.apartment.ZH.ball": "ボール",
 "world.apartment.ZH.bed_base": "ベッド",
 "world.apartment.ZH.bed_blanket": "ふとん",

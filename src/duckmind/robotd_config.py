@@ -41,7 +41,10 @@ USER_PATH = Path("/var/lib/robot/robotd.toml")
 # robotd_params::registry::RENAMED_SECTIONS (old name → new name)
 RENAMED_SECTIONS = (("imu_head", "pad_imu_head_control"), ("detect", "duck_detector"))
 MAX_LAYER_BYTES = 512 * 1024  # the base with every comment is ~60 kB
-DEFAULT_BOARD = "zero3"  # robotd's BoardParams: unset is zero3
+# What robotd takes a robot's board to be when its robotd.toml names none (robotd's BoardParams).
+# This is robotd's reading of a real robot's file, not the simulator's choice of camera: a
+# simulator started without ``--board`` carries camera_model.DEFAULT_SIM_BOARD ("beta").
+ROBOTD_UNSET_BOARD = "zero3"
 
 
 def merge_layers(base: Mapping[str, Any], user: Mapping[str, Any]) -> dict[str, Any]:
@@ -106,12 +109,12 @@ class RobotdConfig:
             value = (table.get(section) or {}).get(key, default)
             return value if isinstance(value, bool) else default
 
-        board = (table.get("board") or {}).get("version", DEFAULT_BOARD)
+        board = (table.get("board") or {}).get("version", ROBOTD_UNSET_BOARD)
         pickup = flag("pickup", "enabled", True)
         if (table.get("pickup") or {}).get("model") == "none":
             pickup = False  # robotd: the literal "none" disables the classifier
         return cls(
-            board=board if isinstance(board, str) else DEFAULT_BOARD,
+            board=board if isinstance(board, str) else ROBOTD_UNSET_BOARD,
             idle=flag("idle", "enabled", True),
             pickup=pickup,
             limp_fall=flag("safety", "limp_fall", True),
@@ -152,7 +155,7 @@ def board_config(base: Path = BASE_PATH, user: Path = USER_PATH) -> RobotdConfig
 
 __all__ = [
     "BASE_PATH",
-    "DEFAULT_BOARD",
+    "ROBOTD_UNSET_BOARD",
     "USER_PATH",
     "RobotdConfig",
     "board_config",

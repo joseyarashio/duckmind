@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hans / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hans / core (2120 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hans", "core", {
 "bodyhost.assess.07fced96": "控制程序（robotd）已经 {seconds, number, ::.0} 秒没有发指令，物理停住了",
 "bodyhost.assess.1428e8f9": "电脑太忙，模拟变慢了",
@@ -1754,6 +1754,7 @@ DuckI18n.load("zh-Hans", "core", {
 "livebody.no_world": "这是真的小鸭：没有模拟的世界，这件事做不到",
 "livebody.real_no_camera": "小鸭没有把相机接上连接（小鸭那边的桥没有开相机）",
 "livebody.real_turn_on": "这只小鸭还没开：请用它自己的控制把它开起来。这个程序不会替你开；开好以后，脑会自己接手",
+"livebody.real_uncalibrated": "这只真的小鸭现在只动头、不走路：{why, select, none {还没有量过它的身体校正} other_networks {它换了走路或坐站的网络，上次量的身体校正不能用了} invalid {它的身体校正文件读不出来} unknown_body {小鸭那边的桥没有说它是哪一块板子、跑哪些网络} other {还没有量过它的身体校正}}。照启动步骤量一次，它才会走",
 "world.apartment.ZH.ball": "球",
 "world.apartment.ZH.bed_base": "床",
 "world.apartment.ZH.bed_blanket": "被子",

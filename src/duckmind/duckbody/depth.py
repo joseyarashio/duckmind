@@ -19,9 +19,10 @@ DS-v1 adds what the upstream runtime does not have and duck-body needs:
   while the trunk tilts less than :attr:`DepthConfig.drop_tilt_max_mrad`, and that returns
   nothing or more than 1.15 × the expected range (+30 mm) is a drop zone; ≥ 4 drop zones in
   :attr:`DepthConfig.drop_frames` consecutive frames is a drop;
-* **touch** — ≥ 32 zones inside the too-close band (a face pressed on a wall reads all 64);
-  ``ahead_mm`` is then the sensor's own forward offset (fewer too-close zones are taken for the
-  cover glass's crosstalk, as the Reprojector does, and read as nothing);
+* **touch** — ≥ ``touch_zones`` (32) zones inside the too-close band (``too_close_mm``; a face pressed on a wall
+  reads all 64); ``ahead_mm`` is then the sensor's own forward offset (fewer too-close zones are taken for the
+  cover glass's crosstalk, as the Reprojector does, and read as nothing). Both numbers come from the body's
+  calibration (:mod:`duckmind.duckbody.calibration`; the simulator's by default, :meth:`DepthConfig.calibrated`);
 * **low edge** (obstacles, 2026-10-10) — a curb or a step of about 30 mm and more across the way is seen only from afar (its face is
   inside the beams for ~0.45 m; closer every beam passes over it). ``ahead_top_mm`` is the height of the face the nearest ahead
   return is on, ``low_edge_mm`` the height estimate of a wide low edge in view (``low_face`` is its segment) and, given the odometry,
@@ -42,25 +43,32 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
+from duckmind.duckbody import calibration
 from duckmind.duckbody import tof_reproject as tr
 from duckmind.duckbody.protocol import DepthView
 
 STATUS_WEAK = (4, 13)
 FAR_MM = 4000  # nothing seen: the sensor's 4 m range
 EVENT = "sense.depth"
+# the too-close band of a sensor nobody measured: the simulator's (the built-in simulator calibration)
+_SIM = calibration.SIMULATOR.tof
+assert _SIM is not None
 
 
 @dataclass(frozen=True)
 class DepthConfig:
-    """DS-v1's thresholds (mm, mrad, zone counts). Board numbers come in phase 8."""
+    """DS-v1's thresholds (mm, mrad, zone counts). The touch band is the body's calibration (the simulator's here)."""
 
     corridor_half_mm: int = 100  # the body-width corridor: hips ±71 mm, feet ±63 mm, + margin
     side_reach_mm: int = 700  # a hit beside the corridor counts for left/right within this
     weak_window_mm: int = 30
-    touch_zones: int = 32
+    touch_zones: int = _SIM.touch_zones
+    too_close_mm: int = (
+        _SIM.too_close_mm
+    )  # a return nearer than this (levelled reach from the sensor) is too close
     drop_ratio_milli: int = 1150  # 1.15 × the expected range…
     drop_slack_mm: int = 30  # …plus this (phase 1 / tof_replay used the same)
     drop_reach_mm: int = 1000  # only floor points expected within 1 m ahead (spec §5.1)
@@ -111,6 +119,13 @@ class DepthConfig:
         150  # an edge is taken to reach at least this far each side of where it was seen …
     )
     face_max_half_mm: int = 450  # … and never more than this
+
+    def calibrated(self, bands: calibration.TofBands | None) -> DepthConfig:
+        """This configuration with a measured sensor's touch band (its calibration's ``tof``; None, a duck without
+        a ToF: unchanged)."""
+        if bands is None:
+            return self
+        return replace(self, touch_zones=bands.touch_zones, too_close_mm=bands.too_close_mm)
 
 
 DEFAULT = DepthConfig()
@@ -262,7 +277,14 @@ def summarise(
         gravity=pose.gravity,
         trunk_height_m=None if pose.trunk_height_mm is None else pose.trunk_height_mm / 1000.0,
     )
-    zones = tr.project(ranges_m, pose.sensor, posture, standing_height_m, beam_dirs)
+    zones = tr.project(
+        ranges_m,
+        pose.sensor,
+        posture,
+        standing_height_m,
+        beam_dirs,
+        min_range_m=config.too_close_mm / 1000.0,
+    )
     level = tr.level_from_gravity(pose.gravity)
     sensor_level = level.rotate(pose.sensor.pos)
     height = posture.trunk_height_m if posture.trunk_height_m is not None else standing_height_m

@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / neuro (1274 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "neuro", {
 "neuro.act.body_shake.body": "その場で小さく足ぶみして体をゆすり、頭もぷるぷる",
 "neuro.act.body_shake.name": "体をぷるぷる",
@@ -509,6 +509,7 @@ DuckI18n.load("ja", "neuro", {
 "neuro.gate.skill": "全身の動きは今回は見送り（姿勢が合わない・回数の上限・別の動きの最中）",
 "neuro.gate.stall": "ふさがれている：少し止まる",
 "neuro.gate.stumble": "つまずいた：まず止まる",
+"neuro.gate.uncalibrated": "本物のアヒルの体の校正がまだです：頭だけ動かし、歩く・立つ・座るはしません",
 "neuro.gate.unloaded": "足が浮いているみたい：まず止まる",
 "neuro.gate.veer": "止まったところ：弧をえがいて離れるだけ（ぶつかったのと反対側に回る）",
 "neuro.gothere.bad_point": "床の上の場所を指してください",

@@ -94,6 +94,7 @@ def test_a_late_answer_is_never_read_as_the_answer_to_the_next_request() -> None
     """The body server answers one read too late (past the timeout); that answer must not be taken
     for the next read's: the failed read drops the connection and the next one opens a new one."""
     slow = {"left": 1}
+    gave_up, late_sent = threading.Event(), threading.Event()
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind(("127.0.0.1", 0))
     listener.listen(8)
@@ -106,12 +107,14 @@ def test_a_late_answer_is_never_read_as_the_answer_to_the_next_request() -> None
                 if not line:
                     return
                 op = json.loads(line)["op"]
+                late = False
                 if op == "hello":
                     answer: dict[str, Any] = {"protocol": 1}
                 elif slow["left"] > 0:
                     slow["left"] -= 1
-                    time.sleep(0.6)  # past the oracle's timeout
+                    gave_up.wait(5.0)  # held past the oracle's timeout: until its read gave up
                     answer = _snapshot(111.0)  # (the late answer)
+                    late = True
                 else:
                     answer = _snapshot(2.0)
                 try:
@@ -119,6 +122,9 @@ def test_a_late_answer_is_never_read_as_the_answer_to_the_next_request() -> None
                     stream.flush()
                 except OSError:
                     return
+                finally:
+                    if late:
+                        late_sent.set()
 
     def accept() -> None:
         while True:
@@ -136,7 +142,8 @@ def test_a_late_answer_is_never_read_as_the_answer_to_the_next_request() -> None
         assert oracle.lost
         with pytest.raises(ConnectionError):
             oracle.snapshot()  # (nothing is read from a connection that failed)
-        time.sleep(0.5)  # the late answer is on its way to the old connection now
+        gave_up.set()
+        assert late_sent.wait(5.0)  # the late answer has gone to the old connection now
         oracle.reconnect()
         assert not oracle.lost
         assert oracle.snapshot()["sim_time"] == 2.0  # this read's own answer, not the late one

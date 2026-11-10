@@ -2,7 +2,7 @@
 
 Seeded random draws (no new dependency) drive :func:`duckmind.duckbody.reflex.check_intent`
 directly and through the whole :class:`~duckmind.duckbody.bodyloop.BodyLoop`, and a static
-check keeps robotd intents flowing through the guard only.
+check keeps the robotd client in the server alone.
 """
 
 from __future__ import annotations
@@ -282,9 +282,9 @@ def test_the_body_loop_never_emits_a_forbidden_intent() -> None:
     assert emitted > 100 and loop.refused_total > 100
 
 
-def test_only_the_server_holds_a_robotd_client_and_only_the_loop_sends() -> None:
-    """Static: RobotdClient is built in server.py only; the intents it sends come out of
-    BodyLoop.tick, whose every intent went through BodyLoop._send → check_intent."""
+def test_only_the_server_holds_a_robotd_client() -> None:
+    """Static: RobotdClient is built in server.py only (what the server sends comes out of
+    BodyLoop.tick; the test above drives the loop and checks every intent it lets out)."""
     for path in SRC.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -292,8 +292,3 @@ def test_only_the_server_holds_a_robotd_client_and_only_the_loop_sends() -> None
                 name = getattr(node.func, "id", getattr(node.func, "attr", ""))
                 if name == "RobotdClient":
                     assert path.name == "server.py", f"{path.name} builds a robotd client"
-    loop_src = (SRC / "bodyloop.py").read_text(encoding="utf-8")
-    assert (
-        loop_src.count("out.intents.append(") == 2
-    )  # the guarded one and the zero after a refusal
-    assert "check_intent(intent, guard, self.cfg.limits)" in loop_src

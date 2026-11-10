@@ -38,6 +38,14 @@ These layers are there to reduce risk. None of them is a certified safety functi
   takes over. (Only a simulated robot is ever enabled by duckmind: the simulator,
   the simulated remote body and the commissioning tools use a separate operator
   client for it.)
+- **The robot maker's open doors are checked.** Over the remote-body bridge the
+  robot stops and sits when the brain's computer goes quiet for one second. The
+  maker's own `mediad` (and `netpadd`, when enabled) accept anyone on the home
+  network with no password, around that bridge and its stop. So the bridge on a
+  real robot knocks on those doors when it starts and does not serve while one is
+  open, unless you start it with `--allow-open-mediad`; `tools/duck/close-mediad.sh`
+  closes them with one command ([docs/deploy/board.md](docs/deploy/board.md),
+  section 5). The check runs once, at start, and has not been tried on a robot yet.
 - **Play starts locked.** After every boot the body is marked lost until checks
   pass. On a real board, play stays locked until a supervised bench trial of the
   head profile has been recorded and an operator installs an approval tied to that

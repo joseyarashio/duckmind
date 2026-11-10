@@ -42,10 +42,13 @@ def _renderer(scene, **kwargs):
         pytest.skip(f"no offscreen GL context here: {type(error).__name__}: {error}")
 
 
-@pytest.mark.usefixtures("alpha_board")
-def test_one_frame_from_a_standing_pose():
+@pytest.mark.parametrize("board", ["zero3", "beta"])
+def test_one_frame_from_a_standing_pose(board, monkeypatch):
     from duckmind.world import camera_model as cm
 
+    monkeypatch.setenv(cm.BOARD_ENV, board)
+    # the alpha's picture stands on end, the production camera's lies level
+    page, frame = ((360, 640), [720, 1280]) if board == "zero3" else ((640, 360), [1280, 720])
     scene = _needs_render()
     renderer = _renderer(scene)
     try:
@@ -58,8 +61,8 @@ def test_one_frame_from_a_standing_pose():
     assert ticks < 20
     data = out["jpeg"]
     assert data[:2] == b"\xff\xd8" and data[-2:] == b"\xff\xd9"
-    assert (out["width"], out["height"]) == (360, 640)
-    assert out["frame_size"] == [720, 1280]
+    assert (out["width"], out["height"]) == page
+    assert out["frame_size"] == frame
     assert out["label"] == "白天" and out["light_key"] == "day"
     assert out["light"]["level"] == "bright" and out["light"]["method"] == "exposure"
     assert out["light"]["level_frame"] == "bright"
@@ -70,7 +73,7 @@ def test_one_frame_from_a_standing_pose():
     if importlib.util.find_spec("PIL") is not None:  # decode it when Pillow is around
         from PIL import Image
 
-        assert Image.open(io.BytesIO(data)).size == (360, 640)
+        assert Image.open(io.BytesIO(data)).size == page
 
 
 def test_frames_are_deterministic_for_a_seed():

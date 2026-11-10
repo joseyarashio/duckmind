@@ -15,6 +15,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -267,8 +268,15 @@ def test_the_body_keeps_every_sample_for_the_page_with_the_beak_and_the_calls():
     assert [f["t"] for f in body.frames_since(None)] == [0.02]
 
 
-def test_prototype_mode_reads_the_body_every_control_tick():
-    from duckmind.simweb import live
+def test_prototype_mode_reads_the_body_every_control_tick(tmp_path: Path):
+    from duckmind.simweb.live import NEURO_SAMPLE_HZ, LiveBridge
 
-    assert live.NEURO_SAMPLE_HZ == 60 and livebody.SAMPLE_HZ == 30
-    assert "body.sample_hz = float(NEURO_SAMPLE_HZ)" in Path(live.__file__).read_text()
+    body = _body()
+    assert body.sample_hz == livebody.SAMPLE_HZ == 30  # (the rate of Duck Core's own mode)
+    paths = LivePaths(tmp_path, tmp_path, tmp_path, tmp_path / "robotd", tmp_path / "ort")
+    bridge = LiveBridge(paths, eye=False)  # never started: no processes
+    taken: list[Any] = []
+    bridge.neuro = SimpleNamespace(start_at="nest", attach=taken.append)  # type: ignore[assignment]
+    bridge._neuro_start(body)  # (what a body that became ready does in prototype mode)
+    assert body.sample_hz == NEURO_SAMPLE_HZ == 60
+    assert taken == [body]  # and the neural duck's driver has the body

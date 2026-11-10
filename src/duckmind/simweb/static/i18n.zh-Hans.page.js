@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hans / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hans / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hans", "page", {
 "fmt.sep.and_then": "，又",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("zh-Hans", "page", {
 "page.body.state.offline": "连不上服务器，稍后会再试。",
 "page.body.state.real": "连着真的小鸭（{url}），来回大约 {ms} 毫秒。",
 "page.body.state.real_new": "连着真的小鸭（{url}）。",
+"page.body.state.real_nowalk": "连着真的小鸭（{url}），但它现在只动头、不走路：{why, select, none {还没有量过它的身体校正} other_networks {它换了走路或坐站的网络，上次量的身体校正不能用了} invalid {它的身体校正文件读不出来} unknown_body {小鸭那边的桥没有说它是哪一块板子、跑哪些网络} other {还没有量过它的身体校正}}。照启动步骤量一次，它才会走。",
 "page.body.state.real_off": "连上小鸭了（{url}），但它还没开。请用它自己的控制把它开起来；这个程序不会替你开，开好以后脑会自己接手。",
 "page.body.state.rehearsal": "连着这台电脑上的演练小鸭（{url}），来回大约 {ms} 毫秒：它扮演真的小鸭，没有模拟的世界。",
 "page.body.state.rehearsal_new": "连着这台电脑上的演练小鸭（{url}）：它扮演真的小鸭，没有模拟的世界。",
@@ -1819,7 +1820,7 @@ DuckI18n.load("zh-Hans", "page", {
 "page.point.arrived": "它走到了",
 "page.point.gave_up": "它没走到：{why}",
 "page.point.gave_up.plain": "它没走到",
-"page.point.hint_beta": "（试验中）点一下地板，叫它走过去（拖动是转视角）",
+"page.point.hint": "点一下地板，叫它走过去（拖动是转视角）",
 "page.point.hint_remote": "遥控中，点地板先不管用（关掉遥控就能点）",
 "page.point.notfloor": "那里不是地板，点旁边空的地方",
 "page.point.sent": "它听到了，准备走过去",
@@ -1835,9 +1836,11 @@ DuckI18n.load("zh-Hans", "page", {
 "page.point.why.stuck": "卡住了，走不过去",
 "page.point.why.timeout": "走太久了，不去了",
 "page.real.battery.title": "小鸭自己回报的电量（从小鸭的控制程序 robotd 来）",
+"page.real.battery.title_no_dock": "小鸭自己回报的电量（从小鸭的控制程序 robotd 来）。这只小鸭没有充电座：电量低了，请帮它换电池或充电",
 "page.real.battery.unknown": "还不知道（等小鸭回报）",
 "page.real.chip.battery": "电量 {pct}%",
 "page.real.chip.battery_charging": "电量 {pct}%（充电中）",
+"page.real.chip.battery_no_dock": "电量 {pct}%（没有充电座）",
 "page.real.chip.battery_unknown": "电量：还不知道（等小鸭回报）",
 "page.real.chip.link_down": "连线：断了，正在重新连（断过 {drops} 次）",
 "page.real.chip.link_new": "连线：连着・断过 {drops} 次・最久 {gap} 毫秒没消息",

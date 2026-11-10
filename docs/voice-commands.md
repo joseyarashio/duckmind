@@ -37,6 +37,8 @@ Measured on 450 fixed test sentences (75 per language), spoken by a local text-t
 | household noise, 5 dB | 80.0 % | 100 % | 92.9 % | 92.9 % | 84.3 % | 95.7 % |
 | not for the duck, still acted | 0 / 5 | 0 / 5 | 1 / 5 | 0 / 5 | 0 / 5 | 0 / 5 |
 
-Whisper medium on Apple silicon (M5 Pro); the noise is DEMAND's living-room, kitchen and laundry recordings. Traditional Chinese is the weakest: two- or three-character commands said alone are often heard as other words (part of that is the synthetic voice saying them unclearly). Synthetic voices are not real ones, so your own results will differ.
+Whisper medium on Apple silicon (M5 Pro); the noise is DEMAND's living-room, kitchen and laundry recordings.
+
+**Traditional Chinese did not pass.** The target, set before the test, was at least 90 % in a quiet room for every language. Five languages passed; Traditional Chinese reached 82.9 % (58 of 70), 7 points short. The target was not lowered and the feature shipped with this known gap: in this test about one Traditional Chinese command in six was misheard, so check the "Heard" line. Traditional Chinese is the weakest because two- or three-character commands said alone are often heard as other words (part of that is the synthetic voice saying them unclearly). Synthetic voices are not real ones, so your own results will differ.
 
 **How fast.** From letting go of the button to the duck getting the command, on a running simulator (M5 Pro, while other simulations ran): median 0.31 s, 95 % within 0.33 s with mlx-whisper medium. Without Apple silicon the default is faster-whisper **small** on the CPU: median 0.98 s, 95 % within 1.05 s on the same machine's CPU (medium took 2.8 s, too slow for a spoken command). Small is a little less accurate (quiet room, same test: 繁中 80.0 %, English 98.6 %, 日本語 91.4 %, Español 92.9 %, 简中 85.7 %, 한국어 92.9 %). A slower CPU takes longer.

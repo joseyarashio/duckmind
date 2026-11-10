@@ -467,11 +467,7 @@ def test_a_brain_fault_stops_the_process_loudly(tmp_path: Any) -> None:
 
 
 def test_the_tethered_guard_keeps_its_kind() -> None:
-    import inspect
-
-    from duckmind.curiosity import act_runner
-
-    guard = {"guard": "tethered"}  # what the runner records (act_runner: self.guards)
+    guard = {"guard": "tethered"}  # what the runner records (the next test drives it for real)
     event = {
         "kind": "body.guard",
         "src": "live",
@@ -480,7 +476,6 @@ def test_the_tethered_guard_keeps_its_kind() -> None:
         **{**guard, "act_id": "C1", "verb": "carry"},
     }
     assert event["kind"] == "body.guard" and percept.validate(event) == []
-    assert '{"guard": "tethered"}' in inspect.getsource(act_runner)
     assert percept.validate({**event, "guard": "sleepy"})  # the guard's own list holds
 
 

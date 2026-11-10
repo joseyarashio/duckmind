@@ -1,6 +1,7 @@
 """The duck's own voice on the simulator page (simweb/voice.py, owner 2026-09-28): which official
 voice a duck has, its bank's cache and lock, the routes that serve it (only the current duck's
-whitelisted files, nothing a path could reach) and the feed's calls.
+whitelisted files, nothing a path could reach), the feed's calls, and the page's own player
+(``voice.js`` in Node on the page's own markup, against this server).
 
 A small stand-in for upstream's ``sounds`` binary renders tiny banks here; the one test that runs
 the real binary skips unless the official checkout is built (DUCKMIND_MICRODUCK, or found beside
@@ -11,6 +12,8 @@ from __future__ import annotations
 import http.client
 import json
 import os
+import shutil
+import subprocess
 import sys
 import threading
 import wave
@@ -441,27 +444,61 @@ def test_the_real_binary_renders_the_official_bank(tmp_path):
 # ---------------------------------------------------------------- the page's side
 
 
-def test_the_page_has_the_voice_controls_and_hooks(served):
-    port, _state = served
-    static = Path(voice.__file__).parent / "static"
-    page = (static / "index.html").read_text()
-    for hook in ('id="callSound"', 'id="callMute"', 'aria-pressed="false"', 'id="callNote"'):
-        assert hook in page, hook
-    assert 'type="range" id="callVolume"' in page
-    assert page.index('src="/voice.js"') < page.index('src="/app.js"'), "duckVoice before its users"
-    status, body, headers = raw_get(port, "/voice.js")
-    assert status == 200 and headers["Content-Type"].startswith("text/javascript")
-    script = body.decode()
-    assert "window.duckVoice = { call, mouth, stop" in script
-    assert '"/api/voice/manifest"' in script and 'KEY = "duckmind.voice"' in script
-    # the 3D beak follows the sound; a clip's call starts with the clip; the 2D duck's are app.js's
-    duck3d = (static / "duck3d.js").read_text()
-    assert "window.duckVoice.mouth()" in duck3d and "voiceCall(motion.calls, duration)" in duck3d
-    assert "calls: item.calls" in duck3d
-    assert "function voice2d(calls" in (static / "app.js").read_text()
-    # design standard: tokens only, square corners, hard shadows (docs/simulator-style.md)
-    css = (static / "style.css").read_text()
-    rules = [line for line in css.splitlines() if "duck3d-voice" in line or ".call-" in line]
-    assert rules and not [line for line in rules if "#" in line.split("{", 1)[-1]]
-    assert all("border-radius: 0" in line for line in rules if "border-radius" in line)
-    assert not [line for line in rules if "blur" in line or "rgba(0" in line]
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_page_plays_the_ducks_bank_with_this_viewers_volume_and_mute(served):
+    """``voice.js`` in Node on the page's own markup, against this server (its manifest and its
+    files are really fetched; the audio is a stand-in that keeps what started): no sound before
+    a click, then each call a random variant of the duck's own bank, never a synthesized one."""
+    port, state = served
+    ready_bank(state.voice, DANHUANG_SEED)
+    done = subprocess.run(
+        [
+            str(shutil.which("node")),
+            str(Path(__file__).with_name("real_page_node_harness.mjs")),
+            str(Path(voice.__file__).parent / "static"),
+            "voice",
+            json.dumps({"base": f"http://127.0.0.1:{port}", "draws": [0, 0.999, 0.5]}),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    page = json.loads(done.stdout)
+    assert page["manifest"] == {"duck": DANHUANG_SEED, "voice": DANHUANG_VOICE}
+    assert page["missing"] == []  # (the controls voice.js asks for are on the page)
+    # before a click the browser allows no sound: the call happens (the beak), the note says why
+    first = page["beforeClick"]
+    assert first["call"] == {
+        "voiced": True,
+        "files": ["chirp_a"],
+        "outcome": "silent",
+        "audible": False,
+    }
+    assert first["started"] == 0
+    assert first["note"] == {"hidden": False, "text": "page.voice.noteText.1234af"}
+    after = page["afterClick"]
+    assert after["note"]["hidden"] is True and (after["pressed"], after["slider"]) == (
+        "false",
+        "60",
+    )
+    assert after["level"] == pytest.approx(0.36)  # (loudness feels logarithmic: 0.6 squared)
+    # like robotd: a random variant of the tag each time (the draws: the last, the middle one)
+    assert [call["files"] for call in page["calls"]] == [["chirp_l"], ["chirp_g"]]
+    assert all(call["outcome"] == "played" and call["audible"] for call in page["calls"])
+    # the calls of one moment are one utterance, with a breath between (0.06 s at 48 kHz)
+    assert page["together"]["files"] == ["coo_a", "coo_a"]
+    assert page["started"] == [64, 64, 64 + 2880 + 64]  # (the stand-in bank's 64-sample files)
+    # every sound is a file of this duck's bank on this server
+    base = f"/api/voice/v5/{DANHUANG_VOICE}"
+    assert page["asked"][0] == "/api/voice/manifest"
+    assert {f"{base}/chirp/chirp_l.wav", f"{base}/coo/coo_a.wav"} <= set(page["asked"])
+    assert all(url.startswith(base + "/") for url in page["asked"][1:])
+    # the page's own mute button and slider: the call still happens, silently; the slider unmutes
+    muted = page["muted"]
+    assert (muted["pressed"], muted["level"]) == ("true", 0)
+    assert muted["call"]["outcome"] == "played" and muted["call"]["audible"] is False
+    half = page["half"]
+    assert (half["pressed"], half["slider"]) == ("false", "50")
+    assert half["level"] == pytest.approx(0.25)

@@ -217,7 +217,6 @@ def test_the_generator_sleeps_between_frames_and_stops_on_request() -> None:
     assert clock.t == pytest.approx(3.0, abs=0.35)  # four frames: about three seconds of sim time
 
 
-@pytest.mark.usefixtures("alpha_board")
 def test_a_real_rendered_frame_of_the_eye_goes_through_unchanged() -> None:
     """The existing eye helpers (tests/test_eyecam.py): render one frame of the head camera and
     hand it over like the live connection would take it. Skips without MuJoCo and the checkout."""
@@ -241,7 +240,7 @@ def test_a_real_rendered_frame_of_the_eye_goes_through_unchanged() -> None:
     frames = EF.EyeFrames.from_eye(SimpleNamespace(latest=lambda: out), clock=clock)
     frame = frames.poll()
     assert frame is not None and frame.jpeg == out["jpeg"]
-    assert (frame.width, frame.height) == (360, 640)
+    assert (frame.width, frame.height) == (640, 360)  # the production camera's landscape picture
     assert frame.jpeg[:2] == b"\xff\xd8" and len(frame.jpeg) < EF.MAX_JPEG_BYTES
     clock.t = 0.5
     assert frames.poll() is None  # (the same picture is not sent twice, nor within a second)

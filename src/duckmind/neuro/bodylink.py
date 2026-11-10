@@ -404,7 +404,25 @@ GATE_ZH: dict[str, str] = {
     "back_arc": msg("neuro.gate.back_arc"),
     "refused": msg("neuro.gate.refused"),
     "skill": msg("neuro.gate.skill"),
+    "uncalibrated": msg("neuro.gate.uncalibrated"),
 }
+
+# What a head-only link still sends (``BodyLink.head_only``): the head, the beak, a zero twist and the release of a bow.
+HEAD_ONLY_METHODS = frozenset({"robot.head", "robot.mouth"})
+
+
+def head_only_request(request: BodyRequest) -> BodyRequest:
+    """``request`` with everything that moves the legs taken out: no twist, no posture change, no skill, no pivot, no
+    flight, no bow, no lying down — the head, the beak and the emotion's head envelope stay."""
+    return BodyRequest(head=request.head, mouth=request.mouth, emotion=request.emotion)
+
+
+def _head_only_intent(intent: P.Intent) -> bool:
+    if intent.method in HEAD_ONLY_METHODS:
+        return True
+    if intent.method == "robot.move":
+        return intent.twist == (0.0, 0.0)
+    return intent.method == "robot.pose" and intent.params.get("active") is False
 
 
 LEG_JOINTS = tuple(
@@ -579,6 +597,12 @@ class BodyLink:
         self.seat: str | None = None
         # this tick's pivot is the walk's own turn on the spot (walkcal)
         self.pivot_in_place = False
+        # Head only (None: the whole body): set by the driver for a real duck whose body sense was never measured
+        # (no valid calibration for its board and networks, :mod:`duckmind.duckbody.calibration`; the value is why).
+        # Its load bands would be another body's, so nothing here may move the legs on them: the request loses its
+        # twist, posture, skill and bow (:func:`head_only_request`, gate ``uncalibrated``), and no intent but the
+        # head's, the beak's and a zero twist leaves — the link's own sit-down and get-up included. A person moves it.
+        self.head_only: str | None = None
 
     def planned_state(self, state: RobotState) -> RobotState:
         """``state`` as the brain reads it: robotd's requested and applied twists in the units the brain plans in (the
@@ -959,6 +983,10 @@ class BodyLink:
         refused: list[tuple[str, str]],
         t_ns: int,
     ) -> bool:
+        if self.head_only is not None and not _head_only_intent(intent):
+            refused.append((intent.method, "uncalibrated"))
+            self.refused_total += 1
+            return False
         limits = self.cfg.limits
         if self.pivot_in_place:
             limits = replace(limits, turn_in_place=True)
@@ -984,6 +1012,8 @@ class BodyLink:
     ) -> LinkOut:
         """One robot.state tick: the request through the safety layer (module doc)."""
         cfg = self.cfg
+        if self.head_only is not None:
+            request = head_only_request(request)
         self.state = state
         self.ticks += 1
         t_ns = state.t_ns
@@ -1010,6 +1040,8 @@ class BodyLink:
         for edge in prox.edges:
             events.append({"kind": f"proprio.{edge}", "side": prox.contact_side})
         gate: list[str] = []
+        if self.head_only is not None:
+            gate.append("uncalibrated")
         intents: list[P.Intent] = []
         refused: list[tuple[str, str]] = []
         righting = self.righting.active or view.fallen

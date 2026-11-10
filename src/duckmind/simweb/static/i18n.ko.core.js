@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / core (2120 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "core", {
 "bodyhost.assess.07fced96": "제어 프로그램(robotd)이 {seconds, number, ::.0}초째 명령을 안 보내서 물리가 멈췄어요",
 "bodyhost.assess.1428e8f9": "컴퓨터가 너무 바빠서 시뮬레이션이 느려졌어요",
@@ -1754,6 +1754,7 @@ DuckI18n.load("ko", "core", {
 "livebody.no_world": "진짜 오리예요: 시뮬레이션 세계가 없어서 이건 할 수 없어요",
 "livebody.real_no_camera": "오리의 카메라가 연결에 없어요 (오리 쪽 브리지가 카메라를 열지 않았어요)",
 "livebody.real_turn_on": "오리가 아직 켜지지 않았어요. 오리 자체의 조작으로 켜 주세요. 이 프로그램은 대신 켜지 않아요. 켜지면 뇌가 알아서 이어받아요",
+"livebody.real_uncalibrated": "이 진짜 오리는 지금 머리만 움직이고 걷지 않아요: {why, select, none {아직 몸 보정을 재지 않았어요} other_networks {걷기나 앉고 서기 네트워크가 바뀌어서 지난번에 잰 몸 보정을 쓸 수 없어요} invalid {몸 보정 파일을 읽을 수 없어요} unknown_body {오리 쪽 브리지가 어떤 보드인지, 어떤 네트워크를 쓰는지 알려 주지 않았어요} other {아직 몸 보정을 재지 않았어요}}. 시작 단계대로 한 번 재면 걸을 수 있어요",
 "world.apartment.ZH.ball": "공",
 "world.apartment.ZH.bed_base": "침대",
 "world.apartment.ZH.bed_blanket": "이불",

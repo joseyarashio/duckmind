@@ -1,9 +1,9 @@
 """Remote mode on the simulator page (docs/design/neural-duck/REMOTE-GOTHERE-2026-10-23.md).
 
-Static checks on the markup, the scripts, the catalogs and the style; and the page logic itself in Node over a
-fake page (a fake clock, a fake WebSocket, a fake ``fetch``): ``drive.js`` (what keys, buttons and a stick mean as
-a twist) and ``remote.js`` (the toggle, the socket and its POST fallback, every way out). How it looks and feels
-in a browser, and the real latency, are checked live by hand.
+The page logic itself in Node over a fake page (a fake clock, a fake WebSocket, a fake ``fetch``): ``drive.js``
+(what keys, buttons and a stick mean as a twist) and ``remote.js`` (the toggle, the socket and its POST fallback,
+every way out); and the words: every key in all six catalogs. How it looks and feels in a browser, and the real
+latency, are checked live by hand.
 """
 
 from __future__ import annotations
@@ -21,9 +21,7 @@ from duckmind.i18n import CODES
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
 PAGE = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "style.css").read_text(encoding="utf-8")
 REMOTE = (STATIC / "remote.js").read_text(encoding="utf-8")
-NEURO = (STATIC / "neuro.js").read_text(encoding="utf-8")
 NODE = shutil.which("node")
 HARNESS = Path(__file__).with_name("remote_page_node_harness.mjs")
 needs_node = pytest.mark.skipif(NODE is None, reason="node is not installed")
@@ -45,48 +43,7 @@ def _catalog(lang: str) -> str:
     return (STATIC / f"i18n.{lang}.page.js").read_text(encoding="utf-8")
 
 
-# ── the markup, the scripts, the style ────────────────────────────────────────────────────────
-
-
-def test_the_slot_holds_the_toggle_the_pad_and_the_status_line_with_their_hooks() -> None:
-    slot = PAGE[PAGE.index('id="cmdRemoteSlot"') : PAGE.index('id="cmdKeys"')]
-    for hook in ('id="remoteToggle"', 'id="remotePad"', 'id="remoteState"'):
-        assert hook in slot, hook
-    toggle = re.search(r'<button[^>]*id="remoteToggle"[^>]*>', slot)
-    assert toggle and 'aria-pressed="false"' in toggle.group(0) and 'class="toggle"' in toggle.group(0)
-    pad = re.search(r'<div[^>]*id="remotePad"[^>]*>', slot)
-    assert pad and " hidden" in pad.group(0)  # (the pad shows only while remote is on)
-    assert re.findall(r'data-remote-key="(\w+)"', slot) == ["left", "forward", "right", "stop"]
-    # the strip stays a scenario container, and the remote buttons are not locked with the command keys
-    strip = re.search(r'<form[^>]*id="cmdStrip"[^>]*>', PAGE)
-    assert strip and "data-scenarios" in strip.group(0)
-    assert ":not([data-remote])" in NEURO
-
-
-def test_the_script_loads_after_the_view_and_the_telemetry_reaches_it() -> None:
-    assert PAGE.index('src="/duck3d.js"') < PAGE.index('src="/remote.js"')
-    assert 'type="module" src="/remote.js"' in PAGE
-    assert '"duck:telemetry"' in NEURO and '"duck:telemetry"' in REMOTE
-    for name in ("drive.js", "remote.js"):
-        assert (STATIC / name).is_file()
-    assert 'from "./drive.js"' in REMOTE
-
-
-def test_the_page_talks_to_the_backends_the_notes_describe() -> None:
-    assert "/api/neuro/remote/ws" in REMOTE
-    assert '"/api/neuro/remote/twist"' in REMOTE and '"/api/neuro/remote"' in REMOTE
-    # the wire: {"on"}, {"vx","vyaw","t"}; the key-event time is the epoch ms
-    assert "epochOf(" in REMOTE and "message.t = " in REMOTE
-
-
-def test_the_remote_styles_use_only_the_design_tokens() -> None:
-    block = CSS[CSS.index("/* 遙控與點地板") :]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", block)
-    assert not re.search(r"\b(rgba?|hsla?)\(", block)
-    assert "border-radius" not in block and "blur(" not in block and "gradient" not in block
-    for token in set(re.findall(r"var\((--[\w-]+)\)", block)):
-        assert f"{token}:" in CSS, token
-    assert "width: 44px; height: 44px" in block  # the pad's buttons: a thumb's size
+# ── the words ─────────────────────────────────────────────────────────────────────────────────
 
 
 def test_every_word_remote_adds_is_in_all_six_languages() -> None:

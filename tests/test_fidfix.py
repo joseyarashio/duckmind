@@ -5,11 +5,14 @@ stops kicking at once; the page's speed is the body's."""
 
 from __future__ import annotations
 
+import json
 import math
 import statistics
 from dataclasses import replace
-from pathlib import Path
 from typing import Any
+
+import pytest
+from page_tree_node_harness import NODE, run
 
 from duckmind.duckbody.robotd_client import JOINT_NAMES, RobotState
 from duckmind.neuro import reflex as R
@@ -30,7 +33,7 @@ from duckmind.simweb.neuro_witness import Tick, Witness
 PARAMS = R.params_from({"boldness": 0.5, "wit": 0.5}, stage="juvenile", side=1)
 DEG = math.pi / 180.0
 HOME = 0.3491
-STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
+needs_node = pytest.mark.skipif(NODE is None, reason="needs Node")
 
 
 def _body(posture: str = "stand", head: tuple[float, float, float, float] = (0, 0, 0, 0)) -> Any:
@@ -506,23 +509,30 @@ def test_the_speed_words_are_the_brains_wish_and_the_bodys_measure() -> None:
     assert "身體實際" not in N.locomotion_zh(0.37, 0.0)
 
 
-def test_the_stimuli_are_in_the_play_tab_only() -> None:
+@needs_node
+def test_the_stimuli_are_in_the_play_tab_only_and_the_server_takes_each_one() -> None:
     """The quick strip under the view went (owner 2026-11-05): the 玩 tab is the one place for the
-    stimulus buttons; the strip's 戳一下 and 推一下 are in its 「更多刺激」 row (the contract's stimuli)."""
-    from duckmind.simweb import neuro_api as N
+    stimulus buttons; the strip's 戳一下 and 推一下 are in its 「更多刺激」 row (the contract's
+    stimuli). ``neuro.js`` runs in Node over the page's own markup, on the stub duck's answers;
+    every stimulus button is pressed once, and what the page sends then is what the server takes."""
+    from duckmind.i18n import boundary
 
-    page = (STATIC / "index.html").read_text(encoding="utf-8")
-    assert 'id="neuroQuick"' not in page
-    card = page[
-        page.index('id="neuroStim"') : page.index("</section>", page.index('id="neuroStim"'))
-    ]
-    for key in ("clap", "call_name", "pat_head", "pick_up", "set_down", "lights"):
-        assert f'data-stim="{key}"' in card
-    assert {"poke", "push"} <= set(N.MORE_STIMULI) and 'id="neuroMoreButtons"' in card
-    stims = [part.split('"', 1)[0] for part in page.split('data-stim="')[1:]]
-    assert len(stims) == len(set(stims))  # (one button per stimulus on the page)
-    js = (STATIC / "neuro.js").read_text(encoding="utf-8")
-    assert "#neuroQuick" not in js and "[data-lights]" in js
+    def wire(payload: Any) -> Any:  # (an answer as the server sends it)
+        return json.loads(json.dumps(boundary.attach(payload), ensure_ascii=False))
+
+    hub = N.NeuroHub(enabled=True)
+    hub.attach(N.StubSource(hub.card()))
+    answers = {"status": wire(hub.status()), "telemetry": [wire(hub.telemetry(0))]}
+    page = run("neuro", {"neuro.js"}, answers)
+    assert page["panel"] == "stim" and page["elsewhere"] == []
+    buttons = page["buttons"]
+    assert len(buttons) == len(set(buttons))  # (one button per stimulus on the page)
+    assert {"clap", "call_name", "pat_head", "pick_up", "set_down", "lights"} <= set(buttons)
+    assert {"poke", "push"} <= set(N.MORE_STIMULI) and {"poke", "push"} <= set(buttons)
+    assert [post["url"] for post in page["sent"]] == ["/api/neuro/stimulus"] * len(buttons)
+    assert [post["body"]["kind"] for post in page["sent"]] == buttons
+    for post in page["sent"]:
+        assert hub.stimulus(post["body"])["ok"] is True, post
 
 
 def test_the_act_names_claim_only_what_this_body_does() -> None:

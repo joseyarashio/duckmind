@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "page", {
 "fmt.sep.and_then": "、それに",
 "fmt.sep.babble": "・",
@@ -382,6 +382,7 @@ DuckI18n.load("ja", "page", {
 "page.body.state.offline": "サーバーにつながりません。しばらくしてまた試します。",
 "page.body.state.real": "本物のアヒル（{url}）とつながっています。往復およそ {ms} ミリ秒。",
 "page.body.state.real_new": "本物のアヒル（{url}）とつながっています。",
+"page.body.state.real_nowalk": "本物のアヒル（{url}）につながっていますが、今は頭だけ動かして歩きません：{why, select, none {体の校正をまだ測っていません} other_networks {歩行か座り立ちのネットワークが変わったので、前に測った体の校正は使えません} invalid {体の校正ファイルが読めません} unknown_body {アヒル側のブリッジが、どの基板でどのネットワークを動かしているかを伝えていません} other {体の校正をまだ測っていません}}。立ち上げの手順で一度測ると歩けるようになります。",
 "page.body.state.real_off": "アヒル（{url}）とつながっていますが、まだ起動していません。アヒル自身の操作で起動してください。このプログラムが代わりに起動することはなく、起動すると脳が自分で引き継ぎます。",
 "page.body.state.rehearsal": "このパソコンのリハーサル用アヒル（{url}）とつながっています。往復およそ {ms} ミリ秒。本物のアヒル役で、シミュレーションの世界はありません。",
 "page.body.state.rehearsal_new": "このパソコンのリハーサル用アヒル（{url}）とつながっています。本物のアヒル役で、シミュレーションの世界はありません。",
@@ -1819,7 +1820,7 @@ DuckI18n.load("ja", "page", {
 "page.point.arrived": "着きました",
 "page.point.gave_up": "行けませんでした：{why}",
 "page.point.gave_up.plain": "行けませんでした",
-"page.point.hint_beta": "（試験中）床をクリックすると、そこへ歩いて行きます（ドラッグは視点の回転）",
+"page.point.hint": "床をクリックすると、そこへ歩いて行きます（ドラッグは視点の回転）",
 "page.point.hint_remote": "リモート操作中は、床をクリックしても動きません（オフにすると使えます）",
 "page.point.notfloor": "そこは床ではありません。あいている場所を押してください",
 "page.point.sent": "聞こえました。そこへ行く準備をしています",
@@ -1835,9 +1836,11 @@ DuckI18n.load("ja", "page", {
 "page.point.why.stuck": "途中で動けなくなりました",
 "page.point.why.timeout": "時間がかかりすぎてやめました",
 "page.real.battery.title": "アヒル自身が知らせる電池の残り（アヒルの制御プログラム robotd から）",
+"page.real.battery.title_no_dock": "アヒル自身が知らせる電池の残り（アヒルの制御プログラム robotd から）。このアヒルには充電台がありません。電池が少なくなったら、電池を交換するか充電してあげてください",
 "page.real.battery.unknown": "まだわかりません（アヒルの知らせ待ち）",
 "page.real.chip.battery": "電池 {pct}%",
 "page.real.chip.battery_charging": "電池 {pct}%（充電中）",
+"page.real.chip.battery_no_dock": "電池 {pct}%（充電台なし）",
 "page.real.chip.battery_unknown": "電池：まだわかりません（アヒルからの知らせ待ち）",
 "page.real.chip.link_down": "接続：切れています。つなぎ直し中（切れた回数 {drops}）",
 "page.real.chip.link_new": "接続：つながっています・切れた回数 {drops}・いちばん長い無応答 {gap} ミリ秒",

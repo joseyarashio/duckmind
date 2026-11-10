@@ -34,9 +34,12 @@
       const ms = remote.rtt_ms_p50;
       const known = typeof ms === "number";
       // A real duck (or the rehearsal that plays one): said as such, with the same numbers — or, while
-      // it is not on yet (`turn_on`), that a person turns it on with the duck's own control.
+      // it is not on yet (`turn_on`), that a person turns it on with the duck's own control — or, while
+      // its body sense was never measured (`walk_lock`), that it moves only its head, and why.
       if (answer.real && typeof answer.real === "object") {
         if (answer.real.turn_on) return { state: "real_off", key: "page.body.state.real_off", params: { url }, stats };
+        const lock = answer.real.walk_lock;
+        if (lock && typeof lock === "object") return { state: "real_nowalk", key: "page.body.state.real_nowalk", params: { url, why: String(lock.why || "none") }, stats };
         const [withMs, without] = answer.real.rehearsal
           ? ["page.body.state.rehearsal", "page.body.state.rehearsal_new"]
           : ["page.body.state.real", "page.body.state.real_new"];

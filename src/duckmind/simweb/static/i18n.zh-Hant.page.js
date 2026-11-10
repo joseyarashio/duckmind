@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hant / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hant / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hant", "page", {
 "fmt.sep.and_then": "，又",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("zh-Hant", "page", {
 "page.body.state.offline": "連不上伺服器，稍後會再試。",
 "page.body.state.real": "連著真的小鴨（{url}），來回大約 {ms} 毫秒。",
 "page.body.state.real_new": "連著真的小鴨（{url}）。",
+"page.body.state.real_nowalk": "連著真的小鴨（{url}），但牠現在只動頭、不走路：{why, select, none {還沒有量過牠的身體校正} other_networks {牠換了走路或坐站的網路，上次量的身體校正不能用了} invalid {牠的身體校正檔讀不出來} unknown_body {小鴨那邊的橋沒有說牠是哪一塊板子、跑哪些網路} other {還沒有量過牠的身體校正}}。照啟動步驟量一次，牠才會走。",
 "page.body.state.real_off": "連上小鴨了（{url}），但牠還沒開。請用牠自己的控制把牠開起來；這個程式不會替你開，開好以後腦會自己接手。",
 "page.body.state.rehearsal": "連著這台電腦上的演練小鴨（{url}），來回大約 {ms} 毫秒：牠扮演真的小鴨，沒有模擬的世界。",
 "page.body.state.rehearsal_new": "連著這台電腦上的演練小鴨（{url}）：牠扮演真的小鴨，沒有模擬的世界。",
@@ -1819,7 +1820,7 @@ DuckI18n.load("zh-Hant", "page", {
 "page.point.arrived": "牠走到了",
 "page.point.gave_up": "牠沒走到：{why}",
 "page.point.gave_up.plain": "牠沒走到",
-"page.point.hint_beta": "（試驗中）點一下地板，叫牠走過去（拖曳是轉視角）",
+"page.point.hint": "點一下地板，叫牠走過去（拖曳是轉視角）",
 "page.point.hint_remote": "遙控中，點地板先不管用（關掉遙控就能點）",
 "page.point.notfloor": "那裡不是地板，點旁邊空的地方",
 "page.point.sent": "牠聽到了，準備走過去",
@@ -1835,9 +1836,11 @@ DuckI18n.load("zh-Hant", "page", {
 "page.point.why.stuck": "卡住了，走不過去",
 "page.point.why.timeout": "走太久了，不去了",
 "page.real.battery.title": "小鴨自己回報的電量（從小鴨的控制程式 robotd 來）",
+"page.real.battery.title_no_dock": "小鴨自己回報的電量（從小鴨的控制程式 robotd 來）。這隻小鴨沒有充電座：電量低了，請幫牠換電池或充電",
 "page.real.battery.unknown": "還不知道（等小鴨回報）",
 "page.real.chip.battery": "電量 {pct}%",
 "page.real.chip.battery_charging": "電量 {pct}%（充電中）",
+"page.real.chip.battery_no_dock": "電量 {pct}%（沒有充電座）",
 "page.real.chip.battery_unknown": "電量：還不知道（等小鴨回報）",
 "page.real.chip.link_down": "連線：斷了，正在重新連（斷過 {drops} 次）",
 "page.real.chip.link_new": "連線：連著・斷過 {drops} 次・最久 {gap} 毫秒沒消息",

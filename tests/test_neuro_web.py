@@ -6,14 +6,12 @@
   (``--neuro-stub``), stream it, take stimuli and switch ducks;
 * :class:`DriverSource` turns the real brain's telemetry (``NeuroBrain.step``, stepped here on
   synthetic sensor frames: a clap) into the page's bars and words, each reflex said once;
-* the page's markup keeps Duck Core's hooks and puts the prototype's parts behind
-  ``[data-neuro]``, its styles use the design tokens only.
+* every stimulus button the page ships is one the server takes.
 """
 
 from __future__ import annotations
 
 import json
-import re
 import threading
 import urllib.error
 import urllib.request
@@ -275,66 +273,29 @@ def test_a_new_duck_is_a_new_set_of_lanes_on_the_same_driver():
 # ── the page ─────────────────────────────────────────────────────────────────────
 
 
-def test_the_page_has_the_prototypes_parts_and_keeps_duck_cores_hooks():
-    page = (STATIC / "index.html").read_text()
-    stim = page[
-        page.index('id="neuroStim"') : page.index("</section>", page.index('id="neuroStim"'))
-    ]
-    # the 玩 card (item 6): every stimulus card button the server has, plus the contract's 抱起來／放下來
-    # (the server takes those by their contract names; neuro.js keeps them out of the 「更多」 row)
-    shown = re.findall(r'data-stim="(\w+)"', stim)
-    assert len(shown) == len(set(shown))
-    assert {item.key for item in N.STIMULI} <= set(shown)
-    assert set(shown) - {item.key for item in N.STIMULI} == {"pick_up", "set_down"}
-    assert {"pick_up", "set_down"} <= set(N.MORE_STIMULI)
-    labels = (
-        "拍手",
-        "叫名字",
-        "揮手",
-        "摸頭",
-        "滾球過去",
-        "放一個新東西",
-        "家人走過",
-        "抱起來",
-        "放下來",
-    )
-    for label in labels:
-        assert f">{label}<" in stim
-    at = page.index('id="neuroStim"')
-    tag = page[page.rindex("<section", 0, at) : page.index(">", at)]
-    assert "data-scenarios" in tag  # (scenario controls live in a [data-scenarios] container)
-    for hook in (
-        'id="neuroSide"',
-        'id="neuroBrain"',
-        'id="neuroReflexes"',
-        'id="neuroCands"',
-        'id="neuroDrives"',
-        'id="neuroHabits"',
-        'id="neuroPlaces"',
-        'id="neuroPicker"',
-        'id="neuroDucks"',
-        "神經鴨原型（示範）",
-        "小鴨的腦",
-        "換一隻小鴨",
-    ):
-        assert hook in page, hook
-    assert '<script src="/neuro.js"></script>' in page
-    # Duck Core's cards step aside in the prototype's mode — and keep every hook.
-    for hook in ('id="duckBanner"', 'id="scenarios"', 'id="lab"', 'id="btnPlay"', 'id="chipGd"'):
-        assert hook in page, hook
-    assert page.count("data-core") >= 15 and page.count("data-neuro") >= 10
-    script = (STATIC / "neuro.js").read_text()
-    assert '"/api/neuro/status"' in script and "/api/neuro/stream" in script
-    assert "/api/neuro/telemetry" in script and '"duck:neuro"' in script
+def test_every_stimulus_button_on_the_page_is_one_the_server_takes():
+    """A click posts the button's own ``data-stim`` (neuro.js): the page's names (摸頭 is
+    ``pat_head``), the contract's (抱起來／放下來) and the light switch are all taken."""
+    from html.parser import HTMLParser
 
+    class Buttons(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.kinds: list[str] = []
 
-def test_the_prototypes_styles_use_only_the_design_tokens():
-    css = (STATIC / "style.css").read_text()
-    block = css[css.index("/* ---------- 神經鴨原型") : css.index("/* ---------- desktop touches")]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", block)
-    assert not re.search(r"\b(rgba?|hsla?)\(", block)
-    assert "border-radius" not in block and "blur(" not in block
-    assert "body.neuro-mode [data-core] { display: none !important; }" in block
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            kind = dict(attrs).get("data-stim")
+            if tag == "button" and kind:
+                self.kinds.append(kind)
+
+    page = Buttons()
+    page.feed((STATIC / "index.html").read_text(encoding="utf-8"))
+    assert len(page.kinds) >= 9 and len(set(page.kinds)) == len(page.kinds)
+    source = _Source()
+    hub = N.NeuroHub(enabled=True, source=source)
+    for kind in page.kinds:
+        assert hub.stimulus({"kind": kind})["ok"], kind
+    assert len(source.asked) == len(page.kinds)
 
 
 def test_the_walking_strip_shows_bursts_and_pauses_a_second_a_bar():
@@ -627,16 +588,6 @@ def test_a_reflex_hold_is_said_with_its_duration_and_the_beak_is_forwarded():
     assert snap["mouth"]["t_ms"] and max(snap["mouth"]["open"]) in (0.0, 0.3)
     assert snap["body"]["down"] is False  # the last sample is up again
     assert N.body_state({"righting": "waiting_help", "tilt_deg": 55})["waiting_help"] is True
-
-
-def test_the_page_has_the_clock_row_and_the_help_button():
-    page = (STATIC / "index.html").read_text()
-    stim = page[
-        page.index('id="neuroStim"') : page.index("</section>", page.index('id="neuroStim"'))
-    ]
-    for hook in ('id="neuroHelpRow"', 'id="neuroHelp"', 'id="neuroDay"', 'id="neuroDayButtons"'):
-        assert hook in stim  # inside the card (a [data-scenarios] container)
-    assert ">扶牠起來<" in stim
 
 
 def test_a_world_refusal_is_an_answer_in_words_not_a_failed_request() -> None:

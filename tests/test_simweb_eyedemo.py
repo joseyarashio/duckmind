@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import random
-import re
 import socket
 import tempfile
 import threading
@@ -177,14 +176,38 @@ def test_the_card_09_button_asks_the_bridge_for_an_eye_demo() -> None:
         server.world_button(bridge, "body_eye", {"kind": "peck"})  # type: ignore[arg-type]
 
 
-def test_card_09_has_the_eye_buttons_beside_the_demonstrations() -> None:
-    page = (Path(E.__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
-    # (the words stay in the markup; the data-i18n keys beside them are for the other languages)
-    page = re.sub(r'\s+data-i18n(?:-html|-attr)?="[^"]*"', "", page)
-    card = page[
-        page.index('id="worldTools"') : page.index("</section>", page.index('id="worldTools"'))
-    ]
-    for kind, zh in (("bump", "撞撞看"), ("peck", "啄一下"), ("kick", "踢一下")):
-        assert f'data-world="body_eye" data-kind="{kind}">用眼睛做：{zh}</button>' in card
-        assert f'data-world="body_show" data-kind="{kind}"' in card  # the 示範 stay
-    assert 'class="btn accent" data-world="body_eye"' in card  # design standard: a yellow .btn
+def test_every_world_button_on_the_page_is_one_the_server_takes() -> None:
+    """What a click sends is the button's own ``data-world`` and ``data-kind`` (app.js): each is a
+    method the server has, and every 「用眼睛做」 button starts the demo of its kind."""
+    from html.parser import HTMLParser
+
+    from duckmind.simweb import server
+
+    class Buttons(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.found: list[tuple[str, str]] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            a = dict(attrs)
+            if tag == "button" and a.get("data-world"):
+                self.found.append((a["data-world"] or "", a.get("data-kind") or ""))
+
+    class Bridge:
+        def __init__(self) -> None:
+            self.asked: list[tuple[str, str]] = []
+
+        def eye_demo(self, kind: str, thing: str) -> dict:
+            self.asked.append((kind, thing))
+            return {"kind": kind, "thing": thing}
+
+    page = Buttons()
+    page.feed((Path(E.__file__).parent / "static" / "index.html").read_text(encoding="utf-8"))
+    assert page.found and {method for method, _ in page.found} <= server.WORLD_BUTTONS
+    kinds = [kind for method, kind in page.found if method == "body_eye"]
+    assert len(kinds) == 3  # 撞撞看, 啄一下, 踢一下
+    bridge = Bridge()
+    for kind in kinds:
+        answer = server.world_button(bridge, "body_eye", {"kind": kind, "thing": "ball_felt"})  # type: ignore[arg-type]
+        assert answer["demo"]["kind"] == kind
+    assert bridge.asked == [(kind, "ball_felt") for kind in kinds]

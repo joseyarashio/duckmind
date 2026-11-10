@@ -90,12 +90,18 @@ def channels_for(body: Any, *, as_real: bool = False) -> dict[str, Channel]:
     return channels
 
 
-def body_info(body: Any, *, as_real: bool = False) -> dict[str, Any]:
+def body_info(body: Any, *, as_real: bool = False, has_dock: bool = False) -> dict[str, Any]:
     """What the bridge tells a brain about this body. ``as_real``: a real duck's bridge's words
-    (``backend: real``, its networks' hashes) plus ``rehearsal`` — the page then drives it as it
-    would a real Microduck, with only the duck's own senses."""
+    (``backend: real``, its networks' hashes, ``has_dock`` — false as a real duck's is unless
+    ``--has-dock``) plus ``rehearsal`` — the page then drives it as it would a real Microduck,
+    with only the duck's own senses."""
     if as_real:
-        return {"backend": "real", "rehearsal": True, "policies": body.policy_hashes()}
+        return {
+            "backend": "real",
+            "rehearsal": True,
+            "policies": body.policy_hashes(),
+            "has_dock": has_dock,
+        }
     return {
         "backend": "simulator",
         "home": body.home,
@@ -161,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
             token=token,
             channels=channels,
             keeper=keeper_for(str(body.robotd_socket), "simulator", sit=not args.no_sit, log=log),
-            body_info=body_info(body, as_real=args.as_real),
+            body_info=body_info(body, as_real=args.as_real, has_dock=args.has_dock),
             deadman_s=args.deadman_ms / 1000.0,
             log=log,
         )

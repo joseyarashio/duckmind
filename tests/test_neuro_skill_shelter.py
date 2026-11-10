@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import math
+import multiprocessing
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 
 import pytest
@@ -175,6 +178,14 @@ def _scare_run(name: str, seed: int) -> SB.SocialBrain:
     return brain
 
 
+def _scare_outcome(job: tuple[str, int]) -> tuple[int, int]:
+    """(peeks of the hide run, hide bouts) of one scared duck: a worker process registers the
+    social channels itself (the module fixture lives only in the test's own process)."""
+    with SB.registered():
+        brain = _scare_run(*job)
+        return brain.hide_run.peeks, brain.counts.get("hide", 0)
+
+
 def test_synthetic_temperament_the_timid_hide_the_bold_do_not(social: object) -> None:
     # A population test, not pinned seeds. a:social's original measurement: the timid preset
     # reached a shelter and peeked 4/8, the bold 0/8. Re-measured 2026-10-02 at 6ec7f91:
@@ -183,8 +194,18 @@ def test_synthetic_temperament_the_timid_hide_the_bold_do_not(social: object) ->
     # into a shelter is bimodal (it either settles in with 4-10 peeks or gives up with 0) at
     # roughly 40 % per seed, so "at least 2 of 3 pinned seeds" is close to a coin flip and moves
     # with any change that shifts a trajectory.
-    timid = [_scare_run("snuggler", s) for s in range(1, 25)]
-    bold = [_scare_run("explorer", s) for s in range(1, 9)]
-    hid = [b for b in timid if b.hide_run.peeks >= 2]
+    # The 32 runs are independent and seeded, so they run in worker processes: in one process
+    # this test alone took 3-4.5 min here and about twice that on a CI runner, near the CI's
+    # 10-min stall alarm (2026-11-10, a shard timed out). DUCKMIND_TEST_WORKERS=1 runs them inline.
+    jobs = [("snuggler", s) for s in range(1, 25)] + [("explorer", s) for s in range(1, 9)]
+    workers = max(1, int(os.environ.get("DUCKMIND_TEST_WORKERS", str(min(4, os.cpu_count() or 1)))))
+    if workers == 1:
+        outcomes = [_scare_outcome(job) for job in jobs]
+    else:
+        context = multiprocessing.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
+            outcomes = list(pool.map(_scare_outcome, jobs))
+    timid, bold = outcomes[:24], outcomes[24:]
+    hid = [peeks for peeks, _ in timid if peeks >= 2]
     assert len(hid) >= 5
-    assert all(b.counts.get("hide", 0) == 0 for b in bold)
+    assert all(hides == 0 for _, hides in bold)

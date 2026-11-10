@@ -232,7 +232,8 @@ class Camera:
                 continue
             if self._stop.is_set():
                 return
-            time.sleep(self.delay_s)
+            if self._stop.wait(self.delay_s):  # (a render's worth; over at once when stopped)
+                return
             if self.frames.take_request():
                 self.taken += 1
                 data = bytes([128, self.taken % 256] * self.width)
@@ -252,10 +253,8 @@ def _answer_once(frames: ms.Frames, frame: ms.Frame) -> threading.Thread:
     """mediad's answer_once: wait for the demand, then deliver once."""
 
     def run() -> None:
-        deadline = time.monotonic() + 5.0
-        while not frames.take_request():
-            assert time.monotonic() < deadline, "the endpoint never asked for a frame"
-            time.sleep(0.001)
+        assert frames.demand.wait(5.0), "the endpoint never asked for a frame"
+        assert frames.take_request()
         frames.deliver(frame)
 
     thread = threading.Thread(target=run, daemon=True)
@@ -647,14 +646,21 @@ def test_upright_sampling_turns_the_frame_a_quarter_clockwise():
 def test_the_eye_window_fetches_only_while_it_is_open(shim: ms.MediaShim):
     pytest.importorskip("numpy")
     got: list[dict[str, Any]] = []
+    fetched = threading.Semaphore(0)
+
+    def on_frame(frame: dict[str, Any]) -> None:
+        got.append(frame)
+        fetched.release()
+
     with Camera(shim.frames, width=64) as camera:
-        window = eye_frames.EyeWindow(shim.path, period_s=0.1, idle_s=0.5, on_frame=got.append)
+        window = eye_frames.EyeWindow(shim.path, period_s=0.1, idle_s=0.5, on_frame=on_frame)
         window.start()
         try:
             time.sleep(0.4)
             assert camera.taken == 0 and not window.open  # closed: nothing is asked for
-            window.touch()
-            time.sleep(0.45)
+            for _ in range(3):  # (someone keeps looking; each frame is waited for as it comes)
+                window.touch()
+                assert fetched.acquire(timeout=5.0), "the open window fetched no frame"
             assert window.open and camera.taken >= 3
             latest = window.latest()
             assert latest is not None and latest["rgb"].shape == (32, 1, 3)  # every 2nd pixel

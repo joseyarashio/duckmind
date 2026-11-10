@@ -17,8 +17,9 @@ turns a real duck on with the duck's own control.
 has come from it for ``deadman_s`` (:data:`~duckmind.remotebody.link.DEADMAN_S`), or the
 connection breaks, or a frame fails its signature, the bridge drops the link — every stream closes,
 so nothing the brain sent before can arrive late — and :class:`SafetyKeeper` sends ``robot.stop``
-at once and then sits the duck down (``robot.do sit_toggle`` while it stands), retrying until it
-sits or a brain is back. robotd's own deadman has already zeroed a walk 0.5 s after its last
+at once and then sits the duck down (``robot.do sit_toggle`` while it stands; asked again only by
+what robotd's label says, :class:`SafetyKeeper`) until it sits or a brain is back. robotd's own
+deadman has already zeroed a walk 0.5 s after its last
 ``robot.move``; the bridge adds the explicit stop, the sit and the guarantee that a stalled link's
 backlog is never applied.
 
@@ -26,12 +27,22 @@ backlog is never applied.
 starts and turns it off once (the owner's choice, 2026-11-08; ``--keep-pollen-telemetry`` leaves it
 alone), logs a ``telemetry`` event and reports the state to the brain's ``check``
 (:mod:`duckmind.remotebody.telemetry`).
+
+**Pollen's other doors.** mediad (TCP 8443, 8080) and netpadd (UDP 4210) let a LAN peer drive the
+duck around this bridge and its deadman. A real duck's bridge knocks on them when it starts and
+does not serve while one is open (exit 2, the fix on stderr) unless ``--allow-open-mediad`` is
+given (:mod:`duckmind.remotebody.doors`, ``tools/duck/close-mediad.sh``).
+
+**Wrong tokens.** An address that offers a wrong token :data:`AUTH_LOCK_AFTER` times within
+:data:`AUTH_LOCK_WINDOW_S` is locked out for :data:`AUTH_LOCK_S` (``peer_locked`` in the log).
 """
 
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
+import math
 import secrets
 import socket
 import sys
@@ -43,8 +54,8 @@ from pathlib import Path
 from typing import Any
 
 from duckmind.body import BodyIntent
+from duckmind.remotebody import doors, telemetry
 from duckmind.remotebody import link as L
-from duckmind.remotebody import telemetry
 from duckmind.remotebody.pipe import LocalPipe
 
 ROBOTD_METHODS = frozenset(
@@ -82,9 +93,22 @@ CHANNEL_METHODS: dict[str, frozenset[str]] = {
 WORLD_REFUSED_OPS = frozenset({"write", "gain", "torque"})
 MAX_REQUEST_LINE = 256 * 1024
 MAX_PENDING_BYTES = 1024 * 1024  # requests held while a daemon's socket connects
-SIT_RETRY_S = 3.0  # a sit_toggle robotd accepted gets this long before it is sent again
+# The seat (robotd 0.18.5, ``Controller::sit_toggle``): ``robot.do sit_toggle`` is answered
+# ``accepted`` when it is queued; the control loop then sits a standing duck, refuses a toggle for
+# the seat's ramp (robotd-params ``DEFAULT_SITSTAND_RAMP_S``, said only in its own log) and
+# STANDS a seated duck on a toggle after it. So a sit robotd accepted is asked again only when
+# its label has read walk/stand without a break for the ramp and a margin, on robotd's own clock.
+SIT_RAMP_S = 2.0
+SIT_MARGIN_S = 2.0
 SIT_REFUSED_RETRY_S = 0.5
 AUTH_FAIL_DELAY_S = 0.5
+# An address that offers a wrong token AUTH_LOCK_AFTER times within AUTH_LOCK_WINDOW_S is not
+# listened to for AUTH_LOCK_S (no handshake is begun; it is told how long). A right token
+# forgets the wrong ones before it.
+AUTH_LOCK_AFTER = 5
+AUTH_LOCK_WINDOW_S = 60.0
+AUTH_LOCK_S = 60.0
+AUTH_LOCK_PEERS = 256  # addresses remembered at most (the oldest go first)
 MAX_HANDSHAKES = 4
 WATCH_PERIOD_S = 0.02
 
@@ -160,7 +184,14 @@ class SafetyKeeper:
     """The body's own robotd connection, used only when the link is lost: robot.stop, then sit.
 
     ``port_factory`` opens a :class:`~duckmind.robotd.RobotdBodyPort` (or anything with
-    ``observe()``, ``stop()``, ``dispatch_intent()`` and ``close()``)."""
+    ``observe()``, ``stop()``, ``dispatch_intent()`` and ``close()``).
+
+    The sit is a toggle, so it is sent by what robotd's label says, never by time alone: at once
+    while the label reads walk/stand; never while it reads anything else (sitting, rising, a
+    move, held, fallen); and after a toggle robotd accepted, again only when the label has read
+    walk/stand in every frame since for :data:`SIT_RAMP_S` + :data:`SIT_MARGIN_S` of robotd's
+    own clock (``robot.state``'s ``t``) — a second toggle after the seat's ramp would stand a
+    duck that did sit and whose label was slow to say so."""
 
     def __init__(
         self,
@@ -183,6 +214,9 @@ class SafetyKeeper:
         self.fallen = False
         self._next_sit = 0.0
         self._sat_logged = False
+        self._robot_t = 0.0  # robotd's clock in the last frame
+        self._upright_since: float | None = None  # … at the first of the unbroken walk/stand frames
+        self._asked: float | None = None  # … when it accepted a sit_toggle its label has not shown
         self._thread = threading.Thread(target=self._run, name="safety-keeper", daemon=True)
 
     def start(self) -> None:
@@ -243,21 +277,39 @@ class SafetyKeeper:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            port: Any = None
-            try:
-                port = self._ensure()
-                observed = port.observe()
-            except Exception:
-                if port is not None:
-                    self._lose(port)
+            if not self.step():
                 self._stop.wait(0.5)
-                continue
-            self.policy = observed.policy
-            self.fallen = bool(observed.safety.fallen)
-            self._act(port)
 
-    def _act(self, port: Any) -> None:
+    def step(self) -> bool:
+        """One ``robot.state`` frame: what the duck is doing and, while the link is lost, the
+        sit. False: robotd did not answer (its connection is opened again at the next step)."""
+        port: Any = None
+        try:
+            port = self._ensure()
+            observed = port.observe()
+        except Exception:
+            if port is not None:
+                self._lose(port)
+            return False
+        self.policy = observed.policy
+        self.fallen = bool(observed.safety.fallen)
+        robot_t = getattr(observed, "robot_time_s", None)
+        self._act(port, self._clock() if robot_t is None else float(robot_t))
+        return True
+
+    def _act(self, port: Any, robot_t: float) -> None:
         with self._lock:
+            upright = self.policy in ("walk", "stand") and not self.fallen
+            if robot_t < self._robot_t:  # robotd started again: its clock begins anew
+                self._upright_since = None
+                self._asked = None if self._asked is None else robot_t
+            self._robot_t = robot_t
+            if not upright:
+                self._upright_since = None
+            elif self._upright_since is None:
+                self._upright_since = robot_t
+            if self.policy == "sit":
+                self._asked = None
             if not self.engaged or not self._sit:
                 return
             now = self._clock()
@@ -266,16 +318,22 @@ class SafetyKeeper:
                     self._sat_logged = True
                     self._log("sat", after_s=round(now - self.engaged_at, 3))
                 return
-            if self.fallen or self.policy not in ("walk", "stand") or now < self._next_sit:
+            if not upright or self._upright_since is None or now < self._next_sit:
+                return
+            wait = SIT_RAMP_S + SIT_MARGIN_S
+            if self._asked is not None and robot_t - max(self._asked, self._upright_since) < wait:
                 return
             try:
                 ack = port.dispatch_intent(BodyIntent("robot.do", {"skill": "sit_toggle"}))
             except Exception as error:
-                self._next_sit = now + SIT_REFUSED_RETRY_S
+                # (no answer is not a refusal: robotd may have queued it)
+                self._asked, self._next_sit = robot_t, now + SIT_REFUSED_RETRY_S
                 self._log("sit_failed", error=str(error))
                 return
             accepted = bool(getattr(ack, "accepted", False))
-            self._next_sit = now + (SIT_RETRY_S if accepted else SIT_REFUSED_RETRY_S)
+            if accepted:
+                self._asked = robot_t
+            self._next_sit = now + (wait if accepted else SIT_REFUSED_RETRY_S)
             self._log("sit_sent", accepted=accepted, after_s=round(now - self.engaged_at, 3))
 
 
@@ -355,6 +413,7 @@ class Bridge:
         self._stop = threading.Event()
         self.links = 0
         self.drops: list[str] = []
+        self._auth: dict[str, list[float]] = {}  # address → [wrong tokens, since, locked until]
 
     # ── lifecycle ──
 
@@ -398,12 +457,41 @@ class Bridge:
                 self.log("refused_peer", peer=peer)
                 conn.close()
                 continue
+            locked_s = self._locked_for(peer)
+            if locked_s > 0:
+                try:
+                    L.send_json_line(conn, {"protocol": L.PROTOCOL, "locked_s": locked_s})
+                except OSError:
+                    pass
+                conn.close()
+                continue
             if not self._handshakes.acquire(blocking=False):
                 conn.close()
                 continue
             threading.Thread(
                 target=self._serve, args=(conn, peer), name="bridge-link", daemon=True
             ).start()
+
+    def _locked_for(self, peer: str) -> int:
+        """Whole seconds this address is still locked out for (0: it is listened to)."""
+        entry = self._auth.get(peer)
+        left = 0.0 if entry is None else entry[2] - time.monotonic()
+        return max(0, math.ceil(left))
+
+    def _wrong_token(self, peer: str) -> None:
+        now = time.monotonic()
+        with self._lock:
+            entry = self._auth.get(peer)
+            if entry is None or now - entry[1] > AUTH_LOCK_WINDOW_S:
+                entry = self._auth[peer] = [0.0, now, 0.0]
+                while len(self._auth) > AUTH_LOCK_PEERS:
+                    del self._auth[next(iter(self._auth))]
+            entry[0] += 1
+            lock = entry[0] >= AUTH_LOCK_AFTER and entry[2] <= now
+            if lock:
+                entry[:] = [0.0, now, now + AUTH_LOCK_S]
+        if lock:
+            self.log("peer_locked", peer=peer, seconds=AUTH_LOCK_S, wrong_tokens=AUTH_LOCK_AFTER)
 
     def _handshake(self, conn: socket.socket) -> L.FrameCodec:
         conn.settimeout(L.HANDSHAKE_TIMEOUT_S)
@@ -441,6 +529,8 @@ class Bridge:
                 codec = self._handshake(conn)
             except (L.LinkError, OSError) as error:
                 self.log("auth_failed", peer=peer, error=str(error))
+                if isinstance(error, L.AuthError):
+                    self._wrong_token(peer)
                 time.sleep(AUTH_FAIL_DELAY_S)
                 try:
                     L.send_json_line(conn, {"ok": False, "error": "refused"})
@@ -452,6 +542,7 @@ class Bridge:
             self._handshakes.release()
         link = _Link(conn, codec, peer)
         with self._lock:
+            self._auth.pop(peer, None)  # (a right token forgets the wrong ones before it)
             old, self._link = self._link, link
             self.links += 1
         if self.keeper is not None:
@@ -698,6 +789,12 @@ def add_bridge_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--no-sit", action="store_true", help="on link loss stop only, never sit")
     parser.add_argument("--events", type=Path, help="append link/safety events here (JSON lines)")
+    parser.add_argument(
+        "--has-dock",
+        action="store_true",
+        help="a real duck only: it has a charging dock it can back into (default: none exists, "
+        "and the brain never looks for one; the family swaps or charges the pack)",
+    )
 
 
 def bridge_parser() -> argparse.ArgumentParser:
@@ -728,25 +825,81 @@ def bridge_parser() -> argparse.ArgumentParser:
         help="leave Pollen's usage data as it is (default: a real duck's bridge turns it off once "
         "at start, the owner's choice of 2026-11-08)",
     )
+    parser.add_argument(
+        "--allow-open-mediad",
+        action="store_true",
+        help="serve even while mediad's or netpadd's LAN doors are open (default: a real duck's "
+        "bridge refuses to start; close them with tools/duck/close-mediad.sh)",
+    )
+    parser.add_argument(
+        "--lan-address",
+        help="the duck's own LAN address to knock on those doors at (default: the --listen "
+        "address, or the address of the duck's default route)",
+    )
+    parser.add_argument(
+        "--mediad-ports",
+        default=",".join(str(p) for p in doors.MEDIAD_PORTS),
+        help="mediad's LAN ports (TCP)",
+    )
+    parser.add_argument(
+        "--netpadd-port", type=int, default=doors.NETPADD_PORT, help="netpadd's LAN port (UDP)"
+    )
     return parser
 
 
-def body_info_for(args: argparse.Namespace, log: Callable[..., None]) -> dict[str, Any]:
+def doors_for(args: argparse.Namespace, log: Callable[..., None]) -> tuple[dict[str, Any], bool]:
+    """A real duck's bridge, before it serves: (what it found at mediad's and netpadd's LAN
+    doors, whether it may serve). While a door is open it says what, why and the fix on stderr,
+    logs ``doors_open`` and may serve only with ``--allow-open-mediad``
+    (:mod:`duckmind.remotebody.doors`)."""
+    host = args.lan_address
+    if not host:
+        listen = host_port(args.listen)[0]
+        try:
+            address = ipaddress.ip_address(listen)
+            specific = not (address.is_loopback or address.is_unspecified)
+        except ValueError:
+            specific = False
+        host = listen if specific else doors.own_lan_address()
+    ports = [int(p) for p in str(args.mediad_ports).split(",") if p.strip()]
+    found = doors.look(host, ports, args.netpadd_port)
+    allowed = bool(args.allow_open_mediad)
+    report = {**found.to_json(), "allowed": allowed}
+    if not found.open:
+        log("doors_closed", **report)
+        return report, True
+    log("doors_open", **report)
+    for line in doors.refusal(found, allowed=allowed):
+        print(f"remote-body: {line}", file=sys.stderr, flush=True)
+    return report, allowed
+
+
+def body_info_for(
+    args: argparse.Namespace, log: Callable[..., None], doors_found: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """What the bridge tells the brain about its body. On a real duck this is also where Pollen's
     usage data is settled (:func:`duckmind.remotebody.telemetry.settle`: off unless
-    ``--keep-pollen-telemetry``), once per start, and logged; a simulated body has no updaterd."""
+    ``--keep-pollen-telemetry``), once per start, and logged; a simulated body has no updaterd.
+    ``doors_found``: what :func:`doors_for` found (``check`` on the computer reads it)."""
     if args.backend != "real":
         return {"backend": args.backend}
     info = real_body_info()
     info["telemetry"] = telemetry.settle(
         args.updaterd, turn_off=not args.keep_pollen_telemetry, log=log
     )
+    info["doors"] = doors_found
+    info["has_dock"] = bool(args.has_dock)
     return info
 
 
 def main(argv: list[str] | None = None) -> int:
     args = bridge_parser().parse_args(argv)
     log = event_logger(args.events)
+    doors_found = None
+    if args.backend == "real":
+        doors_found, serve = doors_for(args, log)
+        if not serve:
+            return 2
     channels = {"robotd": Channel("robotd", unix=args.robotd)}
     if args.tofd:
         channels["tofd"] = Channel("tofd", unix=args.tofd)
@@ -757,7 +910,7 @@ def main(argv: list[str] | None = None) -> int:
         token=L.read_token(args.token_file),
         channels=channels,
         keeper=keeper_for(args.robotd, args.backend, sit=not args.no_sit, log=log),
-        body_info=body_info_for(args, log),
+        body_info=body_info_for(args, log, doors_found),
         deadman_s=args.deadman_ms / 1000.0,
         log=log,
     )

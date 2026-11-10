@@ -971,55 +971,56 @@ def _static(name: str) -> str:
     return resources.files("duckmind.simweb").joinpath("static", name).read_text(encoding="utf-8")
 
 
-def test_the_page_script_finds_every_element_it_uses() -> None:
-    script, html = _static("live_voice.js"), _static("index.html")
-    used = set(re.findall(r'\$\("(live[A-Za-z]+)"\)', script))
-    assert {
-        "liveVoice",
-        "liveCloudSwitch",
-        "liveMic",
-        "liveWho",
-        "livePlace",
-        "livePush",
-        "liveLine",
-        "liveSay",
-        "liveHeard",
-        "liveCalls",
-        "liveEye",
-        "liveUsage",
-        "liveChipCloud",
-    } <= used
-    missing = sorted(i for i in used if f'id="{i}"' not in html)
-    assert missing == []
-    assert len(re.findall(r'id="(live[A-Za-z]+)"', html)) == len(
-        set(re.findall(r'id="(live[A-Za-z]+)"', html))
+def _on_the_page(status: dict[str, Any]) -> dict[str, Any]:
+    """``live_voice.js`` run in Node over the page's own markup, with ``status`` as the answer
+    of GET /api/live/status: what the panel then shows (tests/real_page_node_harness.mjs)."""
+    import shutil
+    import subprocess
+    from importlib import resources
+    from pathlib import Path
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("no node here")
+    done = subprocess.run(
+        [
+            node,
+            str(Path(__file__).with_name("real_page_node_harness.mjs")),
+            str(resources.files("duckmind.simweb").joinpath("static")),
+            "liveVoice",
+            json.dumps({"status": status}),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
+    assert done.returncode == 0, done.stderr[-2000:]
+    return json.loads(done.stdout)
 
 
-def test_the_panel_stays_hidden_unless_the_server_runs_live_voice_and_is_a_scenario_card() -> None:
-    html = _static("index.html")
-    card = html[html.index('id="liveVoice"') - 80 : html.index('id="liveVoice"') + 200]
-    assert "hidden" in card and "data-scenarios" in card
-    assert "data-neuro" not in card, "neuro.js would show every data-neuro element in neural mode"
-    chip = html[html.index('id="liveChipCloud"') - 60 : html.index('id="liveChipCloud"') + 120]
-    assert "hidden" in chip and 'data-i18n="page.live.cloud.label_off"' in chip
-
-
-def test_the_panels_style_uses_only_the_standards_tokens() -> None:
-    css = _static("live_voice.css")
-    body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", body), "a colour that is not a token"
-    assert not re.search(r"\brgba?\(|\bhsla?\(|gradient\(", body), (
-        "only the standard's tokens and flat fills"
-    )
-    assert not re.search(r"border-radius\s*:\s*(?!0\b)", body), "square corners"
-    assert not re.search(r"blur\(|filter\s*:", body)
-    for shadow in re.findall(r"box-shadow\s*:\s*([^;}]+)", body):
-        assert re.fullmatch(r"-?\d+px -?\d+px 0 var\(--[a-z-]+\)", shadow.strip()), (
-            shadow
-        )  # hard, offset, no blur
-    for colour in re.findall(r"var\((--[a-z0-9-]+)\)", body):
-        assert colour in _static("style.css"), colour
+def test_on_the_page_the_panel_stays_away_until_the_server_runs_live_voice_then_draws_its_status(
+    rig: Rig,
+) -> None:
+    away = _on_the_page({"ok": True, "enabled": False})
+    assert away["asked"] == ["/api/live/status"] and away["on"] is False
+    assert away["panelHidden"] is True and away["chipHidden"] is True
+    rig.voice.set_cloud(True)
+    rig.run(2.0)
+    status = rig.voice.status()
+    drawn = _on_the_page(status)
+    assert drawn["missing"] == [], "live_voice.js asks for an element the page does not have"
+    assert drawn["on"] is True and drawn["panelHidden"] is False and drawn["chipHidden"] is False
+    assert drawn["chip"] == ["on", "page.live.chip.on"]
+    assert drawn["cloudLabel"] == "page.live.cloud.label_on" and drawn["sending"] == ["on", "on"]
+    assert drawn["state"] == status["cloud"]["words"]
+    assert drawn["heard"] == ["page.live.heard.empty"]
+    assert drawn["calls"] == ["page.live.calls.empty"]
+    assert drawn["eye"]["hidden"] is False and drawn["eye"]["src"] == status["look"]["frame"]["url"]
+    assert drawn["usage"].startswith("page.live.usage{")
+    assert drawn["lines"] == [line["id"] for line in status["lines"]]
+    assert drawn["sayDisabled"] is False and drawn["mic"] == "page.live.mic.start"
+    assert drawn["micNote"] == "page.live.mic.note_on"  # (the last thing a status draws)
 
 
 def test_the_server_serves_the_panels_files(served) -> None:

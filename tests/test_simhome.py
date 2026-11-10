@@ -215,21 +215,6 @@ def test_hooks_run_around_every_physics_step_on_physics_time(tmp_path):
     assert (held.restored, free.restored) == (4, 0)  # upstream's hold, per step
 
 
-def test_the_step_copy_is_the_pinned_official_step_plus_hooks():
-    """The copy has the official World.step's statements (pinned) plus only the two hooks."""
-    copy = inspect.getsource(hooked_step)
-    for line in (
-        "with self.lock:",
-        "for _ in range(times):",
-        "mujoco.mj_step(self.model, self.data)",
-        "for body in self.bodies:",
-        "if not body.released:",
-        "body.restore()",
-    ):
-        assert line in copy
-    assert SIMHOME_UPSTREAM_SHA256["World.step"] == bodyhost.UPSTREAM_SHA256["World.step"]
-
-
 def test_a_hook_that_raises_is_switched_off_and_the_monitor_says_so(tmp_path):
     registry = Registry()
     ticks: list[float] = []

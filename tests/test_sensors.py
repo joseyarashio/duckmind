@@ -232,7 +232,6 @@ def _fetch(eye_frames, sock):  # type: ignore[no-untyped-def]
     raise last
 
 
-@pytest.mark.usefixtures("alpha_board")
 def test_the_camera_answers_media_frame_and_logs_the_truth(monkeypatch, folder):
     from duckmind.eye import frames as eye_frames
 
@@ -243,7 +242,8 @@ def test_the_camera_answers_media_frame_and_logs_the_truth(monkeypatch, folder):
         running.step(5)
         sim_time = float(running.world.data.time)
         head, data = _fetch(eye_frames, folder / "mediad" / "media.sock")
-        assert (head.width, head.height, head.rotate, head.format) == (1280, 720, 90, "UYVY")
+        # (the production camera's frame comes upright: no turn)
+        assert (head.width, head.height, head.rotate, head.format) == (1280, 720, 0, "UYVY")
         assert len(data) == head.bytes and head.valid_uyvy()
         log = running.op({"op": "x_eye_log", "limit": 5})
         entry = log["frames"][-1]

@@ -3,7 +3,8 @@ holds every control the simulated world does off — the reason as its title and
 no hover) — shows the link's quality and the duck's own battery, and the 3D label says it draws the
 duck's own joints and odometry, never physics truth. With ``real`` null every control is back.
 
-``static/realduck.js`` runs in Node on a small stand-in DOM; ``bodylink.js`` and ``truth.js`` too."""
+``static/realduck.js`` runs in Node on a small stand-in DOM, and once on the page's own markup
+(tests/real_page_node_harness.mjs); ``bodylink.js`` and ``truth.js`` too."""
 
 from __future__ import annotations
 
@@ -17,9 +18,6 @@ from typing import Any
 import pytest
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
-PAGE = (STATIC / "index.html").read_text(encoding="utf-8")
-# (the sound-scenario strip is built by neuro_sound.js, not written in the page)
-SOUND_JS = (STATIC / "neuro_sound.js").read_text(encoding="utf-8")
 JS = STATIC / "realduck.js"
 NODE = shutil.which("node")
 needs_node = pytest.mark.skipif(NODE is None, reason="needs Node")
@@ -123,6 +121,10 @@ steps.batteries = [
   api.batteryLine({ percent: null, charging: null }),
   api.batteryLine({ percent: 87.4, volts: 7.9, charging: null, source: "robotd", age_s: 1 }),
   api.batteryLine({ percent: 140, charging: true }),
+  api.batteryLine({ percent: 41.2, charging: null }, false),
+  api.batteryLine({ percent: 41.2, charging: true }, false),
+  api.batteryLine(null, false),
+  api.batteryLine({ percent: 41.2, charging: null }, true),
 ];
 console.log(JSON.stringify(steps));
 """
@@ -250,7 +252,14 @@ def test_the_link_and_the_battery_in_plain_words(page: dict[str, Any]) -> None:
     }
     assert down == {"key": "page.real.chip.link_down", "params": {"drops": 3}, "state": "down"}
     assert none is None
-    unknown, no_percent, known, charging = page["batteries"]
+    unknown, no_percent, known, charging, no_dock, cabled, no_dock_unknown, docked = page[
+        "batteries"
+    ]
+    # a duck without a charging dock says so beside its battery (a real charging flag still wins)
+    assert no_dock == {"key": "page.real.chip.battery_no_dock", "params": {"pct": 41}, "pct": 41}
+    assert cabled["key"] == "page.real.chip.battery_charging"
+    assert no_dock_unknown["key"] == "page.real.chip.battery_unknown"
+    assert docked["key"] == "page.real.chip.battery"
     assert (
         unknown
         == no_percent
@@ -453,30 +462,69 @@ def test_a_buttons_own_timer_never_lets_a_refused_control_go_again() -> None:
     assert said["other"] == [False, False]
 
 
-def test_every_gate_names_a_control_on_the_page_and_every_word_is_in_six_languages() -> None:
+# Controls a script builds later from the server's lists, not written in the page: 「更多」's
+# stimulus buttons (neuro.js) and the sound scenarios' strip (neuro_sound.js: its test is above).
+BUILT_LATER = {
+    '#neuroStim [data-stim="swap_battery"]',
+    "#neuroSound button[data-sound]",
+    "#soundHand",
+}
+
+
+@needs_node
+def test_on_the_page_itself_every_gate_holds_its_controls_and_the_notes_and_chips_show() -> None:
+    """``realduck.js`` over the page's own markup (index.html), not a stand-in: a gate whose
+    selector matched nothing there would hold nothing off, and a note or a chip the page does
+    not have would never say why."""
+    harness = Path(__file__).resolve().parent / "real_page_node_harness.mjs"
+    remote = {"up": True, "rtt_ms_p50": 64.6, "drops": 1, "max_gap_ms": 812.4}
+    run = subprocess.run(
+        [
+            str(NODE),
+            str(harness),
+            str(STATIC),
+            "realDuck",
+            json.dumps({"real": REAL, "remote": remote}),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert run.returncode == 0, run.stderr
+    said = json.loads(run.stdout)
+    notes = {"realNoteWorld", "realNoteLive", "realNoteLayout", "realNoteCore", "realNoteSound"}
+    chips = {"chipReal", "chipLink", "chipBattery"}
+    # a simulated body (how the page starts): no note, no chip
+    start = said["start"]
+    assert set(start["notes"]) == notes and set(start["notes"].values()) == {True}
+    assert set(start["chips"]) == chips and all(chip["hidden"] for chip in start["chips"].values())
+    # a real duck that refuses everything: every gate holds every control it names
+    assert {gate["code"] for gate in said["gates"]} <= set(REFUSES)
+    for gate in said["gates"]:
+        assert gate["noteOnPage"], gate
+        if gate["selector"] not in BUILT_LATER:
+            assert gate["found"] >= 1 and gate["held"] == gate["found"], gate
+    real = said["real"]
+    assert real["mode"] is True and set(real["notes"].values()) == {False}
+    assert real["chips"] == {
+        "chipReal": {"hidden": False, "text": "page.real.chip.real"},
+        "chipLink": {
+            "hidden": False,
+            "text": 'page.real.chip.link_up{"ms":65,"drops":1,"gap":812}',
+        },
+        "chipBattery": {"hidden": False, "text": "page.real.chip.battery_unknown"},
+    }
+    assert real["battery"] == {"hidden": False, "text": "page.real.battery.unknown"}
+    assert said["missing"] == []  # (every element the script asks for by its id is on the page)
+    # a simulated body again: everything it held is back, the notes and the chips are gone
+    sim = said["simulated"]
+    assert said["held"] > 0 and sim["stillHeld"] == 0 and sim["mode"] is False
+    assert set(sim["notes"].values()) == {True}
+    assert all(chip["hidden"] for chip in sim["chips"].values())
+
+
+def test_every_word_the_real_duck_page_names_is_in_six_languages() -> None:
     js = JS.read_text(encoding="utf-8")
-    for selector in re.findall(r'"(#[^"]+)"|\'(#[^\']+)\'', js):
-        selector = selector[0] or selector[1]
-        for part in selector.split(","):
-            ids = re.findall(r"#([A-Za-z]\w*)", part)
-            for element in ids:
-                assert f'id="{element}"' in PAGE or f'id: "{element}"' in SOUND_JS, (
-                    selector,
-                    element,
-                )
-            for name, value in re.findall(r'\[data-([\w-]+)="([\w-]+)"\]', part):
-                if name == "stim":
-                    continue  # (「更多」's buttons are built from the server's list)
-                assert f'data-{name}="{value}"' in PAGE, (selector, name, value)
-    for note in re.findall(r'note: "(\w+)"', js):
-        assert f'id="{note}"' in PAGE, note
-    for note in ("realNoteWorld", "realNoteLive", "realNoteLayout", "realNoteCore"):
-        tag = PAGE[PAGE.index(f'id="{note}"') - 60 : PAGE.index(f'id="{note}"') + 120]
-        assert "data-real-note" in tag and "hidden" in tag, note
-    for chip in ("chipReal", "chipLink", "chipBattery"):
-        tag = PAGE[PAGE.index(f'id="{chip}"') - 40 : PAGE.index(f'id="{chip}"') + 40]
-        assert "data-real" in tag and "hidden" in tag, chip
-    assert PAGE.index('src="/realduck.js"') < PAGE.index('src="/app.js"')
     keys = set(re.findall(r'"(page\.[\w.]+)"', js))
     for name in ("bodylink.js", "truth.js", "duck3d.js", "neuro.js", "app.js"):
         keys |= {

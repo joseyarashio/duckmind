@@ -1,11 +1,13 @@
 """P1 for the ToF: the world's ``tof`` op is what the official ``tofd --sim`` reads, and the
 official ``tofd`` (built from the checkout, never edited) publishes it unchanged.
 
-* **The contract, read from upstream by path**: ``tofd``'s ``SimDepth`` (``rows: u8``, ``cols:
-  u8``, ``distance_mm: Vec<i16>``, ``status: Vec<u8>``), its handshake line and 500 ms read
-  timeout, the ``{"op":"tof"}`` request, the grid and status constants of ``tof/src/lib.rs``, the
-  official body server's answer, and ``TofStreamResult`` — with digests of the code this
-  depends on, so an upstream change fails here with the file named.
+* **The contract, from upstream by path**: our op's answer fits ``tofd``'s ``SimDepth`` (its
+  fields and their Rust types: ``rows: u8``, ``cols: u8``, ``distance_mm: Vec<i16>``, ``status:
+  Vec<u8>``); the grid and status constants are ``tof/src/lib.rs``'s; the reach, the field of
+  view and the range noise are the official ``sim/tof.py``'s (run here; MuJoCo); the launcher's
+  socket is ``duck-ipc-proto``'s — with digests of the code this depends on (``tofd``'s
+  simulated-body reader: its handshake line, its 500 ms read timeout, its ``{"op":"tof"}``
+  request; and ``sim/tof.py``), so an upstream change fails here with the file named.
 * **Our op** (:mod:`duckmind.world.tof_model`; MuJoCo): exactly those four fields, their
   types and ranges, on the official scene.
 * **The real daemon** (``DUCKMIND_TOFD`` or the checkout's ``target/…/tofd``, skipped when not
@@ -19,6 +21,7 @@ official ``tofd`` (built from the checkout, never edited) publishes it unchanged
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -98,66 +101,81 @@ needs_tofd = pytest.mark.skipif(
 # ── the contract, from upstream ─────────────────────────────────────────────────
 
 
-@needs_upstream
-def test_simdepth_is_the_op_s_four_fields_with_their_types() -> None:
-    main = _text("microduck/tof/src/main.rs")
-    body = main[main.index("struct SimDepth {") :]
-    body = body[: body.index("}")]
-    fields = re.findall(r"(\w+): ([\w<>]+),", body)
-    assert fields == [
-        ("rows", "u8"),
-        ("cols", "u8"),
-        ("distance_mm", "Vec<i16>"),
-        ("status", "Vec<u8>"),
-    ]
-    assert r'b"{\"op\":\"hello\",\"protocol\":1,\"joints\":15}\n"' in main
-    assert r'b"{\"op\":\"tof\"}\n"' in main
-    assert "set_read_timeout(Some(Duration::from_millis(500)))" in main
-    assert "sleep_unless_shutdown(period, shutdown);" in main  # a whole period after each frame
-    assert re.search(r"#\[arg\(long, default_value_t = (\d+)\)\]\s*hz: u8", main).group(1) == "15"  # type: ignore[union-attr]
+def _const(text: str, name: str) -> int:
+    found = re.search(rf"pub const {name}: \w+ = (\d+);", text)
+    assert found, f"{name} not found upstream"
+    return int(found.group(1))
 
 
 @needs_upstream
 def test_the_grid_and_statuses_are_the_tof_crate_s() -> None:
     assert UP is not None
     lib = (UP / "microduck" / "tof" / "src" / "lib.rs").read_text()
-    assert f"pub const ROWS: usize = {tof_model.ROWS};" in lib
-    assert f"pub const COLS: usize = {tof_model.COLS};" in lib
+    assert (_const(lib, "ROWS"), _const(lib, "COLS")) == (tof_model.ROWS, tof_model.COLS)
     valid = re.search(r"pub const STATUS_VALID: \[u8; 2\] = \[(\d+), (\d+)\];", lib)
     assert valid and {int(v) for v in valid.groups()} == {
         tof_model.STATUS_VALID,
         tof_model.STATUS_LARGE_PULSE,
     }
-    assert f"pub const STATUS_NO_TARGET: u8 = {tof_model.STATUS_NO_TARGET};" in lib
-    sim = (UP / "microduck_rl/src/mjlab_microduck/sim/tof.py").read_text()
-    assert "FOV_DEG = 45.0" in sim and "MAX_RANGE = 4.0" in sim
-    assert tof_model.FOV_DEG == 45.0 and tof_model.MAX_RANGE_M == 4.0
-    assert "sigma = 0.003 + 0.02 * (hit / MAX_RANGE)" in sim  # = 3 mm + 0.5 % of the range
-    p = tof_model.TofParams()
-    assert p.sigma_m == 0.003 and p.sigma_share * 4.0 == pytest.approx(0.02)
-    assert "distance_mm[zone] = int(measured * 1000.0)" in sim
+    assert _const(lib, "STATUS_NO_TARGET") == tof_model.STATUS_NO_TARGET
 
 
-@needs_upstream
-def test_the_official_body_server_answers_the_same_four_fields() -> None:
+def _official_sim_tof() -> Any:
+    """The official ``sim/tof.py``, loaded by path (it imports MuJoCo and numpy)."""
+    pytest.importorskip("mujoco")
+    pytest.importorskip("numpy")
     assert UP is not None
-    server = (UP / "microduck_rl/src/mjlab_microduck/sim/body_server.py").read_text()
-    assert (
-        'return {"rows": ROWS, "cols": COLS, "distance_mm": distance_mm, "status": status}'
-        in server
-    )
-    assert 'if op == "tof":\n            return body.depth()' in server
+    path = UP / "microduck_rl" / "src" / "mjlab_microduck" / "sim" / "tof.py"
+    spec = importlib.util.spec_from_file_location("official_sim_tof", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 @needs_upstream
-def test_tof_stream_result_is_the_proto_s() -> None:
+def test_the_reach_and_the_range_noise_are_the_official_simulator_s() -> None:
+    """The official ``sim/tof.py`` and ours look at the same wall, near and far: the same grid,
+    reach and statuses, the same whole millimetres, and the same spread of the readings (its
+    sigma grows with the range: 3 mm plus 0.5 % of it; ours must grow the same)."""
+    official = _official_sim_tof()
+    mujoco = pytest.importorskip("mujoco")
+    np = pytest.importorskip("numpy")
+    assert (official.ROWS, official.COLS) == (tof_model.ROWS, tof_model.COLS)
+    assert (official.FOV_DEG, official.MAX_RANGE) == (tof_model.FOV_DEG, tof_model.MAX_RANGE_M)
+    assert official.STATUS_VALID == tof_model.STATUS_VALID
+    assert official.STATUS_NO_TARGET == tof_model.STATUS_NO_TARGET
+    # one ray a zone and no status randomness: what is left is the range noise
+    plain = tof_model.TofParams(sub=1, weak_per_m=0.0, weak_incidence=0.0, phantom_p=0.0)
+    for wall_m in (0.5, 3.5):
+        model = mujoco.MjModel.from_xml_string(
+            '<mujoco><worldbody><site name="tof"/>'
+            f'<geom type="box" size="0.01 9 9" pos="{wall_m + 0.01} 0 0"/></worldbody></mujoco>'
+        )
+        data = mujoco.MjData(model)
+        mujoco.mj_forward(model, data)
+        site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "tof")
+        theirs = official.Tof(model, site, seed=1)
+        ours = tof_model.TofSensor(model, seed=1, params=plain)
+        a = np.array([theirs.frame(data)[0] for _ in range(200)], dtype=float)
+        b = np.array([ours.frame_of(data)["distance_mm"] for _ in range(200)], dtype=float)
+        assert a.min() > 0 and b.min() > 0  # every zone sees the wall in both
+        assert b.mean() == pytest.approx(a.mean(), abs=1.0), wall_m
+        spread_theirs = float((a - a.mean(axis=0)).std())
+        spread_ours = float((b - b.mean(axis=0)).std())
+        assert spread_ours == pytest.approx(spread_theirs, rel=0.05), wall_m
+
+
+@needs_upstream
+def test_the_launcher_looks_for_the_socket_where_the_proto_puts_it(tmp_path: Path) -> None:
+    """``duck-ipc-proto`` names tofd's socket under ``/run``; the launcher's is the same path
+    under its runtime directory (``DUCK_RUNTIME_DIR``)."""
     assert UP is not None
     proto = (UP / "microduck/duck-ipc-proto/src/lib.rs").read_text()
-    body = proto[proto.index("pub struct TofStreamResult {") :]
-    body = body[: body.index("\n}")]
-    names = re.findall(r"^\s*pub (\w+):", body, flags=re.M)
-    assert names == ["accepted", "sensor", "unavailable", "rows", "cols", "hz"]
-    assert 'pub const TOF: &str = "/run/tofd/tof.sock";' in proto
+    found = re.search(r'pub const TOF: &str = "/run/([^"]+)";', proto)
+    assert found, "the TOF socket path is not in duck-ipc-proto any more"
+    launch = tofd_launch.TofdLaunch("tofd", runtime_dir=tmp_path, body=None)
+    assert launch.socket_path == tmp_path / found.group(1)
 
 
 @needs_upstream
@@ -183,7 +201,7 @@ def _scene() -> Path:
     return Path(mjcf, "scene_allcollisions.xml")
 
 
-def test_the_op_answers_exactly_simdepth() -> None:
+def _sensor_on_the_official_scene() -> tuple[Any, Any]:
     mujoco = pytest.importorskip("mujoco")
     pytest.importorskip("numpy")
     model = mujoco.MjModel.from_xml_path(str(_scene()))
@@ -192,7 +210,11 @@ def test_the_op_answers_exactly_simdepth() -> None:
         model, data, mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, "HOME")
     )
     mujoco.mj_forward(model, data)
-    sensor = tof_model.TofSensor(model, seed=3)
+    return tof_model.TofSensor(model, seed=3), data
+
+
+def test_the_op_answers_exactly_simdepth() -> None:
+    sensor, data = _sensor_on_the_official_scene()
     for _ in range(5):
         frame = sensor.frame_of(data)
         assert list(frame) == ["rows", "cols", "distance_mm", "status"]
@@ -204,6 +226,28 @@ def test_the_op_answers_exactly_simdepth() -> None:
         assert json.loads(json.dumps(frame)) == frame
         for d, s in zip(frame["distance_mm"], frame["status"], strict=True):
             assert (d == 0) == (s == 255)
+
+
+RUST_INTS = {"u8": (0, 255), "i16": (-32768, 32767)}
+
+
+@needs_upstream
+def test_the_op_s_answer_fits_the_simdepth_tofd_reads_it_into() -> None:
+    """``tofd --sim`` deserializes the op's answer into its ``SimDepth``: the fields and their
+    Rust types are read from its source, and a frame of ours must fit every one of them."""
+    main = _text("microduck/tof/src/main.rs#sim")
+    body = main[main.index("struct SimDepth {") :]
+    fields = re.findall(r"(\w+): ([\w<>]+),", body[: body.index("}")])
+    assert fields, "SimDepth has no fields upstream any more"
+    sensor, data = _sensor_on_the_official_scene()
+    frame = sensor.frame_of(data)
+    assert list(frame) == [name for name, _ in fields]
+    for name, kind in fields:
+        listed = kind.startswith("Vec<")
+        low, high = RUST_INTS[kind[4:-1] if listed else kind]
+        values = frame[name] if listed else [frame[name]]
+        assert isinstance(frame[name], list) == listed, name
+        assert all(type(v) is int and low <= v <= high for v in values), name
 
 
 # ── the real daemon ─────────────────────────────────────────────────────────────

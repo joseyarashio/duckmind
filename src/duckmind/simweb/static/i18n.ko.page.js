@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "page", {
 "fmt.sep.and_then": ", 그리고 ",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("ko", "page", {
 "page.body.state.offline": "서버에 연결할 수 없어요. 잠시 후 다시 시도할게요.",
 "page.body.state.real": "진짜 오리({url})와 연결됨, 왕복 약 {ms}ms.",
 "page.body.state.real_new": "진짜 오리({url})와 연결됨.",
+"page.body.state.real_nowalk": "진짜 오리({url})에 연결됐지만 지금은 머리만 움직이고 걷지 않아요: {why, select, none {아직 몸 보정을 재지 않았어요} other_networks {걷기나 앉고 서기 네트워크가 바뀌어서 지난번에 잰 몸 보정을 쓸 수 없어요} invalid {몸 보정 파일을 읽을 수 없어요} unknown_body {오리 쪽 브리지가 어떤 보드인지, 어떤 네트워크를 쓰는지 알려 주지 않았어요} other {아직 몸 보정을 재지 않았어요}}. 시작 단계대로 한 번 재면 걸을 수 있어요.",
 "page.body.state.real_off": "오리({url})와 연결됐지만 아직 켜지지 않았어요. 오리 자체의 조작으로 켜 주세요. 이 프로그램은 대신 켜지 않고, 켜지면 뇌가 알아서 이어받아요.",
 "page.body.state.rehearsal": "이 컴퓨터의 연습용 오리({url})와 연결됨, 왕복 약 {ms}ms. 진짜 오리 역할이고, 시뮬레이션 세계는 없어요.",
 "page.body.state.rehearsal_new": "이 컴퓨터의 연습용 오리({url})와 연결됨. 진짜 오리 역할이고, 시뮬레이션 세계는 없어요.",
@@ -1819,7 +1820,7 @@ DuckI18n.load("ko", "page", {
 "page.point.arrived": "도착했어요",
 "page.point.gave_up": "가지 못했어요: {why}",
 "page.point.gave_up.plain": "가지 못했어요",
-"page.point.hint_beta": "(시험 중) 바닥을 누르면 그곳으로 걸어가요 (끌면 시점이 돌아가요)",
+"page.point.hint": "바닥을 누르면 그곳으로 걸어가요 (끌면 시점이 돌아가요)",
 "page.point.hint_remote": "원격 조종 중에는 바닥을 눌러도 소용없어요 (끄면 쓸 수 있어요)",
 "page.point.notfloor": "거기는 바닥이 아니에요. 옆의 빈 곳을 눌러 주세요",
 "page.point.sent": "듣고 갈 준비를 하고 있어요",
@@ -1835,9 +1836,11 @@ DuckI18n.load("ko", "page", {
 "page.point.why.stuck": "중간에 걸려서 못 갔어요",
 "page.point.why.timeout": "너무 오래 걸려서 그만뒀어요",
 "page.real.battery.title": "오리가 스스로 알려 주는 배터리 양(오리의 제어 프로그램 robotd에서 와요)",
+"page.real.battery.title_no_dock": "오리가 스스로 알려 주는 배터리 양(오리의 제어 프로그램 robotd에서 와요). 이 오리는 충전대가 없어요. 배터리가 부족하면 배터리를 갈아 주거나 충전해 주세요",
 "page.real.battery.unknown": "아직 몰라요(오리 소식 기다리는 중)",
 "page.real.chip.battery": "배터리 {pct}%",
 "page.real.chip.battery_charging": "배터리 {pct}%(충전 중)",
+"page.real.chip.battery_no_dock": "배터리 {pct}%(충전대 없음)",
 "page.real.chip.battery_unknown": "배터리: 아직 몰라요(오리가 알려 주길 기다리는 중)",
 "page.real.chip.link_down": "연결: 끊김, 다시 연결하는 중(끊김 {drops}번)",
 "page.real.chip.link_new": "연결: 연결됨 · 끊김 {drops}번 · 가장 긴 무소식 {gap}ms",

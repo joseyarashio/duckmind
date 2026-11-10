@@ -105,8 +105,10 @@ FAMILIES = {family.name: family for family in (ALPHA, BETA)}  # by CameraFamily.
 
 def camera_family(board: str | None = None) -> CameraFamily:
     """The camera of robotd's ``[board] version`` (``duckmind.robotd_config``); ``None`` is the
-    alpha family (the simulator's camera, and robotd's own reading of an unset board). An unknown
-    board raises: a guessed lens puts every floor point in the wrong place."""
+    alpha family: robotd's own reading of an unset board (``robotd_config.ROBOTD_UNSET_BOARD``),
+    not the simulator's default camera (``camera_model.DEFAULT_SIM_BOARD``, the production one;
+    the simulator always names its board through ``camera_model.sim_family``). An unknown board
+    raises: a guessed lens puts every floor point in the wrong place."""
     if board is None:
         return ALPHA
     family = BOARD_CAMERAS.get(board)

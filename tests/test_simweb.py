@@ -1,12 +1,14 @@
 import gzip
 import json
 import math
-import re
+import shutil
+import subprocess
 import threading
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,22 +18,27 @@ from duckmind.simweb import robot_model
 from duckmind.simweb.server import MAX_BODY, SimServer, SimState, make_handler
 
 STATIC = Path(robot_model.__file__).parent / "static"
+NODE = shutil.which("node")
+needs_node = pytest.mark.skipif(NODE is None, reason="node is not installed")
 
 
-def _worded(text: str) -> str:
-    """A page source as its words were written before the page spoke six languages: every
-    quoted catalog key replaced by its 繁體中文 words (static/i18n.zh-Hant.*.js; docs/i18n.md)."""
-    words: dict[str, str] = {}
-    for path in sorted(STATIC.glob("i18n.zh-Hant.*.js")):
-        body = path.read_text(encoding="utf-8")
-        words.update(
-            json.loads(body[body.index("{", body.index("DuckI18n.load(")) : body.rindex("}") + 1])
-        )
-    return re.sub(
-        r"([\"'])((?:page|fmt|web)\.[A-Za-z0-9_.|<>-]+)\1",
-        lambda m: m.group(1) + words.get(m.group(2), m.group(2)) + m.group(1),
-        text,
+def _on_the_page(scenario: str, data: dict) -> Any:
+    """A page script run in Node over the page's own markup (tests/real_page_node_harness.mjs)."""
+    done = subprocess.run(
+        [
+            str(NODE),
+            str(Path(__file__).with_name("real_page_node_harness.mjs")),
+            str(STATIC),
+            scenario,
+            json.dumps(data),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
+    assert done.returncode == 0, done.stderr[-2000:]
+    return json.loads(done.stdout)
 
 
 # The official checkout is optional: point DUCKMIND_MICRODUCK_MJCF at
@@ -266,8 +273,6 @@ def test_the_page_is_told_how_to_show_each_event_and_why_the_duck_is_still(serve
     assert len(kept) <= 2  # a fast-forward step shows only its newest walk and move
     morning = _call(server, "advance", {"until": "07:00"}, fast["feed"]["cursor"])
     assert morning["state"]["clock"]["now"].endswith("07:00")
-    page = _get(server + "/")[1].decode()
-    assert 'id="duckBanner"' in page and 'id="bannerPlay"' in page
 
 
 def test_real_time_lives_each_second_and_shows_it_a_moment_later():
@@ -345,10 +350,18 @@ def test_the_page_can_tell_an_old_server_from_a_current_one(server):
     assert reply["server"]["api"] == API_VERSION
     assert reply["server"]["code_changed"] is False
     assert reply["server"]["show_delay_ms"] > 0
-    script = _get(server + "/app.js")[1].decode()
-    assert f"const API_VERSION = {API_VERSION};" in script  # the page and server agree
-    page = _get(server + "/")[1].decode()
-    assert 'id="serverWarn"' in page
+
+
+@needs_node
+def test_the_page_warns_about_a_server_of_another_version_and_not_about_this_one(server):
+    """The page's own check (app.js on the page's own markup) of this server's answer, of an
+    answer with another API version, of one whose code changed, and of none."""
+    this = _call(server, "state")["server"]
+    servers = [this, {**this, "api": this["api"] + 1}, {**this, "code_changed": True}, None]
+    current, other, changed, none = _on_the_page("serverWarn", {"servers": servers})
+    assert current == {"hidden": True, "text": ""}
+    assert other == none == {"hidden": False, "text": "page.app.checkServer.75de7e"}
+    assert changed == {"hidden": False, "text": "page.app.checkServer.131fd7"}
 
 
 def test_something_done_in_real_time_comes_after_what_the_duck_already_did():
@@ -391,21 +404,6 @@ def test_a_real_time_stretch_is_saved_as_one_input_and_comes_back_the_same(tmp_p
     assert again.session.core.log.head == first.session.core.log.head
 
 
-def test_the_page_keeps_its_banner_buttons_and_shows_words_with_the_moves(server):
-    """Round-3 verifier: rebuilding the banner's buttons on every real-time poll swallowed
-    clicks; the words said "fell" 2.5 s before the 3D duck fell; at night ▶ gave no hint."""
-    script = _worded(_get(server + "/app.js")[1].decode())
-    # The buttons are rebuilt only when the list of actions changes.
-    assert "function renderBannerActions" in script
-    assert script.count("box.innerHTML = actions") == 1
-    assert '$("#bannerActions").innerHTML' not in script
-    # Real-time polls show their words when the 3D view shows the moves (show_delay_ms).
-    assert "queueState(data.state" in script and "show_delay_ms" in script
-    page = _get(server + "/")[1].decode()
-    assert 'id="bannerMorning"' in page and 'data-act="owner_walk"' in page
-    assert "function alignLabel" in script and "先快轉" in script
-
-
 def test_the_owners_walk_button_reaches_the_duck_through_the_server(server):
     _call(server, "advance", {"until": "09:00"})
     _call(server, "set_setting", {"key": "floor", "value": True})
@@ -429,28 +427,32 @@ def test_the_page_can_tell_the_server_stopped_or_restarted(server):
     assert status == 200 and ping["ok"] and ping["api"] == reply["server"]["api"]
     assert ping["boot"] and ping["boot"] == reply["server"]["boot"]
     assert json.loads(_get(server + "/api/body")[1])["boot"] == ping["boot"]
-    script = _worded(_get(server + "/app.js")[1].decode())
-    for hook in ("/api/ping", "function netFail", "function serverRestarted", "server-down"):
-        assert hook in script, hook
-    assert "連不上模擬器伺服器" in script and "Failed to fetch" not in script
-    three = _worded(_get(server + "/duck3d.js")[1].decode())
-    assert 'addEventListener("duck:net"' in three and "連不上伺服器" in three
 
 
-def test_leaving_a_fast_forward_never_plays_its_backlog_as_now(server):
-    """Verifier: after a switch from 1 s = 1 min to real time, six stale clips played for
-    33 s; after pausing a fast-forward, its backlog went on while time stood still. The 3D
-    view now applies that backlog at once, and a fast-forward step that answers after the
-    switch is applied, not played; ▶ says what it did and never shows 快轉 in between."""
-    three = _worded(_get(server + "/duck3d.js")[1].decode())
-    assert "function flushBacklog" in three and "detail.stale" in three
-    script = _worded(_get(server + "/app.js")[1].decode())
-    assert "opts.ff" in script and "ui.rtPending" in script and "function announcePlay" in script
-    assert "● 真實時間：開始中…" in script
-    # the TV button names what was pressed, read before the answer relabels it
-    assert 'label = T(params.on ? "開電視" : "關電視")' in script
-    # every old routine is offered again (they keep a nest duck charged now)
-    assert "沒有窩的小鴨才用" not in script
+@needs_node
+def test_the_page_says_the_server_is_gone_after_two_misses_and_follows_a_restarted_one(server):
+    """The page's side of the same (app.js on the page's own markup, with this server's ping):
+    one miss says nothing, the second says so on the page and to the 3D view, an answer takes
+    it back and asks for the state, another process's answer starts afresh."""
+    ping = json.loads(_get(server + "/api/ping")[1])
+    seen = _on_the_page("serverGone", {"server": _call(server, "state")["server"], "ping": ping})
+    quiet = {"hidden": True, "text": ""}
+    first, once = seen["first"], seen["once"]
+    assert first["asked"] == once["asked"] == ["/api/ping"]
+    assert (first["down"], first["warn"]) == (once["down"], once["warn"]) == (False, quiet)
+    gone = seen["twice"]
+    assert gone["down"] is True and gone["events"] == ["duck:net down"]
+    assert gone["warn"]["hidden"] is False
+    assert gone["warn"]["text"].startswith("page.app.renderNet.d744f8{")  # 連不上模擬器伺服器
+    assert gone["banner"] == "page.app.renderOfflineBanner.78d1e7"
+    assert gone["actions"] == ["page.app.renderOfflineBanner.183cef"]  # 「馬上重新連線」
+    # (drawn again while it is gone: the same button stays, a rebuilt one would swallow a click)
+    assert seen["still"]["down"] is True and seen["sameButton"] is True
+    back = seen["back"]
+    assert (back["down"], back["warn"]) == (False, quiet)
+    assert back["events"][0] == "duck:net up" and back["asked"] == ["/api/ping", "/api/call state"]
+    again = seen["restarted"]
+    assert again["events"] == ["duck:reset"] and again["asked"] == ["/api/ping", "/api/call state"]
 
 
 def test_the_feed_says_in_words_what_the_duck_is_up_to():
@@ -714,8 +716,6 @@ def test_the_page_contract_for_the_truth(server):
     assert simserver.API_VERSION >= 8  # truth in the world, the world, the home, the buttons
     assert {"bodyhost.py", "world", "eye"} <= set(simserver.WATCHED)  # a change asks for a restart
     assert _get(server + "/truth.js")[0] == 200
-    three = _get(server + "/duck3d.js")[1].decode()
-    assert 'from "./truth.js"' in three and 'CustomEvent("duck:body"' in three
 
 
 def test_a_broken_body_is_said_in_plain_words_and_its_picture_is_not_now(live_server):

@@ -20,6 +20,7 @@ import pytest
 import duckmind.world.legacy  # noqa: F401  (registers LegacyWorld: v4_1 ducks live in it)
 from duckmind.duckcore import engine as duck_engine
 from duckmind.world.legacy import LegacyWorld
+from tests import tiers
 
 RENDER_FILES = frozenset(
     {
@@ -89,12 +90,23 @@ def pytest_pycollect_makemodule(module_path: Path, parent: Any) -> Any:
     return None
 
 
+MARKERS = (
+    "population_defaults: keep the population runs' percept sampling (design A13) for "
+    "this test instead of checking every percept",
+    # the tiers (tests/tiers.py says which test is which; CONTRIBUTING.md says how to run them)
+    "physics: needs MuJoCo (the sim extra) and the official duck model; skips without them",
+    "render: needs numpy and MuJoCo's offscreen render (RENDER_FILES; the render check)",
+    "node: runs a page script in Node; skips without Node",
+    "subprocess: starts a child process (a child pytest, a CLI, a server)",
+    "timing: sleeps or polls on the wall clock, so a busy machine can fail it",
+    'heavy: render, physics and the measured-slow tests; the fast tier is -m "not heavy"',
+)
+FAST_TIER_SLOW_S = 2.0  # the fast tier names its tests that took this long (tests/tiers.py SLOW)
+
+
 def pytest_configure(config: Any) -> None:
-    config.addinivalue_line(
-        "markers",
-        "population_defaults: keep the population runs' percept sampling (design A13) for "
-        "this test instead of checking every percept",
-    )
+    for marker in MARKERS:
+        config.addinivalue_line("markers", marker)
 
 
 @pytest.fixture(autouse=True)
@@ -120,7 +132,52 @@ def _render_skip(report: Any) -> bool:
     return not any(flag in _reason(report) for flag in OPT_IN)
 
 
+def _mark_tiers(items: list[pytest.Item]) -> None:
+    """Put the markers of tests/tiers.py on the collected tests. ``heavy`` follows from the
+    others: a render test, a physics test (listed there or marked in its own file) and a
+    measured-slow test are heavy, and so is a test its own file marks heavy."""
+    modules: dict[str, Any] = {}
+    for item in items:
+        if not isinstance(item, pytest.Function):
+            continue
+        file = item.path.name
+        modules.setdefault(file, item.module)
+        test = item.originalname if item.cls is None else f"{item.cls.__name__}.{item.originalname}"
+        for kind in tiers.kinds(file, test):
+            item.add_marker(kind)
+        if file in RENDER_FILES:
+            item.add_marker("render")
+        slow = tiers.listed(tiers.SLOW, file, test)
+        if slow or any(item.get_closest_marker(kind) for kind in ("render", "physics")):
+            item.add_marker("heavy")
+    gone = _gone(modules)
+    if gone:
+        raise pytest.UsageError(
+            "tests/tiers.py names tests that are not in their files (renamed or removed? "
+            "change it there too): " + ", ".join(gone)
+        )
+
+
+def _gone(modules: dict[str, Any]) -> list[str]:
+    """The tests tests/tiers.py names that are not in these collected files (file name → module)."""
+    gone = set()
+    for table in tiers.tables().values():
+        for file, tests in table.items():
+            if file not in modules or tests is tiers.WHOLE:
+                continue
+            for test in tests:
+                found: Any = modules[file]
+                for part in test.split("."):
+                    found = getattr(found, part, None)
+                if found is None:
+                    gone.add(f"{file}::{test}")
+    return sorted(gone)
+
+
+# (first: the markers must be on the tests before pytest's own -m deselects by them)
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: Any, items: list[pytest.Item]) -> None:
+    _mark_tiers(items)
     if os.environ.get(ONLY) != "1":
         return
     keep = [item for item in items if item.path.name in RENDER_FILES]
@@ -140,7 +197,27 @@ def pytest_runtest_makereport(item: pytest.Item, call: Any) -> Generator[None, A
         report.longrepr = f"{REQUIRE}=1: this render test must run here, not skip ({reason})"
 
 
-def pytest_terminal_summary(terminalreporter: Any) -> None:
+def _fast_tier_slow(terminalreporter: Any) -> list[tuple[float, str]]:
+    took: dict[str, float] = {}
+    for reports in terminalreporter.stats.values():
+        for report in reports:
+            if getattr(report, "when", None) in ("setup", "call", "teardown"):
+                took[report.nodeid] = took.get(report.nodeid, 0.0) + report.duration
+    return sorted(
+        ((s, nodeid) for nodeid, s in took.items() if s >= FAST_TIER_SLOW_S), reverse=True
+    )
+
+
+def pytest_terminal_summary(terminalreporter: Any, config: Any) -> None:
+    if "not heavy" in config.option.markexpr:
+        slow = _fast_tier_slow(terminalreporter)
+        if slow:
+            terminalreporter.write_line(
+                f"fast tier: {len(slow)} test(s) took {FAST_TIER_SLOW_S:g} s or more here; if "
+                "they are that slow on a quiet machine, name them in tests/tiers.py (SLOW):"
+            )
+            for seconds, nodeid in slow:
+                terminalreporter.write_line(f"  {seconds:6.1f} s  {nodeid}")
     skipped = [r for r in terminalreporter.stats.get("skipped", []) if _render_skip(r)]
     if skipped:
         terminalreporter.write_line(

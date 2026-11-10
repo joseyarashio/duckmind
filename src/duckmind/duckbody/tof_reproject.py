@@ -206,10 +206,13 @@ def project(
     posture: Posture,
     trunk_height_m: float,
     beam_dirs: Sequence[Sequence[float]] = BEAMS,
+    *,
+    min_range_m: float = MIN_RANGE_M,
 ) -> list[Zone]:
     """``Reprojector::project`` with the sensor's pose in the trunk frame given (the board's
     ``frames.tof``). ``trunk_height_m``: the model's standing height, used when the posture
-    has no measured one."""
+    has no measured one. ``min_range_m``: the too-close band (upstream's ``MIN_RANGE_M``; a board's
+    measured one comes from its calibration, :mod:`duckmind.duckbody.calibration`)."""
     level = level_from_gravity(posture.gravity)
     sensor_level = level.rotate(sensor.pos)
     height = posture.trunk_height_m if posture.trunk_height_m is not None else trunk_height_m
@@ -231,7 +234,7 @@ def project(
             zones[i] = Zone("floor", point)
             continue
         horizontal = r * math.sqrt(dir_level[0] * dir_level[0] + dir_level[1] * dir_level[1])
-        if horizontal < MIN_RANGE_M:
+        if horizontal < min_range_m:
             zones[i] = TOO_CLOSE
             continue
         zones[i] = Zone("hit", point, horizontal)

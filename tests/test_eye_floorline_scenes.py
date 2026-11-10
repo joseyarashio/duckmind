@@ -244,6 +244,9 @@ def world_camera_pose(eye):
     )
 
 
+# (the alpha's own: this file's camera (eye_scenes.CAMERA) and world_camera_pose are the alpha's K and
+# quarter-turned mount; the production camera's floor line through the world camera is
+# tests/test_eye_things.py's, on eye_vision_scene, which follows the board)
 @pytest.mark.usefixtures("alpha_board")
 def test_golden_a_box_in_default_home() -> None:
     """The world camera (lens, AE, white balance, IMX219 noise) in default_home by day: the floor

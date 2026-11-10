@@ -55,8 +55,10 @@ def test_bearing_and_projection_are_inverse():
     assert (small.fx, small.cx) == pytest.approx((K.fx / 8, K.cx / 8))
 
 
-@pytest.mark.usefixtures("alpha_board")
-def test_quality_rungs_are_robotd_params_and_scale_k():
+@pytest.mark.parametrize("board", ["zero3", "beta"])
+def test_quality_rungs_are_robotd_params_and_scale_k(board, monkeypatch):
+    monkeypatch.setenv(cm.BOARD_ENV, board)
+    k = cm.family_intrinsics(cm.sim_family())
     assert list(cm.QUALITIES) == ["1080p30", "720p30", "720p15", "360p30"]
     assert cm.quality_rung().label == cm.DEFAULT_QUALITY == "720p30"
     sizes = {q.label: (q.width, q.height, q.fps) for q in cm.QUALITIES.values()}
@@ -67,8 +69,8 @@ def test_quality_rungs_are_robotd_params_and_scale_k():
         "360p30": (640, 360, 30),
     }
     q360 = cm.quality_rung("360p30")
-    assert (q360.k.fx, q360.k.cx, q360.k.cy) == pytest.approx((K.fx / 2, K.cx / 2, K.cy / 2))
-    assert cm.quality_rung("1080p30").k.fy == pytest.approx(K.fy * 1.5)
+    assert (q360.k.fx, q360.k.cx, q360.k.cy) == pytest.approx((k.fx / 2, k.cx / 2, k.cy / 2))
+    assert cm.quality_rung("1080p30").k.fy == pytest.approx(k.fy * 1.5)
     assert q360.frame_bytes == 640 * 360 * 2
     assert cm.quality_rung("720p15").frame_period_s == pytest.approx(1 / 15)
     assert cm.quality_from_config('[media]\nquality = "360p30"\n').label == "360p30"
@@ -405,21 +407,32 @@ def test_p5_checkerboard_render_matches_family_k():
     assert abs(cy - (720 - K.cy)) > 200
 
 
-@pytest.mark.usefixtures("alpha_board")
+@pytest.mark.parametrize("board", ["zero3", "beta"])
 @pytest.mark.parametrize("quality", ["720p30", "360p30"])
-def test_p5_checkerboard_through_the_lens_to_the_frame_edges(quality):
+def test_p5_checkerboard_through_the_lens_to_the_frame_edges(quality, board, monkeypatch):
     """P5 with distortion: the checkerboard through the family lens (the pinhole canvas and
     the remap). Every square's bearing, undone with family K + distortion (as the duck's eye
     will undo it), within 0.5° of the truth — out to the frame's edges, beyond where a
     pinhole of K reaches — and the on-axis square on K's principal point (its sign)."""
+    monkeypatch.setenv(cm.BOARD_ENV, board)
+    family = cm.sim_family()
     mujoco = _mujoco()
     rung = cm.quality_rung(quality)
     width, height = rung.size
     k = rung.k
-    lens = cm.Lens(k)
+    lens = cm.Lens(k, family.distortion)
     depth = 1.0
+    # (the board reaches past the frame's edges: ±44° × ±33° for the alpha, ±50° × ±39° for the
+    # production camera's wider lens)
+    cols, rows = (19, 13) if board == "zero3" else (24, 16)
     spec, cam, squares = _checkerboard(
-        mujoco, depth=depth, square=0.05, cols=19, rows=13, width=2000, height=1000
+        mujoco,
+        depth=depth,
+        square=0.05,
+        cols=cols,
+        rows=rows,
+        width=max(2000, lens.canvas.width),
+        height=max(1000, lens.canvas.height),
     )
     cm.set_intrinsics(cam, lens.canvas, (lens.canvas.width, lens.canvas.height))
     model = spec.compile()
@@ -435,7 +448,7 @@ def test_p5_checkerboard_through_the_lens_to_the_frame_edges(quality):
     found = _centroids(mujoco, model, seg, squares, width, height)
     errors, rights, lefts = [], [], []
     for (x, y), u, v in found.values():
-        measured = cm.bearing_deg(u, v, k)
+        measured = cm.bearing_deg(u, v, k, family.distortion)
         truth = (math.degrees(math.atan(x / depth)), math.degrees(math.atan(-y / depth)))
         errors.append(max(abs(measured[0] - truth[0]), abs(measured[1] - truth[1])))
         (rights if truth[0] > 0 else lefts).append(truth[0])
@@ -448,6 +461,8 @@ def test_p5_checkerboard_through_the_lens_to_the_frame_edges(quality):
     assert (u0, v0) == pytest.approx((k.cx, k.cy), abs=1.5)
 
 
+# (the alpha's own subject: its sensor is a quarter turn off, and this is the turn that undoes it;
+# test_the_rendered_frame_of_each_board_is_mounted_like_its_sensor has the production camera's)
 @pytest.mark.usefixtures("alpha_board")
 def test_p5_orientation_after_the_flip_on_the_official_duck():
     """The official head camera with the 180° roll kept, K and the lens applied, turned upright
@@ -506,8 +521,10 @@ def test_p5_orientation_after_the_flip_on_the_official_duck():
     assert floor_rows.min() > ceiling_rows.max() - 3, "floor below, ceiling above"
 
 
-@pytest.mark.usefixtures("alpha_board")
-def test_the_scene_is_set_up_like_the_real_camera():
+@pytest.mark.parametrize("board", ["zero3", "beta"])
+def test_the_scene_is_set_up_like_the_real_camera(board, monkeypatch):
+    monkeypatch.setenv(cm.BOARD_ENV, board)
+    family = cm.sim_family()
     mujoco = _mujoco()
     scene = _official_scene()
     eye = cm.load_scene(scene)
@@ -521,12 +538,17 @@ def test_the_scene_is_set_up_like_the_real_camera():
     assert mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "dm_ceiling") >= 0
     # with the lens the camera carries the canvas; the frame stays 1280×720
     assert eye.lens is not None and eye.frame_size == (1280, 720)
-    assert (m.cam_resolution[eye.camera] == [1615, 913]).all()
-    assert m.vis.global_.offwidth >= 1615 and m.vis.global_.offheight >= 913
+    canvas = [int(v) for v in m.cam_resolution[eye.camera]]
+    if board == "zero3":
+        assert canvas == [1615, 913]  # (the alpha lens's canvas, as it was measured)
+    assert canvas[0] > 1280 and canvas[1] > 720  # the lens bends in more than a pinhole sees
+    assert m.vis.global_.offwidth >= canvas[0] and m.vis.global_.offheight >= canvas[1]
     assert eye.quality is not None and eye.quality.label == "720p30"
     pinhole = cm.load_scene(scene, distortion=False)
     assert pinhole.lens is None
-    assert pinhole.model.cam_fovy[pinhole.camera] == pytest.approx(37.45, abs=0.05)
+    # the sensor's short side: across the alpha's upright picture, down the production camera's
+    fovy = family.view_deg[0 if family.rotate == 90 else 1]
+    assert pinhole.model.cam_fovy[pinhole.camera] == pytest.approx(fovy, abs=0.1)
     assert (pinhole.model.cam_resolution[pinhole.camera] == [1280, 720]).all()
     # only the duck starts at STAND: nothing else is moved by the official keyframe
     assert eye.trunk_qpos >= 0 and set(eye.joints) <= set(cm.keyframe_pose(eye)["joints"])
@@ -646,9 +668,11 @@ def test_a_glow_is_as_bright_by_day_as_by_night_and_skipped_out_of_view():
         camera.close()
 
 
-@pytest.mark.usefixtures("alpha_board")
+@pytest.mark.parametrize("board", ["zero3", "beta"])
 @pytest.mark.parametrize("quality", ["360p30", "1080p30"])
-def test_a_capture_has_its_rungs_size_and_packs_to_media_frame_bytes(quality):
+def test_a_capture_has_its_rungs_size_and_packs_to_media_frame_bytes(quality, board, monkeypatch):
+    monkeypatch.setenv(cm.BOARD_ENV, board)
+    turn = cm.sim_family().rotate
     _mujoco()
     from duckmind.world import lights
 
@@ -667,9 +691,10 @@ def test_a_capture_has_its_rungs_size_and_packs_to_media_frame_bytes(quality):
     finally:
         camera.close()
     assert capture.rgb.shape == (rung.height, rung.width, 3)
-    assert (capture.width, capture.height, capture.rotate) == (rung.width, rung.height, 90)
+    assert (capture.width, capture.height, capture.rotate) == (rung.width, rung.height, turn)
     assert capture.format == "UYVY" and len(capture.uyvy()) == capture.bytes_len
-    assert capture.upright().shape == (rung.width, rung.height, 3)
+    upright = (rung.width, rung.height) if turn == 90 else (rung.height, rung.width)
+    assert capture.upright().shape == (*upright, 3)
     assert abs(float(cm.luma(capture.rgb).mean()) - cm.TARGET_Y) < 0.13 * cm.TARGET_Y + 3
     assert capture.wb == pytest.approx((1.0, 1.0, 1.0), abs=0.02)  # noon light is white
 

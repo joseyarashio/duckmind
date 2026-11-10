@@ -3,14 +3,17 @@
 The six upstream unit tests (``microduck/kinematics/src/tof.rs``) re-expressed on the Python port
 :mod:`duckmind.duckbody.tof_reproject`, with the official ``robot_walk.xml`` read by path at test
 time; the port's head-chain FK is checked against the upstream MuJoCo fixture
-(``kinematics/tests/fixtures/fk_alpha.json``, 64 poses × 6 sites) at the upstream's 1e-6, and the
-beams, constants and frame interpretation against the upstream source text. Pure Python: runs in
-the standard check whenever the official checkout is there (``DUCKMIND_MICRODUCK_MJCF``).
+(``kinematics/tests/fixtures/fk_alpha.json``, 64 poses × 6 sites) at the upstream's 1e-6, the
+constants and frame interpretation against the numbers in the upstream source, and the beams
+against the ones the official ``sim/tof.py`` builds (that module imports MuJoCo). The rest is
+pure Python: it runs in the standard check whenever the official checkout is there
+(``DUCKMIND_MICRODUCK_MJCF``).
 """
 
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import math
 import os
@@ -199,20 +202,19 @@ def test_the_constants_are_the_upstream_ones() -> None:
 
 @needs_upstream
 def test_the_beams_are_the_official_simulator_s_beams() -> None:
-    """The same 64 directions as the official ``sim/tof.py`` builds (its zone centres, row 0 the
-    top, column 0 the sensor's left), recomputed here from its own recipe."""
+    """The same 64 directions as the official ``sim/tof.py`` builds, by running its own code
+    (its zone centres, row 0 the top, column 0 the sensor's left)."""
+    pytest.importorskip("mujoco")  # the official module imports it
     assert UP is not None
-    sim = (UP / "microduck_rl" / "src" / "mjlab_microduck" / "sim" / "tof.py").read_text()
-    assert "elevation = -centres[row]" in sim and "azimuth = -centres[col]" in sim
-    half = math.radians(45.0) / 2.0
-    edges = [-half + 2 * half * i / 8 for i in range(9)]
-    centres = [(edges[i] + edges[i + 1]) / 2 for i in range(8)]
-    for row in range(8):
-        for col in range(8):
-            el, az = -centres[row], -centres[col]
-            want = (math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el))
-            got = t.BEAMS[row * 8 + col]
-            assert max(abs(a - b) for a, b in zip(want, got)) < 1e-12
+    path = UP / "microduck_rl" / "src" / "mjlab_microduck" / "sim" / "tof.py"
+    spec = importlib.util.spec_from_file_location("official_sim_tof", path)
+    assert spec is not None and spec.loader is not None
+    official = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(official)
+    reference = official.Tof(None, 0).directions.tolist()  # the directions need no model
+    assert len(reference) == len(t.BEAMS) == 64
+    for want, got in zip(reference, t.BEAMS, strict=True):
+        assert max(abs(a - b) for a, b in zip(want, got, strict=True)) < 1e-12
 
 
 @needs_upstream
@@ -259,6 +261,18 @@ def test_beams_are_unit_and_ordered() -> None:
     top_left, bottom_right = t.BEAMS[0], t.BEAMS[63]
     assert top_left[2] > 0 and top_left[1] > 0  # row 0 up, column 0 left (+y)
     assert bottom_right[2] < 0 and bottom_right[1] < 0
+
+
+def test_the_beams_are_the_zone_centres_of_a_45_degree_8_by_8_grid() -> None:
+    half = math.radians(45.0) / 2.0
+    edges = [-half + 2 * half * i / 8 for i in range(9)]
+    centres = [(edges[i] + edges[i + 1]) / 2 for i in range(8)]
+    for row in range(8):
+        for col in range(8):
+            el, az = -centres[row], -centres[col]
+            want = (math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el))
+            got = t.BEAMS[row * 8 + col]
+            assert max(abs(a - b) for a, b in zip(want, got)) < 1e-12
 
 
 def test_duck_body_reads_sockets_never_the_simulator():

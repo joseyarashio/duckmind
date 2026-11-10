@@ -132,6 +132,7 @@ def duck(tmp_path: Path):
             "media": media,
             "door": door.getsockname()[1],
             "closed": closed.getsockname()[1],
+            "bridge": bridge,
         }
         door.close()
         closed.close()
@@ -144,7 +145,7 @@ def duck(tmp_path: Path):
 def test_check_says_what_the_brain_needs_to_know_before_the_first_walk(
     duck: dict[str, Any], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert cli.check(duck["argv"]) == 0
+    assert cli.check(duck["argv"]) == 1  # (a door answers: the link is not called ready)
     out = capsys.readouterr().out
     assert f"sha256 {duck['walk']} (measured in the simulator)" in out
     assert "sit-stand: " in out and f"sha256 {duck['seat']} (measured in the simulator)" in out
@@ -160,7 +161,40 @@ def test_check_says_what_the_brain_needs_to_know_before_the_first_walk(
     assert f"OPEN from this computer: 127.0.0.1 port {duck['door']} (" in door
     assert str(duck["closed"]) not in door
     assert "docs/deploy/board.md, 'Closing mediad's LAN doors'" in out
+    assert "sudo sh tools/duck/close-mediad.sh --brain" in out
+    assert out.splitlines()[-1] == "NOT READY: mediad's LAN doors answer from this computer"
     assert "Wi-Fi quality" not in out
+
+
+def closed_doors(duck: dict[str, Any]) -> list[str]:
+    return [*duck["argv"], "--camera-seconds", "0", "--mediad-ports", str(duck["closed"])]
+
+
+def test_check_calls_the_link_ready_only_when_no_door_answers(
+    duck: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.check(closed_doors(duck)) == 0
+    out = capsys.readouterr().out
+    assert "mediad's LAN doors: closed from this computer (knocked on 127.0.0.1)" in out
+    assert out.splitlines()[-1].startswith("ready: the link held")
+
+
+def test_check_is_not_ready_while_the_bridge_found_netpadd_listening(
+    duck: dict[str, Any], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A UDP door cannot be knocked on from the computer: the bridge's own look on the duck
+    (started with --allow-open-mediad here) is what check has."""
+    duck["bridge"].body_info["doors"] = {
+        "host": "10.0.0.50",
+        "tcp_open": [],
+        "netpadd": 4210,
+        "allowed": True,
+    }
+    assert cli.check(closed_doors(duck)) == 1
+    out = capsys.readouterr().out
+    assert "something listened on UDP 4210 on the duck" in out
+    assert "started with --allow-open-mediad while a door was open" in out
+    assert out.splitlines()[-1].startswith("NOT READY: netpadd listened on the duck")
 
 
 def test_the_wifi_mode_counts_a_drop_as_a_false_deadman_alarm(

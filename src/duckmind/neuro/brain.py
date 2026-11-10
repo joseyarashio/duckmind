@@ -658,6 +658,7 @@ class NeuroBrain:
         self._seek_spent = 0.0  # how long this search has looked so far (s; SEEK_GIVE_UP_S)
         self._nest_rest_until = -1e9  # it has let going home go until then (s; NEST_REST_S)
         self._nest_rests = 0  # the searches in a row that ended without the nest
+        self.has_dock = True  # its body has a charging dock to go home to (set_has_dock)
         p = genome.p
         self.drives = Drives()
         self.drives.restless = 0.35 + 0.3 * genome.axes["activity"]
@@ -1665,7 +1666,8 @@ class NeuroBrain:
         if pct.nest is not None or at_nest or self.dock.mode != "idle":
             # its nest in view (or it is in it): a search that gave up is over, the next starts afresh (SEEK_GIVE_UP_S)
             self._nest_rest_until, self._nest_rests, self._seek_spent = -1e9, 0, 0.0
-        nest_rest = t_s < self._nest_rest_until  # (it let going home go for now: NEST_REST_S)
+        # (it let going home go for now: NEST_REST_S; for good on a body without a dock)
+        nest_rest = not self.has_dock or t_s < self._nest_rest_until
         f[F["home_pull"]] = 0.0 if at_nest or nest_rest else d.sleepiness
         # (dock:build) the pack running low: it damps the walks away (on the dock too — it stays
         # to charge) and, off its contacts, pulls it home whatever its temperament
@@ -2598,6 +2600,14 @@ class NeuroBrain:
         return frozenset(out)
 
     # ── the dock (dock:build 2026-09-28) ─────────────────────────────────────
+
+    def set_has_dock(self, on: bool) -> None:
+        """Whether its body has a charging dock at all — a fact of the body, as the dock's side
+        is a fact of the home; never a reading of the world. False (a real Microduck until a
+        dock exists): it never looks for a dock or walks home to one — going home is let go for
+        good, as it is for a while when a search for its nest ends without it — and its hunger
+        simply follows the pack until the family swaps or charges it."""
+        self.has_dock = bool(on)
 
     def set_dock(self, side: str) -> None:
         """Which side of its dock the J-hook turns round on — how the family set the dock up

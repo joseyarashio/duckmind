@@ -256,3 +256,79 @@ def test_a_toggle_that_took_is_never_sent_twice() -> None:
 
     _, dos, _ = run(script, 20.0)
     assert [t for t, _ in dos] == [10.0, 12.0]
+
+
+class Seat:
+    """robotd 0.18.5's seat as ``Controller::sit_toggle`` runs it (robotd/src/control.rs): a
+    toggle sits a standing duck; for ``ramp_s`` (``DEFAULT_SITSTAND_RAMP_S`` 2.0, the board's
+    ``robotd.toml`` may say more) another toggle is refused — only robotd's log says so; after it
+    a toggle stands the duck (``rise_s``). ``sit_late_s``: how much later than sent the control
+    loop takes the SIT (the stand is taken as it arrives): any lateness and a stand sent exactly
+    one ramp after the sit lands inside the ramp."""
+
+    def __init__(self, *, ramp_s: float = 2.0, rise_s: float = 1.0, sit_late_s: float = 0.0):
+        self.ramp_s, self.rise_s, self.sit_late_s = ramp_s, rise_s, sit_late_s
+        self.state, self.since, self.seen = "up", 0.0, 0
+        self.refused = 0
+        self.rose = False
+
+    def script(self, t, dos):
+        if t < 1.0:
+            return 3.0, False, "walk"
+        while self.seen < len(dos):
+            sent = dos[self.seen][0]
+            if self.state == "up" and not self.rose:
+                if t < sent + self.sit_late_s:
+                    break
+                self.state, self.since = "sitting", sent + self.sit_late_s
+            elif self.state == "sitting" and sent - self.since >= self.ramp_s - 1e-9:
+                self.state, self.since = "rising", sent
+            else:
+                self.refused += 1  # "still sitting down" / "already standing up"
+            self.seen += 1
+        if self.state == "rising" and t - self.since >= self.rise_s:
+            self.state, self.rose = "up", True
+        if self.state == "sitting":
+            return 30.0, False, "sit"
+        if self.state == "rising":
+            return 30.0, False, "rise"
+        return (3.0 if self.rose else 50.0), False, "walk"  # stuck nose-down until it has risen
+
+
+def test_a_stand_sent_exactly_one_ramp_after_the_sit_gets_the_duck_up_whatever_the_jitter() -> None:
+    """Review 2026-11-10: try 2 sends the stand exactly ``sit_s`` = 2.0 s after the sit, and
+    robotd refuses a toggle during its 2.0 s ramp. Since c099274 the stand is asked again while
+    the label still says ``sit``: with the sit taken on time or late, the duck gets up, and a
+    stand that took is never followed by another toggle (which would sit it down again)."""
+    for late in (0.0, 0.02, 0.06, 0.3):
+        seat = Seat(sit_late_s=late)
+        events, dos, r = run(seat.script, 20.0)
+        assert events[-1][1]["ok"] and events[-1][1]["how"] == "sitstand", late
+        assert seat.refused == (0 if late == 0.0 else 1), late
+        assert len(dos) == (2 if late == 0.0 else 3) and r.phase == "idle", (late, dos)
+        if late:
+            assert dos[2][0] - dos[1][0] == 0.5  # asked again half a second later
+
+
+def test_without_asking_again_that_race_leaves_the_duck_seated() -> None:
+    """What the review described (the code before c099274): the refused stand is the last
+    toggle, the duck stays in its seat and the try is counted failed."""
+    seat = Seat(sit_late_s=0.06)
+    events, dos, r = run(seat.script, 25.0, RightingConfig(toggle_retries=0))
+    assert len(dos) == 2 and seat.refused == 1 and seat.state == "sitting"
+    assert events[-1][1]["kind"] == "body.righting" and events[-1][1]["ok"] is False
+    assert r.phase == "waiting_help"
+
+
+def test_a_board_with_a_slower_seat_ramp_is_waited_out() -> None:
+    """``[seat] ramp_s`` is the board's to set. The stand is asked again every 0.5 s, 6 times at
+    most (the last 3.0 s after the first): a ramp of just under 5 s is waited out; past that the
+    try ends seated and Duck Core calls for help (never a toggle after one that took)."""
+    seat = Seat(ramp_s=4.5, sit_late_s=0.02)
+    events, dos, r = run(seat.script, 25.0)
+    assert events[-1][1]["ok"] and r.phase == "idle"
+    assert seat.refused == 6 and len(dos) == 8  # sit, 6 refused stands, the stand that took
+    slow = Seat(ramp_s=6.0, sit_late_s=0.02)
+    events, dos, r = run(slow.script, 25.0)
+    assert len(dos) == 8 and slow.refused == 7 and slow.state == "sitting"
+    assert events[-1][1]["ok"] is False and r.phase == "waiting_help"

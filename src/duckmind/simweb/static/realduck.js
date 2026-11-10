@@ -3,7 +3,8 @@
  *   GET /api/body           real: null for a simulated body, else {rehearsal, reason, refuses: [codes],
  *                           turn_on: words while the duck is not on and waits for a person to turn it
  *                           on (duck3d.js's line, bodylink.js's card) | null,
- *                           battery: {percent, volts, charging, source, age_s} | null}; remote: the
+ *                           battery: {percent, volts, charging, source, age_s} | null,
+ *                           has_dock: false when this duck has no charging dock}; remote: the
  *                           link's stats (up, rtt_ms_p50, drops, max_gap_ms, …)   (app.js takeBody)
  *   /api/neuro telemetry    real: the same, without the battery; left out while the brain has no
  *                           body (starting, a restart): the page keeps its mode   (neuro.js take)
@@ -146,11 +147,13 @@
   }
 
   /* The duck's own battery: {key, params, pct} (pct null: not reported yet). A real robotd does not
-     say whether it charges (charging null): only a plain true is said. */
-  function batteryLine(battery) {
+     say whether it charges (charging null): only a plain true is said. hasDock false: this duck has
+     no charging dock (the family swaps or charges its pack), said beside the percent. */
+  function batteryLine(battery, hasDock) {
     const pct = battery && Number.isFinite(Number(battery.percent)) && battery.percent !== null ? Math.max(0, Math.min(100, Math.round(Number(battery.percent)))) : null;
     if (pct === null) return { key: "page.real.chip.battery_unknown", params: {}, pct: null };
-    return { key: battery.charging === true ? "page.real.chip.battery_charging" : "page.real.chip.battery", params: { pct }, pct };
+    const key = battery.charging === true ? "page.real.chip.battery_charging" : hasDock === false ? "page.real.chip.battery_no_dock" : "page.real.chip.battery";
+    return { key, params: { pct }, pct };
   }
 
   const api = { REASON, GATES, RELABEL, realOf, gateOf, apply, release, linkLine, batteryLine };
@@ -220,8 +223,9 @@
       }
       shown.link = said;
     }
-    const battery = batteryLine(real && info.real ? info.real.battery : null);
-    const said = `${battery.key}|${battery.pct}|${i18n.lang}`;
+    const noDock = !!(real && info.real && info.real.has_dock === false);
+    const battery = batteryLine(real && info.real ? info.real.battery : null, !noDock);
+    const said = `${battery.key}|${battery.pct}|${noDock}|${state.key}|${i18n.lang}`;
     if (said === shown.battery) return;
     shown.battery = said;
     const batteryChip = document.getElementById("chipBattery");
@@ -234,6 +238,7 @@
     const value = document.getElementById("worldBatteryVal");
     if (box && bar && value) {
       box.hidden = false;
+      i18n.attr(box, "title", noDock ? "page.real.battery.title_no_dock" : "page.real.battery.title");
       bar.style.width = `${battery.pct === null ? 0 : battery.pct}%`;
       if (battery.pct === null) i18n.text(value, "page.real.battery.unknown");
       else {

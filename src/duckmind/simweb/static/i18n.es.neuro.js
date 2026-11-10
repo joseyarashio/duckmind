@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / neuro (1273 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / neuro (1274 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "neuro", {
 "neuro.act.body_shake.body": "Da pasitos en el sitio, sacude el cuerpo y la cabeza lo sigue",
 "neuro.act.body_shake.name": "Sacudirse",
@@ -509,6 +509,7 @@ DuckI18n.load("es", "neuro", {
 "neuro.gate.skill": "No se hace el movimiento de cuerpo entero esta vez (postura incorrecta, límite alcanzado u otro movimiento en curso)",
 "neuro.gate.stall": "Algo lo bloquea: se para un momento",
 "neuro.gate.stumble": "Tropezó: primero se detiene",
+"neuro.gate.uncalibrated": "Aún no se ha medido el cuerpo del pato de verdad: solo la cabeza, sin caminar, levantarse ni sentarse",
 "neuro.gate.unloaded": "Parece que las patas no tocan el suelo: primero se detiene",
 "neuro.gate.veer": "Acaba de pararse: solo puede apartarse en arco (gira hacia el lado contrario al del choque)",
 "neuro.gothere.bad_point": "Señala un lugar en el suelo",

@@ -1,16 +1,16 @@
 """voice:neuro — the neural duck's calls in its own official Microduck voice (owner 2026-09-28:
 「模擬器鴨子叫時要真的播放出聲音，希望能跟官方的叫聲一致」).
 
-* ``simweb/voice.py`` is the main tree's module, copied verbatim (stdlib only; upstream's seed
-  derivation and bank layout);
+* ``simweb/voice.py`` is the main tree's module (it loads with the standard library alone;
+  upstream's seed derivation and bank layout);
 * each neural duck — the picker's four and any random one — has its own voice from its seed,
   for life (a duck at another age: the same voice), and every card says which;
 * the server's ``/api/voice/…`` routes serve the neural duck on screen, follow a switch (the old
   duck's files are no longer the page's), render the duck on screen first and the picker's four
   behind it; without the prototype they serve Duck Core's duck; without a checkout they say why;
-* the page plays the bank (no synthesized stand-in), tells voice.js which duck is on screen, and
-  sounds each call with the beak its robot.mouth command opened (the voice's own envelope only
-  where there is no body beak).
+* the page (``voice.js`` in Node on the page's own markup, against this server) plays the bank
+  of the duck it is told is on screen (no synthesized stand-in), and never the duck before a
+  switch.
 
 A small stand-in for upstream's ``sounds`` binary renders tiny banks here (as in the main tree's
 tests); the one test that runs the real binary skips unless the official checkout is configured
@@ -21,6 +21,8 @@ from __future__ import annotations
 import http.client
 import json
 import os
+import shutil
+import subprocess
 import sys
 import threading
 import wave
@@ -130,14 +132,33 @@ def manifest_of(port: int, bank: voice.VoiceBank, duck_seed: int) -> dict[str, A
 # ── which voice each neural duck has ─────────────────────────────────────────────────
 
 
-def test_the_voice_module_is_the_main_trees_stdlib_only_module():
-    source = Path(voice.__file__).read_text()
-    imports = [line for line in source.splitlines() if line.startswith(("import ", "from "))]
-    # (stdlib only, apart from the six-language message layer and the folder settings)
-    allowed = ("from duckmind.i18n import", "from duckmind import paths")
-    own = [line for line in imports if "duckmind" in line and not line.startswith(allowed)]
-    assert imports and not own, "stdlib only"
-    # upstream's own derivation (sounds::seed_from_id, pinned upstream) and bank layout
+def test_the_voice_module_loads_with_the_standard_library_alone():
+    """(apart from duckmind's own six-language messages and folder settings: the bank is
+    rendered and served on a machine without the simulator's extras)"""
+    code = (
+        "import json, sys\n"
+        "before = set(sys.modules)\n"
+        "import duckmind.simweb.voice\n"
+        "print(json.dumps(sorted(set(sys.modules) - before)))\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=60, check=False
+    )
+    assert done.returncode == 0, done.stderr
+    loaded = json.loads(done.stdout)
+    own = {name for name in loaded if name.split(".")[0] == "duckmind"}
+    others = {name.split(".")[0] for name in loaded} - {"duckmind"} - set(sys.stdlib_module_names)
+    assert "duckmind.simweb.voice" in own and not others, sorted(others)
+    allowed = ("duckmind.i18n", "duckmind.paths", "duckmind.body")
+    assert not [
+        name
+        for name in own - {"duckmind", "duckmind.simweb", "duckmind.simweb.voice"}
+        if not name.startswith(allowed)
+    ]
+
+
+def test_the_seed_derivation_and_the_bank_layout_are_upstreams():
+    # sounds::seed_from_id (pinned upstream) and the bank's layout
     assert voice.seed_from_id("test-serial") == 0xC96F_1146
     assert voice.BANK_VERSION == 5 and voice.BANK_FILES == 82
     assert voice.TAGS == ("alarm", "greet", "inquire", "peck", "chirp", "coo", "wheee")
@@ -298,43 +319,51 @@ def test_the_driver_gives_each_call_its_moment_on_the_beaks_clock():
 # ── the page's side ──────────────────────────────────────────────────────────────────
 
 
-def test_the_page_plays_the_official_voice_with_the_ducks_own_beak():
-    script = (STATIC / "voice.js").read_text()
-    assert '"/api/voice/manifest"' in script and 'KEY = "duckmind.voice"' in script
-    assert (
-        "window.duckVoice = { call, mouth, stop, setVolume, setMuted, refresh: loadManifest, "
-        "duck: setDuck, switching, gain: gainOf, state };"
-    ) in script
-    assert "createOscillator" not in script, "the synthesized stand-in is gone"
-    assert "Math.random() * letters.length" in script  # robotd: a random variant each time
-    # a mute between calls is silent from the next call's first sample (a ramp that ends)
-    assert "linearRampToValueAtTime(gainOf(), now + 0.03)" in script
-    neuro = (STATIC / "neuro.js").read_text()
-    assert "window.duckVoice.duck(duck.seed)" in neuro  # the duck on screen: its own voice
-    assert "voice.switching()" in neuro  # (a switch: never the old duck's voice meanwhile)
-    assert "window.duckVoice.call([spoken.tag])" in neuro  # (no 3D view: voiced here)
-    assert "t_ms: spoken.t_ms" in neuro
-    duck3d = (STATIC / "duck3d.js").read_text()
-    assert (
-        "window.duckVoice.call([String(call.tag)], { maxWaitMs: CALL_LATE_MS, lib: call.lib })"
-        in duck3d
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_page_voices_the_neural_duck_on_screen_and_never_the_duck_before_a_switch(stub_server):
+    """``voice.js`` in Node on the page's own markup, against this server (the audio is a
+    stand-in): told which neural duck is on screen it plays that duck's own bank; while the
+    page asks for another duck no call is voiced; then the new duck's own bank."""
+    port, bank = stub_server
+    assert manifest_of(port, bank, 4107)["ready"]
+    switch = {"preset": "snuggler", "seed": 1728}
+    done = subprocess.run(
+        [
+            str(shutil.which("node")),
+            str(Path(__file__).with_name("real_page_node_harness.mjs")),
+            str(STATIC),
+            "voice",
+            json.dumps(
+                {
+                    "base": f"http://127.0.0.1:{port}",
+                    "draws": [0, 0.5],
+                    "duck": 4107,
+                    "switch": switch,
+                }
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
     )
-    # the beak: its robot.mouth command where the body samples carry it, else the sound's own
-    assert "view.mouth = Math.min(1, Math.max(0, view.live.drawnMouth))" in duck3d
-    assert "0.6 * window.duckVoice.mouth()" in duck3d
-    page = (STATIC / "index.html").read_text()
-    for hook in (
-        'id="callSound"',
-        'id="callMute"',
-        'type="range" id="callVolume"',
-        'id="callNote"',
-    ):
-        assert hook in page, hook
-    assert (
-        page.index('src="/voice.js"')
-        < page.index('src="/neuro.js"')
-        < page.index('src="/duck3d.js"')
-    ), "duckVoice before its users"
+    assert done.returncode == 0, done.stderr[-2000:]
+    page = json.loads(done.stdout)
+    explorer, snuggler = PRESET_VOICES["explorer"], PRESET_VOICES["snuggler"]
+    assert page["manifest"] == {"duck": 4107, "voice": explorer}
+    assert [call["files"] for call in page["calls"]] == [["chirp_g"]]  # a random variant
+    assert page["calls"][0]["outcome"] == "played" and page["calls"][0]["audible"]
+    assert f"/api/voice/v5/{explorer}/chirp/chirp_g.wav" in page["asked"]
+    # 換一隻小鴨: asked for, not here yet — never the old duck's voice meanwhile
+    waiting = page["switching"]
+    assert waiting["call"]["voiced"] is False and waiting["stale"] == 1
+    assert waiting["call"]["outcome"].startswith("not voiced")
+    # 怯怯 is on screen: its own voice, from its own files
+    now = page["switched"]
+    assert now["manifest"] == {"duck": 1728, "voice": snuggler}
+    assert now["call"]["outcome"] == "played" and now["call"]["files"] == ["chirp_a"]
+    assert f"/api/voice/v5/{snuggler}/chirp/chirp_a.wav" in page["asked"]
+    assert page["missing"] == []
 
 
 # ── the real binary ──────────────────────────────────────────────────────────────────

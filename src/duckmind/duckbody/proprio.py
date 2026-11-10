@@ -25,8 +25,10 @@ keeps *levels* (:class:`~duckmind.duckbody.protocol.ProprioView`) and reports *e
     (``down_load`` for ``down_hold_s``) while lifted. Both lift edges start a new odometry epoch:
     contact odometry breaks while carried.
 
-    The thresholds are the simulator's leg-force proxy (``currents_ma`` = |actuator force| ×
-    100, uncalibrated): owner B3 says use them now and recalibrate on the board.
+    The load levels are read from the body's calibration document (:mod:`duckmind.duckbody.calibration`): the
+    defaults are the simulator's leg-force proxy (``currents_ma`` = |actuator force| × 100), shipped as the built-in
+    simulator calibration; a real board's are measured on the bench (owner B3: recalibrate on the board;
+    docs/deploy/bring-up.md) and set with :meth:`ProprioConfig.calibrated`.
 
 ``fell`` / ``up`` — one fall episode (spec §5.4, owner B1): trigger A = robotd's
     ``safety.fallen`` (rising, or still up when nothing holds the duck); trigger B = tilt over 40° held 1 s while robotd still says
@@ -58,9 +60,10 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 
+from duckmind.duckbody import calibration
 from duckmind.duckbody.footfalls import Footfalls
 from duckmind.duckbody.protocol import ProprioView
 from duckmind.duckbody.robotd_client import RobotState
@@ -68,6 +71,8 @@ from duckmind.duckbody.robotd_client import RobotState
 NS = 1_000_000_000
 UP_POLICIES = frozenset({"walk", "stand"})
 POSTURE_POLICIES = frozenset({"walk", "stand", "sit"})
+# the load levels of a body nobody measured: the simulator's (the built-in simulator calibration)
+_SIM = calibration.SIMULATOR.proprio
 
 
 class TurnTable(Protocol):
@@ -79,9 +84,9 @@ class TurnTable(Protocol):
 
 @dataclass(frozen=True)
 class ProprioConfig:
-    # ── lifted (owner B3: the sim proxy now, the board later) ──
-    unsure_load: float = 24.0
-    unsure_load_sit: float = 20.5
+    # ── lifted: the load levels come from the body's calibration (the simulator's here; ``calibrated``) ──
+    unsure_load: float = _SIM.unsure_load
+    unsure_load_sit: float = _SIM.unsure_load_sit
     unsure_hold_s: float = 0.15
     quiet_gyro: float = 0.15  # rad/s RMS over quiet_window_s while a walk is commanded
     quiet_window_s: float = 0.5
@@ -91,23 +96,24 @@ class ProprioConfig:
     # the first backward step (2026-09-28 rig: 48 open-floor starts, the cornered back steps;
     # 9 of 24 of those read "unsure" at 24): during a reverse's spin-up only a load a held duck
     # has (≈ 9–13) counts as light, and the trunk may stay quiet a little longer
-    unsure_load_reverse: float = 18.0
+    unsure_load_reverse: float = _SIM.unsure_load_reverse
     reverse_spinup_s: float = 1.2
     quiet_spinup_reverse_s: float = 1.5
     walk_vx: float = 0.25  # |vx| at or above this counts as a commanded walk
-    lift_load: float = 20.0
-    lift_load_sit: float = 18.5
+    lift_load: float = _SIM.lift_load
+    lift_load_sit: float = _SIM.lift_load_sit
     lift_hold_s: float = 0.30
     lift_hold_sit_s: float = 0.40
     # a sit-stand network whose seat lands in a bounce unloads the legs for a moment this long after robotd's ``sit``
     # label: the seated light-legs claim waits it out (0: none; neuro.seatcal sets it from the loaded seat's measurement)
     seat_settle_s: float = 0.0
-    flail_load: float = 100.0  # mean over quiet_window_s: stopped, trunk still, legs working hard
+    # mean over quiet_window_s: stopped, trunk still, legs working hard
+    flail_load: float = _SIM.flail_load
     flail_stopped_s: float = 1.0
     flail_hold_s: float = 0.5
     # the floor bands: a duck standing / sitting on a floor, stopped, loads its legs like this
-    floor_band: tuple[float, float] = (28.0, 120.0)
-    floor_band_sit: tuple[float, float] = (21.5, 70.0)
+    floor_band: tuple[float, float] = _SIM.floor_band
+    floor_band_sit: tuple[float, float] = _SIM.floor_band_sit
     clear_hold_s: float = 0.5
     down_hold_s: float = 0.6
     down_calm_gyro: float = 0.3  # rad/s RMS: the set-down needs a trunk that is not carried
@@ -149,6 +155,21 @@ class ProprioConfig:
     turn_lag_s: float = 0.05
     # the brain's walk's measured turning (walkcal's reference table, set by the link); None: bias + gain × vyaw
     forward_turn: TurnTable | None = None
+
+    def calibrated(self, bands: calibration.LoadBands) -> ProprioConfig:
+        """This configuration with the load levels of a measured body (its calibration's ``proprio``); every hold
+        time, gyro level and model stays."""
+        return replace(
+            self,
+            unsure_load=bands.unsure_load,
+            unsure_load_sit=bands.unsure_load_sit,
+            unsure_load_reverse=bands.unsure_load_reverse,
+            lift_load=bands.lift_load,
+            lift_load_sit=bands.lift_load_sit,
+            flail_load=bands.flail_load,
+            floor_band=bands.floor_band,
+            floor_band_sit=bands.floor_band_sit,
+        )
 
     def expected_yaw_rate(self, vx: float, vyaw: float) -> float:
         """How fast the walk turns at this command once it answers it (rad/s): the gait's measured model."""

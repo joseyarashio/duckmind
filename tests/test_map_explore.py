@@ -172,8 +172,6 @@ def test_the_minimap_offers_the_layer_in_six_languages():
     from pathlib import Path
 
     static = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
-    page = (static / "index.html").read_text(encoding="utf-8")
-    assert 'id="miniMapKnows"' in page and "page.minimap.knows" in page
     for lang in ("zh-Hant", "en", "ja", "es", "zh-Hans", "ko"):
         text = (static / f"i18n.{lang}.page.js").read_text(encoding="utf-8")
         for key in (

@@ -863,6 +863,7 @@ class NeuroDriver:
         self._depth: P.DepthView | None = None
         self._depth_at_ns = 0
         self._depth_tracker: Any = None
+        self._depth_config: Any = None  # the body's measured ToF touch band (None: the simulator's)
         self._failing = 0  # ticks in a row a lane failed
         self._mouth_peak = 0.0  # the widest beak opening since the last sample (a call is short)
         self._roll_quiet_until_ms = -1  # (its own roll's sensations are not a fright until then)
@@ -940,8 +941,18 @@ class NeuroDriver:
         return {
             "rehearsal": bool(getattr(body, "rehearsal", False)),
             "reason": msg("livebody.no_world"),
+            "walk_lock": self.walk_lock(),
             "refuses": sorted(REAL_REFUSES),
         }
+
+    def walk_lock(self) -> dict[str, Any] | None:
+        """Why this real duck moves only its head (``why``: a :data:`duckmind.duckbody.calibration.WHYS` code,
+        ``reason``: the words): its body sense was never measured for the board and networks it runs. None: it may
+        walk (a calibrated real duck, a simulated body, no body link yet)."""
+        why = getattr(self._link, "head_only", None)
+        if why is None:
+            return None
+        return {"why": why, "reason": msg("livebody.real_uncalibrated", why=why)}
 
     def _inject(self, name: str, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
         if self.real:  # (every page stimulus is made by the simulated world: a real duck has none)
@@ -1251,6 +1262,7 @@ class NeuroDriver:
             life.before_switch()
         lanes = load_lanes(spec)
         _sync_head_alpha(lanes, self._body)  # (fid:motor: the same body's robotd)
+        _sync_has_dock(lanes, self._body)
         # Wait for the current tick to finish, then swap the complete lane set and its telemetry
         # together. This preserves switch()'s synchronous API and prevents an old tick from
         # writing into the next duck's fresh telemetry or closing an in-use VoiceEngine.
@@ -1768,7 +1780,36 @@ class NeuroDriver:
         seated = _seat_proprio(self._body, turned, link.delay_ms)
         sense, seat = seated if seated is not None else (turned, None)
         link.use_proprio(sense, seat=seat)
+        self._use_calibration(link)
         return link
+
+    def _use_calibration(self, link: BodyLink) -> None:
+        """A real duck senses with its own body's measured levels (:mod:`duckmind.duckbody.calibration`: the leg-load
+        bands, the ToF touch band) — and without a valid calibration for its board and the networks it runs, it
+        moves only its head (``BodyLink.head_only``; :meth:`walk_lock` says why). A simulated body keeps the
+        simulator's numbers."""
+        from duckmind.duckbody import calibration
+        from duckmind.duckbody import depth as D
+
+        body = self._body
+        self._depth_config = None
+        self._depth_tracker = None
+        if not bool(getattr(body, "real", False)):
+            return
+        said = getattr(body, "bridge_info", None)
+        found = calibration.find(*calibration.key_of(said() if callable(said) else None))
+        if found.calibration is None:
+            link.head_only = found.why
+            print(
+                f"neural duck: this real duck has no valid body calibration ({found.why}"
+                f"{': ' + found.detail if found.detail else ''}): it moves only its head until it is "
+                "measured (docs/deploy/bring-up.md)",
+                flush=True,
+            )
+            return
+        link.use_proprio(link.proprio.cfg.calibrated(found.calibration.proprio), seat=link.seat)
+        self._depth_config = D.DEFAULT.calibrated(found.calibration.tof)
+        print(f"neural duck: body calibration {found.path} ({found.calibration.recorded})", flush=True)
 
     def _loop_folder(self) -> Path:
         """Where the loop watch writes now (:func:`duckmind.paths.loops_dir`): under the folder of the life this driver
@@ -1789,6 +1830,7 @@ class NeuroDriver:
         _sync_head_alpha(self.lanes, body)
         # (dock:build) which side its dock's J-hook turns round on: how the home set it up
         _sync_dock_side(self.lanes, body)
+        _sync_has_dock(self.lanes, body)
         with self._lock:
             self._body = body
             self._stop = threading.Event()
@@ -2062,7 +2104,9 @@ class NeuroDriver:
 
             self._tof_seen = frame
             if self._depth_tracker is None:
-                self._depth_tracker = D.DepthTracker(standing_height_m=0.12)
+                self._depth_tracker = D.DepthTracker(
+                    standing_height_m=0.12, config=self._depth_config or D.DEFAULT
+                )
             pos, quat = state.tof
             pose = D.pose_from_frames(
                 pos, quat, state.down or (0.0, 0.0, -1.0), D.trunk_height_mm(state.odom_pos)
@@ -2765,6 +2809,15 @@ def _dock_sample(brain: C.BrainTelemetry) -> dict[str, Any] | None:
         return None
     keys = ("mode", "phase", "zh", "pg", "charging", "tries", "docked", "result", "result_zh")
     return {k: dock.get(k) for k in keys}
+
+
+def _sync_has_dock(lanes: Lanes, body: Any) -> None:
+    """Whether this body has a charging dock at all (``LiveBody.has_dock``: every simulated body,
+    a real duck only when its bridge says so). A fact of the body; without one the brain never
+    looks for a dock or walks home to one (``NeuroBrain.set_has_dock``)."""
+    set_has_dock = getattr(lanes.brain, "set_has_dock", None)
+    if callable(set_has_dock):
+        set_has_dock(bool(getattr(body, "has_dock", True)))
 
 
 def _sync_dock_side(lanes: Lanes, body: Any) -> None:

@@ -15,16 +15,14 @@ Requires Python 3.12+, `git` and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 uv run --python 3.12 python -m duckmind.setup_cmd      # the upstream checkouts and the v5 policies
-uv run --python 3.12 --extra dev pytest
+uv run --python 3.12 --extra dev pytest -m "not heavy" # the fast tier: under three minutes
 uv run --python 3.12 --extra dev ruff check src tests
 uv run --python 3.12 --extra dev ruff format --check src tests
 uv run --python 3.12 --extra dev mypy
 ```
 
-Tests that need MuJoCo run with the `sim` extra (`uv run --python 3.12 --extra dev
---extra sim pytest`) and find the robot model through `DUCKMIND_MICRODUCK_MJCF` or the
-checkout `python -m duckmind.setup_cmd` made. Tests need no network and no API key; anything that
-would call a cloud service uses recorded answers.
+Tests need no network and no API key; anything that would call a cloud service uses recorded
+answers. [Section 5](#5-tests) says which tests run when.
 
 ## The rules
 
@@ -94,9 +92,41 @@ The full standard, with its tokens and component classes, is
 ### 5. Tests
 
 - A behaviour change comes with a test that fails before the change and passes after
-  it. Test behaviour, not the source text.
+  it. Test behaviour, not the source text: a test that reads a source file and looks for a
+  string in it proves nothing about what the code does. (Three kinds of test do read files on
+  purpose: the i18n key coverage, the import-boundary guards that parse the code, and the checks
+  of a frozen copy's bytes.)
 - The safety layers (see [SAFETY.md](SAFETY.md)) must never be weakened to make a
   test pass.
+- **The tiers.** While you work, run the fast tier: `pytest -m "not heavy"`. It is everything
+  that needs no MuJoCo and is not measured slow, and takes under three minutes on a laptop
+  (measured figures: `docs/validation/test-tiers.md`). A plain `pytest` is the whole suite
+  (about half an hour with the `sim` extra); it runs before a merge, not after every edit.
+  CI runs the fast tier on every push.
+- **The markers.** `tests/tiers.py` says what each test is; `tests/conftest.py` puts the
+  markers on while pytest collects, so a test file needs none:
+
+  | Marker | What it means | Run just these |
+  |---|---|---|
+  | `heavy` | `render`, `physics` and the measured-slow tests | `pytest -m heavy` |
+  | `physics` | steps or compiles MuJoCo; skips without the `sim` extra and the duck model | `pytest -m physics` |
+  | `render` | renders the duck's camera (numpy, MuJoCo's offscreen context) | `pytest -m render` |
+  | `node` | runs a page script in Node; skips without Node | `pytest -m node` |
+  | `subprocess` | starts a child process | `pytest -m subprocess` |
+  | `timing` | sleeps or polls on the wall clock: the first to fail on a busy machine | `pytest -m timing` |
+
+  The physics and render tests need `uv run --python 3.12 --extra dev --extra sim pytest` and
+  the robot model, found through `DUCKMIND_MICRODUCK_MJCF` or the checkout
+  `python -m duckmind.setup_cmd` made. No CI job runs them (`.github/workflows/ci.yml` says
+  what a runner for them would need).
+- **A new test** is in the fast tier unless it says otherwise. A new file that needs MuJoCo
+  says so itself: `pytestmark = [pytest.mark.physics]` (that makes it heavy too). A test that
+  takes more than half a second goes into `tests/tiers.py`'s `SLOW`; the fast tier lists its
+  own tests that took 2 s or more when it ends. Renaming a test that `tests/tiers.py` names
+  stops the run until the name is changed there too.
+- **Waiting.** Wait for the thing itself (an event, a condition, a callback, an answer on the
+  socket), with a generous timeout, not for a length of time. A test that has to sleep is
+  marked `timing`.
 
 ## Pull requests
 

@@ -11,7 +11,12 @@ one fall) runs:
    command (spec §5.4 step 2).
 2. **Try 1** — wait up to 8 s for "up": tilt < 25°, not fallen, policy walk/stand, held 1 s.
 3. **Try 2** — owner B2, ON by default: ``sit_toggle`` (sit), 2 s, ``sit_toggle`` (stand), then
-   up to 9 s (1 s rise + 8 s) for "up". Phase 1 rescued 32 of 36 ducks that otherwise needed a
+   up to 9 s (1 s rise + 8 s) for "up". The stand goes out exactly ``sit_s`` after the sit, and
+   robotd 0.16+ refuses a toggle during its seat's 2.0 s ramp (only its own log says so): while
+   the label still reads ``sit`` the stand is asked again every ``toggle_retry_s``, at most
+   ``toggle_retries`` times (a ramp of just under 5 s is waited out), never after it took
+   (c099274; ``tests/test_duckbody_righting.py``, the ``Seat`` model). Phase 1 rescued 32 of 36
+   ducks that otherwise needed a
    hand this way (at the 18th second; here it runs at the 8th). With ``sitstand=False`` try 2 is
    the spec's "2 s pause + 8 s more". The largest leg load seen during try 2 is kept
    (:attr:`Righting.last`) so the motor load can be measured. **Motor guard**: in the

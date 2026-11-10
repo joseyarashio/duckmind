@@ -5,6 +5,7 @@ snapshot and Duck Core's save are on disk when it has stopped."""
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import signal
@@ -36,8 +37,13 @@ def run_and_stop(folder: Path, *, second_term: bool, wrapper: bool) -> tuple[int
         if line.startswith("READY"):
             break
     assert line.startswith("READY"), (line, proc.stderr.read() if proc.stderr else "")
-    pid = int(line.split()[1])
-    time.sleep(0.3)
+    pid, port = (int(word) for word in line.split()[1:3])
+    # (the server installs its SIGTERM handler before it serves: once it has answered, a TERM is
+    # the handler's, not the default that would kill it with nothing written)
+    asked = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+    asked.request("GET", "/")
+    asked.getresponse().read()
+    asked.close()
     os.kill(pid, signal.SIGTERM)
     if second_term:
         time.sleep(0.01)

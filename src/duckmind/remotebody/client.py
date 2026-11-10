@@ -183,6 +183,11 @@ class RemoteLink:
             sock.settimeout(L.HANDSHAKE_TIMEOUT_S)
             hello = L.read_json_line(sock)
             body_nonce = hello.get("nonce")
+            if hello.get("protocol") == L.PROTOCOL and "locked_s" in hello:
+                raise L.AuthError(
+                    "the body has locked this computer out for "
+                    f"{hello['locked_s']} s after wrong tokens (check the token file)"
+                )
             if hello.get("protocol") != L.PROTOCOL or not isinstance(body_nonce, str):
                 raise L.LinkError(f"not a duckmind remote-body bridge: {hello.get('protocol')!r}")
             brain_nonce = secrets.token_hex(16)

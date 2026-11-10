@@ -19,10 +19,44 @@ jobs:
       - run: uv sync --extra dev
       - run: uv run ruff check src tests
 
+  fast:
+    # The fast tier (CONTRIBUTING.md, tests/tiers.py): everything not marked heavy, about three
+    # minutes on a laptop. Public repository only, like the shards (owner 2026-11-05: a private copy
+    # runs lint and the secrets scan; its gate is the local suite).
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the frozen engine is regenerated from the commit it was frozen at and compared byte
+          # for byte (tests/test_engine_frozen.py): a shallow clone has no such commit and skips it
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: uv sync --extra dev
+      - name: Fast tier (no physics, no render, no measured-slow test)
+        run: uv run pytest -q -p no:cacheprovider -o faulthandler_timeout=300 -m "not heavy"
+
   tests:
-    # The suite takes about an hour on one runner, so the test files are dealt round-robin
+    # The whole suite takes about an hour on one runner, so the test files are dealt round-robin
     # (sorted by name) into four shards that run side by side. Public repositories only: there
-    # Actions minutes are free; a private copy runs lint and the secrets scan (owner, 2026-11-05).
+    # Actions minutes are free; a private copy runs lint, the fast tier and the secrets scan.
+    #
+    # What no job here runs: the physics and render tests (markers physics / render; the counts
+    # are in docs/validation/test-tiers.md). They need MuJoCo 3.10, Pollen's duck model
+    # (DUCKMIND_MICRODUCK_MJCF) and an offscreen GL context, and skip on these runners; the
+    # owner's Mac runs them. A self-hosted macOS runner for them would need: Apple silicon, uv
+    # and Node 22; the upstream checkouts and policies `python -m duckmind.setup_cmd` fetches,
+    # kept on the runner (the meshes are CC BY-NC-SA and are never committed); the render
+    # check's packages (docs/validation/run-duck-simulator.md); a logged-in desktop session
+    # (MuJoCo's offscreen context is CGL: a launchd agent of that user, not a daemon); about 35
+    # minutes per run, one run at a time; and, for a public repository, no runs for pull
+    # requests from forks.
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -32,6 +66,8 @@ jobs:
         shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # (the frozen engine's byte check needs the commit it was frozen at)
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
@@ -42,8 +78,9 @@ jobs:
       - name: Tests, shard ${{ matrix.shard }} of 4 (without the physics simulator; those tests skip)
         run: |
           files=$(python3 -c "import glob; f = sorted(glob.glob('tests/test_*.py')); print(' '.join(f[${{ matrix.shard }}::4]))")
-          # a test still running after 10 min prints every thread's stack (a hang shows where it waits)
-          uv run pytest -q -p no:cacheprovider -o faulthandler_timeout=600 $files
+          # a test still running after 10 min prints every thread's stack (a hang shows where it waits);
+          # the 20 slowest tests are listed at the end, so a test creeping toward that limit shows early
+          uv run pytest -q -p no:cacheprovider -o faulthandler_timeout=600 --durations=20 $files
 
   secrets:
     runs-on: ubuntu-latest

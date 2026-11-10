@@ -452,6 +452,14 @@ def unknown_monitor(collision: str, lockstep: bool, why: str) -> dict[str, Any]:
     }
 
 
+def dock_of(info: Mapping[str, Any]) -> bool:
+    """Whether the body a bridge described has a charging dock. A simulated body always has (its
+    world's nest, or the dock it would look for). A real duck has none — no dock hardware exists
+    and robotd reports no charging flag (Pollen #470) — unless its bridge was started with
+    ``--has-dock``."""
+    return info.get("backend") != "real" or info.get("has_dock") is True
+
+
 def real_monitor() -> dict[str, Any]:
     """A real duck's monitor: no simulated physics to stall or step slower than the wall clock."""
     return {
@@ -746,6 +754,7 @@ class LiveBody:
         # and no simulated world at all (no oracle, no x_world, no world ops: NoWorld).
         self.real = False
         self.rehearsal = False  # a real-mode rehearsal: sim-body --as-real on a computer
+        self.has_dock = True  # (dock_of: a real duck has none unless its bridge says so)
         # A real duck that is not on yet: the body waits (start() has not returned) until a person
         # turns it on with the duck's own control. The page says so (LiveBridge.real_view).
         self.waits_turn_on = False
@@ -854,6 +863,7 @@ class LiveBody:
         if self.real:
             # Only the duck's own senses: a world channel, if any, is never used.
             self.rehearsal = bool(info.get("rehearsal"))
+            self.has_dock = dock_of(info)
             self.home = None
             self.pose_joints_ok = False
             self.collision, self.lockstep = "real", False
@@ -873,6 +883,11 @@ class LiveBody:
         self._host = bodyhost.HostClient(int(link.world_port or 0))
         self.host_info = self._host.info()
         self._attach(link.robotd_socket, timeout_s)
+
+    def bridge_info(self) -> dict[str, Any]:
+        """What a remote body's bridge said about it at the handshake (its backend, networks, ``robotd.toml``:
+        :func:`duckmind.remotebody.bridge.real_body_info`); empty for a body on this machine."""
+        return dict(self._link.info) if self._link is not None else {}
 
     def policy_hashes(self) -> dict[str, str | None] | None:
         """sha256 of the walk and sit-stand networks this body runs (``walk_sha256``,

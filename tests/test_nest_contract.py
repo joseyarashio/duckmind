@@ -21,16 +21,21 @@ from duckmind.duckbody import dockexec, lookplan  # noqa: E402
 
 
 # (camera-dock 2026-11-09) the 60 mm / 3° bounds are the alpha IMX219's single read. The production GC2093 has 1.53× fewer
-# pixels per degree: one read's facing is off ~0.07 rad at 1–2 m (here 0.066 rad, so 71 mm aside at 1.2 m) — the dock's
-# frame weighs reads together for that (tests/test_neuro_dock.py); this single-read bound keeps the camera it was set on
-@pytest.mark.usefixtures("alpha_board")
+# pixels per degree (its focal length in pixels is that much shorter): one read's facing is off ~0.07 rad at 1–2 m (here
+# 0.066 rad, so 71 mm aside at 1.2 m) — the dock's frame weighs reads together for that (tests/test_neuro_dock.py). The
+# single-read bound of each camera is the alpha's, as coarse as that camera's pixels are.
+@pytest.mark.parametrize("board", ["zero3", "beta"])
 @pytest.mark.parametrize(
     "dist_m,off_deg,turn_deg",
     [(1.0, 0.0, 0.0), (1.5, 20.0, 8.0), (1.2, -25.0, -10.0)],
 )
 def test_a_rendered_tag_fix_puts_the_duck_where_it_truly_is(
-    dist_m: float, off_deg: float, turn_deg: float
+    dist_m: float, off_deg: float, turn_deg: float, board: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from duckmind.eye import camera as ec
+
+    monkeypatch.setenv("DUCKMIND_BOARD", board)
+    coarser = ec.ALPHA.k[0] / ec.camera_family(board).k[0]  # 1 for the alpha, 1.53 for the GC2093
     pytest.importorskip("pupil_apriltags")
     import eye_vision_scene as ev
 
@@ -59,9 +64,9 @@ def test_a_rendered_tag_fix_puts_the_duck_where_it_truly_is(
         along = dx * math.cos(axis) + dy * math.sin(axis)
         left = -dx * math.sin(axis) + dy * math.cos(axis)
         heading = dockexec.wrap(yaw - axis)
-        assert abs((pose.x - geo.face_mm) - along * 1000) <= 60, (pose, along)
-        assert abs(pose.y - left * 1000) <= 60, (pose, left)
-        assert abs(dockexec.wrap(pose.h - heading)) <= math.radians(3.0), (pose, heading)
+        assert abs((pose.x - geo.face_mm) - along * 1000) <= 60 * coarser, (pose, along)
+        assert abs(pose.y - left * 1000) <= 60 * coarser, (pose, left)
+        assert abs(dockexec.wrap(pose.h - heading)) <= math.radians(3.0) * coarser, (pose, heading)
         # the sure facing is what the pose used (the mirror pose would put it behind the dock)
         assert fix["yaw_sure"] is True and pose.x > geo.face_mm
     finally:

@@ -21,16 +21,6 @@ import pytest
 DEPLOY = Path(__file__).resolve().parents[1] / "deploy"
 
 
-def test_published_systemd_unit_runs_unprivileged_boot_guard_before_daemon():
-    unit = (DEPLOY / "duckmind.service").read_text()
-    preflight = "ExecStartPre=/opt/duckmind/current/board-boot-guard.sh"
-    daemon = "ExecStart=/opt/duckmind/current/venv/bin/duckmindd"
-    assert "User=duckmind\n" in unit
-    assert f"{preflight}\n" in unit
-    assert f"{daemon} " in unit
-    assert unit.index(preflight) < unit.index(daemon)
-
-
 COMMAND_DOUBLE = r"""
 import hashlib
 import json
@@ -341,6 +331,41 @@ def test_first_install_is_traversable_passive_and_starts_once(board):
     assert json.loads(board.state.read_text()) == {"active": True, "enabled": True}
     calls = [json.loads(line) for line in (board.root / "calls.jsonl").read_text().splitlines()]
     assert sum(call[:2] == ["systemctl", "start"] for call in calls) == 1
+
+
+def test_what_the_published_unit_runs_is_what_the_install_puts_there(board):
+    """The published unit through a real install on the fake board: its boot guard and its daemon
+    are files of the installed release, the install has run that daemon as the unit's own
+    (unprivileged) user, and the guard passes on what was installed."""
+    (board.deploy / "duckmind.service").write_text((DEPLOY / "duckmind.service").read_text())
+    result = board.run()
+    assert result.returncode == 0, result.stderr
+    service: dict[str, list[str]] = {}
+    for line in board.unit.read_text().splitlines():
+        key, sep, value = line.partition("=")
+        if sep and not key.startswith("#"):
+            service.setdefault(key, []).append(value)
+    (user,) = service["User"]
+    (guard,) = (board.root / value.split()[0].lstrip("/") for value in service["ExecStartPre"])
+    (daemon,) = (board.root / value.split()[0].lstrip("/") for value in service["ExecStart"])
+    for program in (guard, daemon):
+        assert program.is_file() and os.access(program, os.X_OK), program
+    calls = [json.loads(line) for line in (board.root / "calls.jsonl").read_text().splitlines()]
+    ran_as_the_user = [
+        Path(call[3]).resolve()
+        for call in calls
+        if call[:3] == ["sudo", "-u", user] and call[4:] == ["--help"]
+    ]
+    assert daemon.resolve() in ran_as_the_user
+    passed = subprocess.run(
+        ["/bin/sh", str(guard)],
+        env=board.env,
+        text=True,
+        capture_output=True,
+        timeout=5,
+        check=False,
+    )
+    assert passed.returncode == 0, passed.stderr
 
 
 @pytest.mark.parametrize(

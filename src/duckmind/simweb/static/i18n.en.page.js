@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / page (1995 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "page", {
 "fmt.sep.and_then": ", and also ",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("en", "page", {
 "page.body.state.offline": "Can't reach the server; trying again soon.",
 "page.body.state.real": "Connected to the real duck ({url}), about {ms} ms there and back.",
 "page.body.state.real_new": "Connected to the real duck ({url}).",
+"page.body.state.real_nowalk": "Connected to the real duck ({url}), but for now it moves only its head and does not walk: {why, select, none {its body has not been measured yet} other_networks {its walk or sit-stand network changed, so the last body measurement no longer fits} invalid {its body calibration file cannot be read} unknown_body {the bridge on the duck did not say which board it is or which networks it runs} other {its body has not been measured yet}}. Measure it once with the bring-up steps and it will walk.",
 "page.body.state.real_off": "Connected to the duck ({url}), but it is not on yet. Turn it on with its own control; this program never turns it on, and once it is on the brain takes over by itself.",
 "page.body.state.rehearsal": "Connected to the rehearsal duck on this computer ({url}), about {ms} ms there and back: it plays the real duck, with no simulated world.",
 "page.body.state.rehearsal_new": "Connected to the rehearsal duck on this computer ({url}): it plays the real duck, with no simulated world.",
@@ -1819,7 +1820,7 @@ DuckI18n.load("en", "page", {
 "page.point.arrived": "It got there",
 "page.point.gave_up": "It did not get there: {why}",
 "page.point.gave_up.plain": "It did not get there",
-"page.point.hint_beta": "(Experimental) Click the floor to send it there (dragging turns the view)",
+"page.point.hint": "Click the floor to send it there (dragging turns the view)",
 "page.point.hint_remote": "Remote is on, so clicking the floor does nothing (turn remote off to use it)",
 "page.point.notfloor": "That is not floor; click an open spot beside it",
 "page.point.sent": "It heard you and is getting ready to go there",
@@ -1835,9 +1836,11 @@ DuckI18n.load("en", "page", {
 "page.point.why.stuck": "it got stuck on the way",
 "page.point.why.timeout": "it took too long, so it gave up",
 "page.real.battery.title": "The battery level the duck reports itself (from its control program, robotd)",
+"page.real.battery.title_no_dock": "The battery level the duck reports itself (from its control program, robotd). This duck has no charging dock: when the battery is low, swap or charge its battery for it",
 "page.real.battery.unknown": "Not known yet (waiting for the duck)",
 "page.real.chip.battery": "Battery {pct}%",
 "page.real.chip.battery_charging": "Battery {pct}% (charging)",
+"page.real.chip.battery_no_dock": "Battery {pct}% (no charging dock)",
 "page.real.chip.battery_unknown": "Battery: not known yet (waiting for the duck to report)",
 "page.real.chip.link_down": "Link: down, reconnecting (drops: {drops})",
 "page.real.chip.link_new": "Link: connected · drops: {drops} · longest silence: {gap} ms",

@@ -1,12 +1,20 @@
-"""The simulator's nine-skill portfolio stays honest and fully translated."""
+"""The simulator's nine-skill portfolio stays honest and fully translated. The page's side runs in
+Node over the page's own markup (tests/page_tree_node_harness.py), on the reports the real
+serializer makes."""
 
 from __future__ import annotations
 
+import io
 import json
-import re
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+from page_tree_node_harness import NODE, run
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
+needs_node = pytest.mark.skipif(NODE is None, reason="needs Node")
 LOCALES = ("zh-Hant", "en", "ja", "es", "zh-Hans", "ko")
 SKILLS = {
     "follow": "follow_mom",
@@ -19,6 +27,16 @@ SKILLS = {
     "carry": "carry_toy",
     "sun": "sunbathe",
 }
+# why the runtime can refuse a one-shot skill (it says the code; the page says it in words)
+RUNTIME_REASONS = (
+    "policy_unsettled",
+    "selection_changed",
+    "policy_start_timeout",
+    "readiness_timeout",
+    "wrong_act",
+    "body_unsafe",
+    "guard_refused",
+)
 
 
 def _catalog(locale: str) -> dict[str, str]:
@@ -27,47 +45,154 @@ def _catalog(locale: str) -> dict[str, str]:
     return json.loads(text[begin : text.index("\n});", begin) + 2])
 
 
-def test_portfolio_covers_nine_contract_ids_and_never_equates_intent_with_execution():
-    script = (STATIC / "neuro.js").read_text()
-    ids = dict(re.findall(r'\{ id: "(\w+)", category: "\w+", behaviours: \["([\w_]+)"\]', script))
-    assert ids == SKILLS
-    # The runtime's status/capability contract remains authoritative. A selected behaviour is
-    # shown as intent; it does not make a missing report active or infer completion.
-    assert 't.skills && typeof t.skills === "object"' in script
-    assert (
-        'report.available === false && ["active", "waiting", "unknown"].includes(state)' in script
-    )
-    assert 'state === "active" && (!selected || !report || report.available !== true)' in script
-    assert 'state === "done" || ["fear", "joy"].includes(report.result)' in script
-    assert "SKILL_STATES.has(report.status)" in script
-    assert 'typeof report.result === "string"' in script
-    assert "${tr(phase)}" in script
-    assert 'typeof reasonCode === "string" && SKILL_REASONS.has(reasonCode)' in script
-    runtime_reasons = (
-        "policy_unsettled",
-        "selection_changed",
-        "policy_start_timeout",
-        "readiness_timeout",
-        "wrong_act",
-        "body_unsafe",
-        "guard_refused",
-    )
-    reason_set = re.search(r"const SKILL_REASONS = new Set\(\[(.*?)\]\);", script)
-    assert reason_set is not None
-    assert set(runtime_reasons) <= set(re.findall(r'"([a-z_]+)"', reason_set.group(1)))
+def _wire(payload: Any) -> Any:
+    """An answer as the server sends it (every word with its catalog message beside it)."""
+    from duckmind.i18n import boundary
+
+    return json.loads(json.dumps(boundary.attach(payload), ensure_ascii=False))
 
 
-def test_sound_world_inputs_are_not_brain_commands_and_playback_is_reported_separately():
-    script = (STATIC / "neuro_sound.js").read_text()
-    assert "if (window.I18N?.ready) await window.I18N.ready;" in script
-    assert 'baseFetch("/api/neuro/sound/world"' in script
-    assert "baseFetch(`/api/neuro/sound/pcm?" in script
-    assert 'baseFetch("/api/neuro/sound/status"' in script
-    assert 'new CustomEvent("duck:sound-status"' in script
-    assert "unlocked: probe.unlocked" in script
-    assert 'probe.unlocked = ctx.state === "running"' in script
-    assert "answer.note_zh" not in script
-    assert "brain" not in script.lower() or "brain-state" not in script.lower()
+@pytest.fixture(scope="module")
+def portfolio() -> dict[str, dict[str, Any]]:
+    """The page's nine skill cards after each of these telemetry answers: the stub duck's own
+    answer, with the behaviour chosen and the skill reports of the real serializer put in."""
+    if NODE is None:
+        pytest.skip("needs Node")
+    from duckmind.simweb import neuro_api as N
+
+    hub = N.NeuroHub(enabled=True)
+    hub.attach(N.StubSource(hub.card()))
+    base = hub.telemetry(0)
+
+    def answer(behaviour: str, skills: Any) -> Any:
+        said = {**base, "behaviour": {**base["behaviour"], "key": behaviour}}
+        return _wire(said if skills is None else {**said, "skills": skills})
+
+    kicking = _serializer_lanes(behaviour="play_ball", ball_phase="kick")
+    kick = {"behaviour": "play_ball", "skill": "kick_left", "seq": 3}
+    scared = {"riding": False, "lifted": True, "after": 0, "outcome": "fear"}
+    steps = {
+        f"chosen:{skill}": answer(b, _serializer_lanes(behaviour=b)) for skill, b in SKILLS.items()
+    }
+    steps["no report"] = answer("play_ball", None)
+    steps["doing"] = answer("play_ball", kicking)
+    steps["not chosen"] = answer("forage", kicking)
+    steps["cannot"] = answer(
+        "carry_toy", _serializer_lanes(jaw=False, helper=False, behaviour="carry_toy")
+    )
+    steps["ride"] = answer(
+        "held", _serializer_lanes(behaviour="held", reflex="lifted", ride=scared)
+    )
+    for reason in (*RUNTIME_REASONS, "a_reason_nobody_named"):
+        refused = _serializer_lanes(
+            behaviour="play_ball",
+            play_skill="kick_left",
+            play_seq=3,
+            actions=[{**kick, "status": "refused", "reason": reason}],
+        )
+        steps[f"refused:{reason}"] = answer("play_ball", refused)
+    drawn = run(
+        "neuro", {"neuro.js"}, {"status": _wire(hub.status()), "telemetry": [*steps.values()]}
+    )
+    return dict(zip(steps, drawn["skills"], strict=True))
+
+
+@needs_node
+def test_the_page_has_a_card_for_each_of_the_nine_skills_and_marks_the_one_chosen(
+    portfolio: dict[str, dict[str, Any]],
+) -> None:
+    assert set(_serializer_lanes()) == set(SKILLS)
+    for skill in SKILLS:  # (the behaviour of each skill, chosen in turn)
+        cards = portfolio[f"chosen:{skill}"]
+        assert set(cards) == set(SKILLS)
+        assert [name for name, card in cards.items() if card["intent"]] == [skill]
+        assert cards[skill]["result"] is None  # (chosen is not done)
+        for card in cards.values():
+            assert card["says"] == f"page.neuro.skills.status.{card['state']}"
+
+
+@needs_node
+def test_a_chosen_behaviour_is_intent_and_the_runtimes_report_says_what_is_done(
+    portfolio: dict[str, dict[str, Any]],
+) -> None:
+    # chosen, and no report came: it is not called running, waiting or done
+    silent = portfolio["no report"]["ball"]
+    assert silent["intent"] and silent["state"] == "unknown" and silent["result"] is None
+    doing = portfolio["doing"]["ball"]
+    assert doing["intent"] and doing["state"] == "active" and doing["result"] is None
+    assert doing["phase"] == "page.neuro.skills.label.phase · page.neuro.skills.phase.kick"
+    # a report that says "active" for a behaviour that is not the one chosen now is not shown active
+    stale = portfolio["not chosen"]["ball"]
+    assert not stale["intent"] and stale["state"] == "waiting"
+    # what the body cannot do is missing, with the reason, however much it is chosen
+    cannot = portfolio["cannot"]
+    assert cannot["carry"]["intent"] and cannot["carry"]["state"] == "missing"
+    assert cannot["carry"]["reason"] == "page.neuro.skills.reason.no_jaw"
+    for skill in ("theremin", "ride", "dance"):
+        assert cannot[skill]["state"] == "missing", skill
+        assert cannot[skill]["reason"] == "page.neuro.skills.reason.no_voice_helper", skill
+    # how a ride felt is said as it was, not as a success
+    ride = portfolio["ride"]["ride"]
+    assert ride["result"] == "page.neuro.skills.label.result · page.neuro.skills.result.fear"
+    assert ride["state"] not in ("done", "interrupted")
+
+
+@needs_node
+def test_a_refused_skill_says_why_in_words(portfolio: dict[str, dict[str, Any]]) -> None:
+    for reason in RUNTIME_REASONS:
+        card = portfolio[f"refused:{reason}"]["ball"]
+        assert card["state"] == "refused" and card["result"] is None, reason
+        assert card["reason"] == f"page.neuro.skills.reason.{reason}", reason
+    unnamed = portfolio["refused:a_reason_nobody_named"]["ball"]
+    assert unnamed["state"] == "refused"
+    assert unnamed["reason"] == "page.neuro.skills.reason.unknown"  # (never a raw code)
+
+
+@needs_node
+def test_sound_world_inputs_are_world_events_and_playback_is_reported_separately() -> None:
+    """The sound scenes' buttons change the world (music, a hand over the duck, a swing) through
+    ``/api/neuro/sound/world``: each thing the page sends is one the server passes to the world,
+    none is a command to the brain. Whether the page itself can play sound is its own report."""
+    from duckmind.simweb.neuro_sound_live import SoundHub
+
+    strip = run("sound", {"neuro_sound.js"}, {"status": SoundHub(lambda: None).status()})
+    assert strip["built"] and strip["in_play_tab"]
+    assert len(strip["buttons"]) >= 7 and len(strip["sent"]) == len(strip["buttons"])
+    world: list[tuple[str, dict[str, Any]]] = []
+
+    def world_call(op: str, **params: Any) -> dict[str, Any]:
+        world.append((op, params))
+        return {}
+
+    driver = SimpleNamespace(_body=SimpleNamespace(world_call=world_call), _aux_wake=None)
+    for post in strip["sent"]:
+        assert post["url"] == "/api/neuro/sound/world", post
+        raw = json.dumps(post["body"]).encode()
+        handler = SimpleNamespace(
+            headers={"Content-Length": str(len(raw))},
+            rfile=io.BytesIO(raw),
+            wfile=io.BytesIO(),
+            send_response=lambda status: None,
+            send_header=lambda *a: None,
+            end_headers=lambda: None,
+        )
+        SoundHub(lambda: driver).post(handler, post["url"])  # type: ignore[arg-type]
+        assert json.loads(handler.wfile.getvalue())["ok"] is True, post
+    assert [op for op, _ in world] == ["x_neuro_sound"] * len(strip["sent"])
+    assert {params["do"] for _, params in world} == {
+        "music",
+        "music_off",
+        "hover",
+        "hover_end",
+        "swing",
+    }
+    assert {params.get("tempo") for _, params in world} >= {"slow", "mid", "fast"}
+    # all it asks the server besides: the sound's own status (and its stream, once it runs)
+    assert set(strip["asked"]) == {"GET /api/neuro/sound/status", "POST /api/neuro/sound/world"}
+    # the page's own playback is told apart from what the server says of the sound
+    told = strip["told"]
+    assert told["running"] is False and told["unavailable"] is False
+    assert told["pcm"] == {"frames": 0, "unlocked": False}  # (no sound came, none could play)
 
 
 def test_all_portfolio_and_sound_strings_exist_in_every_locale():

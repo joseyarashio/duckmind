@@ -523,6 +523,7 @@ class LiveBridge:
         # address is the same duck, so the page never flips back to a simulated home meanwhile.
         self._known_real: bool | None = None if remote is not None else False
         self._known_rehearsal = False  # (a real duck's: kept while its link dials again)
+        self._known_has_dock = False  # (a real duck's; LiveBody.has_dock)
         self.body = self._new_body()
         self.error: str | None = None
         self.ready = False
@@ -721,12 +722,16 @@ class LiveBridge:
         bridge is ``sim-body --as-real`` on this Mac), ``reason`` (the plain words every disabled
         control shows), ``refuses`` (the features the page disables, :data:`REAL_REFUSES`),
         ``turn_on`` (:func:`turn_on`'s words while the duck is not on and the body waits for a
-        person to turn it on, else None) and ``battery`` (the duck's own pack from robotd, None
-        until it says). A body known to be real stays real while its link dials again (the page
-        never flips to the simulated mode)."""
+        person to turn it on, else None), ``walk_lock`` (why the brain moves only its head: its
+        body sense was never measured for the board and networks it runs, ``{why, reason}``; None
+        when it may walk), ``battery`` (the duck's own pack from robotd, None until it says) and
+        ``has_dock`` (false: this duck has no charging dock, the page says so beside its battery).
+        A body known to be real stays real while its link dials again (the page never flips to
+        the simulated mode)."""
         body = self.body
         if is_real(body):
             self._known_rehearsal = bool(getattr(body, "rehearsal", False))
+            self._known_has_dock = bool(getattr(body, "has_dock", False))
         elif not self.real:
             return None
         battery = None
@@ -736,12 +741,15 @@ class LiveBridge:
                 battery = read()
             except Exception:
                 battery = None
+        lock = getattr(self.neuro, "walk_lock", None)
         return {
             "rehearsal": self._known_rehearsal,
             "reason": no_world(),
             "refuses": sorted(REAL_REFUSES),
             "turn_on": turn_on() if getattr(body, "waits_turn_on", False) else None,
+            "walk_lock": lock() if callable(lock) else None,
             "battery": dict(battery) if isinstance(battery, dict) else None,
+            "has_dock": self._known_has_dock,
         }
 
     # ── the duck's-eye camera ──────────────────────────────────────────────

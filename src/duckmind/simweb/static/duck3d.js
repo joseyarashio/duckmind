@@ -964,7 +964,7 @@ function setupCloseUp() {
 
 const REFUSAL_WORDS = ["reason_zh", "error"]; // the fields of a refused answer that hold the server's own words
 const POINT_WORDS = {
-  hint: "page.point.hint_beta",
+  hint: "page.point.hint",
   hintRemote: "page.point.hint_remote",
   sent: "page.point.sent",
   walking: "page.point.walking",

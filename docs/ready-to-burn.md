@@ -1,16 +1,58 @@
 # Ready-to-Burn Definition and Gate Status
 
 Status: **software release candidate; NOT CLEARED FOR UNSUPERVISED REAL PLAY**
-(2026-09-24 Asia/Taipei). The first pet service and official simulator gates
-work. The author's real robot has not arrived yet; the exact
-board and physical acceptance gates remain pending delivery.
+(gates first recorded 2026-09-24; versions and the real-duck section brought up
+to date 2026-11-10, Asia/Taipei). The first pet service and Pollen's simulator
+gates work. The author's real robot has not arrived yet; the exact board and
+physical acceptance gates remain pending delivery.
 
 Reference target: the robots that ship run Pollen's beta main board (Seeed
-RK3566) with the V1.0 face board and the factory Yocto A/B image, robotd 0.18.x
-(API 49) and policy set v8 (v9 next); a hand-built dev board runs the Radxa
-Zero 3 / Armbian guide. Official Microduck daemons are provisioned first. This
-is an assumption from upstream documentation, not confirmation of any actual
-board revision or wiring ([first-board checklist](deploy/board.md)).
+RK3566) with the V1.0 face board and the factory Yocto A/B image. Daemon
+0.16.2–0.18.8 and the factory image install policy set v8 (robotd 0.18.5 says
+API 49); upstream `main` pinned set v9 for the next release on 2026-11-06
+(pollen-robotics/microduck #550: v9 is v7's walk network again, with v8's
+sit-stand network), so a duck delivered from now on may well run v9. A
+hand-built dev board runs the Radxa Zero 3 / Armbian guide. Pollen's Microduck
+daemons are provisioned first. This is an assumption from upstream
+documentation, not confirmation of any actual board revision or wiring
+([first-board checklist](deploy/board.md)).
+
+## Where things stand (2026-11-10)
+
+The gates below were recorded for the first pet service (`duckmindd`: the
+owner-invited head game) with Pollen's **v5** policies in simulation. Since
+then:
+
+- **The simulator** (the neural duck, `python -m duckmind.simweb`) runs
+  Pollen's robotd **0.18.5 with walk policies v8**, on the backlash body and
+  with the production board's camera (GC2093). The brain has measured tables
+  for the v5, v8 and v9 walks and picks them by the walk file's SHA-256. v9
+  has been measured in the simulator as a comparison: it turns less than it
+  is asked to (about half to the left; v8 turns as asked or more) and met
+  things more than twice as often in the same 205 go-there runs (440 contacts
+  against 194).
+- **The path to a real duck is the remote body** ([real-microduck.md](real-microduck.md)):
+  the brain stays on the home computer and a bridge on the duck forwards an
+  allowlisted set of robotd calls, with a shared-token handshake, signed
+  frames and a 1.0 s deadman (stop, then sit). It is built and rehearsed with
+  a simulated duck behind a network shim. **No real Microduck has been
+  connected.**
+- **Duck Mind never turns a real duck on.** The bridge of a real body refuses
+  `robot.enable`, `robot.init` and `robot.poseJoints`; a person turns the duck
+  on with its own control and the brain takes it from there
+  ([SAFETY.md](../SAFETY.md)).
+- **The page's real-duck mode** disables everything that needs a simulated
+  world and says why; pointing at the floor ("go there") is one of them.
+- **Not ready for a real robot yet:** the body-sense thresholds (lifted, set
+  down, standing load) are the simulator's uncalibrated leg-force proxy and
+  the ToF "at the face" rule is a count of the simulator's zones (32 of 64);
+  neither has been measured on a board. The head-game approval measurement
+  below is v5's and has not been repeated on v8 or v9. A real duck has no
+  charging flag (Pollen #470), no program serves its microphone, and it has no
+  touch sensor. A staged bring-up (read-only checks, feet off the ground,
+  standing, supervised walking, free roaming — each with its own pass numbers
+  and abort conditions) is being written; until it exists and has been passed
+  on the bench, this gate stays closed.
 
 ## Product promise for the first burn
 
@@ -45,7 +87,7 @@ weights or safety limits by itself.
 | Gate | Required evidence | Current |
 |---|---|---|
 | Source/architecture | pinned contracts; no cognition-to-servo path | reviewed |
-| Body simulator | real `robotd` + v5 ONNX + MuJoCo; replayable trace | latest execution gate and replay pass; six configured ONNX file hashes now match across pet/skill scenarios; task outcome unknown; loaded process bytes and physical stability unproven |
+| Body simulator | real `robotd` + v5 ONNX + MuJoCo; replayable trace | (recorded with v5, 2026-09; the simulator has since moved to robotd 0.18.5 + v8, see above) latest execution gate and replay pass; six configured ONNX file hashes now match across pet/skill scenarios; task outcome unknown; loaded process bytes and physical stability unproven |
 | Durable pet runtime | SQLite WAL/FULL, single writer, digests, snapshots/replay, passive restart | implemented; watchdog replays unfinished traces once at start, then reads only new events; simulated restart and process-kill cuts around learning COMMIT/snapshot pass; board power-loss unproven |
 | Interaction and play | local owner-only socket, stop, watchdog, fixed measured head game | official HOME-positive, SIT-positive and HOME-negative scenarios pass end-to-end with paired gaze BodyPort command replay; policy and commanded-motion guard rejects competing body activity and immediately revokes play after failed gaze; real preflight additionally checks the loaded official walk slot via `robot.policies`; child-process SIGTERM/SIGINT shutdown pass; real profile locked |
 | Learning | completed execution + explicit feedback + closed outcome, daily 0.005 cap, ablation | positive and negative simulator feedback changed preference by at most 0.005 in the expected direction and survived passive restart; unit/30-day/365-day synthetic twins pass; real owner feedback untested |
@@ -53,7 +95,7 @@ weights or safety limits by itself.
 | Simulation training | scripted twins, ablation, replay, official body | official Mac CPU PPO checkpoint/export/parity ran; the 2000-iteration candidate fell 4/4 in formal BAM trials and 1/4 in a diagnostic nonplay profile, then failed paired `robotd --sim` idle/forward-stop. Two short trusted continuations also fell 4/4. A further 1000-iteration continuation fell 4/4 formally despite 0/4 in a non-qualifying nonplay diagnostic, and failed paired `robotd --sim`. A paired `play-zero-push` ablation preserved initial actor state and event timing but fell 0/4, narrowing the failure to push sensitivity under four short seeds; it is explicitly non-qualifying. A subsequent 500-iteration continuation with 1–2 s training pushes made new checkpoint/ONNX bytes but still fell 4/4 formally and failed the independent robotd walk pair. The unchanged official v5 baseline passed the short comparisons. Earlier 1000-iteration and independent native-PD candidates also fell. Usable new gait, broad robotd acceptance and hardware behavior remain unproven |
 | Board release | source-matched wheel, hashes/SBOM, installer, systemd, health, rollback | isolated installer/rollback and SIGKILL cut-point tests pass; boot guard and install/rollback preflight reject a split unit/application, and head approval is release-bound; real Linux/systemd and board install pending |
 | Security/QA | lint, type check, tests, fault injection, self-review | local regression and deployment fault-injection checks; exact results belong to the selected release evidence; real adversarial tests pending |
-| Hardware | exact board/servo revision and supervised bench safety tests | **pending robot delivery** |
+| Hardware | exact board/servo revision, per-board calibration of the body-sense and ToF thresholds, and supervised bench safety tests | **pending robot delivery** |
 
 The full upstream `scripts/duck-sim` launcher, camera/ToF/BLE/audio paths, a
 charging dock, and physical-contact kick success are **not** proven by the

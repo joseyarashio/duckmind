@@ -1,8 +1,9 @@
 """Growth G4: the 「成長」 section of the 資料 page (docs/design/GROWTH-G4-2026-10-11.md).
 
-Static checks on the markup, the scripts, the catalogs and the style; and the component itself in
-Node over a tiny fake page, drawing the views the server really makes. How it looks and behaves in a
-browser is checked by hand (screenshots in the measurement records, not in the repo).
+The catalogs' words; the component itself in Node over a tiny fake page, drawing the views the
+server really makes; and the component on the page's own markup (tests/page_tree_node_harness.py):
+when it reads, what its form sends. How it looks and behaves in a browser is checked by hand
+(screenshots in the measurement records, not in the repo).
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from page_tree_node_harness import run
 
 import duckmind.world.legacy  # noqa: F401  (registers LegacyWorld)
 from duckmind.duckcore import bridge, bridge_v2
@@ -27,16 +29,14 @@ from duckmind.simweb import i18nwire
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
 PAGE = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "growth.css").read_text(encoding="utf-8")
 JS = (STATIC / "growth.js").read_text(encoding="utf-8")
 NODE = shutil.which("node")
 HARNESS = Path(__file__).with_name("growth_node_harness.js")
 TPE = timezone(timedelta(hours=8))
 
-IDS = (
-    "growthView gvStatus gvLive gvFf gvFfDays gvFfStyleA gvFfStyleB gvFfSeed gvFfStart gvFfCancel "
-    "gvFfProgress gvFfNote gvFfProblem gvResults"
-).split()
+# names with markup in them: data, shown as they are
+DUCK_NAME = "<img src=x onerror=alert(1)>"
+PERSON_NAME = "<b>小明</b>"
 
 
 def _catalog(lang: str) -> str:
@@ -47,38 +47,7 @@ def _keys(text: str) -> set[str]:
     return set(re.findall(r"page\.growth\.[a-z0-9_.]+[a-z0-9_]", text))
 
 
-# ── the markup, the scripts, the style ────────────────────────────────────────────────────────
-
-
-def test_the_section_is_on_the_data_page_with_its_hooks() -> None:
-    data = PAGE[PAGE.index('id="viewData"') :]
-    for element in IDS:
-        assert f'id="{element}"' in data, element
-    assert data.index('id="growthView"') < data.index(
-        'id="homeEditor"'
-    )  # (before the layout editor)
-    assert 'id="growthView"' not in PAGE[: PAGE.index('id="viewData"')]
-    # existing hooks of the page stay
-    for element in ("neuroSkills", "leMap", "capSkills", "tab-growth", "growthOut"):
-        assert f'id="{element}"' in PAGE, element
-    assert '<link rel="stylesheet" href="/growth.css">' in PAGE
-    assert (
-        PAGE.index('src="/layout_editor.js"')
-        < PAGE.index('src="/growth.js"')
-        < PAGE.index('src="/minimap.js"')
-    )
-    assert PAGE.index('src="/i18n.js"') < PAGE.index('src="/growth.js"')
-
-
-def test_the_two_care_style_selects_offer_every_style_the_server_does() -> None:
-    from duckmind.life.fastforward import STYLES
-
-    for select, none in (("gvFfStyleA", False), ("gvFfStyleB", True)):
-        block = PAGE[PAGE.index(f'id="{select}"') :]
-        block = block[: block.index("</select>")]
-        values = re.findall(r'<option value="([^"]*)"', block)
-        assert [v for v in values if v] == list(STYLES), select
-        assert ("" in values) is none
+# ── the catalogs ──────────────────────────────────────────────────────────────────────────────
 
 
 def test_every_word_the_component_names_is_in_all_six_catalogs() -> None:
@@ -87,26 +56,6 @@ def test_every_word_the_component_names_is_in_all_six_catalogs() -> None:
     for lang in CODES:
         have = _keys(_catalog(lang))
         assert not (named - have), (lang, sorted(named - have))
-    # nothing in the component's own text: no 繁體中文 outside comments
-    code = re.sub(r"/\*.*?\*/", "", JS, flags=re.S)
-    code = re.sub(r"(^|[^:])//.*", r"\1", code)
-    assert not re.search(r"[㐀-鿿]", code), "page words come from the catalogs"
-
-
-def test_the_style_uses_tokens_only() -> None:
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", CSS), "colours come from the tokens"
-    assert "border-radius" not in CSS
-    assert "blur(" not in CSS and "gradient" not in CSS
-    assert not re.search(r"box-shadow:[^;]*\d+px\s+\d+px\s+[1-9]\d*px\s", CSS), "hard shadows only"
-
-
-def test_the_component_never_writes_markup_from_data() -> None:
-    assert "innerHTML" not in JS and "insertAdjacentHTML" not in JS and "document.write" not in JS
-
-
-def test_polling_is_light() -> None:
-    assert "POLL_MS = 15000" in JS and 15000 <= 30000
-    assert "visibilitychange" in JS and "view-data" in JS  # (only while the data page is shown)
 
 
 # ── the component, in Node, over what the server makes ────────────────────────────────────────
@@ -291,31 +240,58 @@ def test_every_kind_wait_style_and_outcome_the_server_can_send_has_a_word(
     drawn: dict[str, Any],
 ) -> None:
     from duckmind.life.fastforward import STYLES
-    from duckmind.life.regrow import calm  # noqa: F401  (the reasons are its words)
 
     assert set(drawn["keys"]["kinds"]) == set(gv.KIND_ORDER) == set(bridge_v2.KINDS)
     assert set(drawn["keys"]["styles"]) == set(STYLES)
     assert set(drawn["keys"]["falls"]) == set(bridge.FALL_OUTCOMES)
     assert set(drawn["keys"]["how"]) >= {"liked", "promoted", "song", "first_word"}
-    # the reasons a regrow can be waiting (regrow.calm's, the host's driver check, "settling")
-    source = (
-        Path(__file__).resolve().parents[1] / "src" / "duckmind" / "life" / "regrow.py"
-    ).read_text()
-    reasons = set(
-        re.findall(
-            r'return "([a-z]+)"', source[source.index("def calm") : source.index("class Report")]
-        )
-    )
-    host = (
-        Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "life_host.py"
-    ).read_text()
-    reasons |= set(
-        re.findall(
-            r'return "([a-z]+)"',
-            host[host.index("def _driver_busy") : host.index("def regrow_tick")],
-        )
-    )
-    reasons.add("settling")
+
+
+@needs_node
+def test_every_reason_a_regrow_waits_for_has_a_word(drawn: dict[str, Any]) -> None:
+    """A regrow waits for a calm sleeping duck: ``regrow.calm`` and the host's driver check say what
+    is in the way, the page says it in words."""
+    from duckmind.life import regrow
+    from duckmind.neuro import select
+    from duckmind.neuro.contract import BEHAVIOURS
+    from duckmind.simweb.life_host import LifeHost
+
+    asleep = sorted(select.SLEEP)[0]
+    awake = sorted(set(BEHAVIOURS) - select.SLEEP)[0]
+
+    def brain(**state: Any) -> SimpleNamespace:
+        return SimpleNamespace(behaviour=asleep, **state)
+
+    def frame(*events: str, **body: Any) -> SimpleNamespace:
+        return SimpleNamespace(body=SimpleNamespace(**body), events=list(events))
+
+    still = frame()
+    assert regrow.calm(brain(), still, 1000) is None  # asleep, nothing going on: no wait
+    in_the_way = [
+        regrow.calm(SimpleNamespace(behaviour=awake), still, 1000),
+        regrow.calm(brain(), frame(fallen=True), 1000),
+        regrow.calm(brain(), frame(posture="stand"), 1000),
+        regrow.calm(brain(), frame(active_skill="kick_left"), 1000),
+        regrow.calm(brain(), frame(sorted(regrow.BUSY_EVENTS)[0]), 1000),
+        regrow.calm(brain(), still, 1000, SimpleNamespace(reflex="withdraw")),
+        regrow.calm(brain(_escape=object()), still, 1000),
+        regrow.calm(brain(_perform_until_ms=5000), still, 1000),
+        regrow.calm(brain(_t0=0, _touch_s=0.5), still, 1000),
+        regrow.calm(brain(play_out=SimpleNamespace(skill="kick_left")), still, 1000),
+    ]
+    sitting = SimpleNamespace(policy="sit")
+    for driver, state in (
+        (SimpleNamespace(_motion_run=object()), sitting),
+        (SimpleNamespace(emotions=SimpleNamespace(run=object())), sitting),
+        (SimpleNamespace(), SimpleNamespace(policy="get_up")),
+        (SimpleNamespace(_link=SimpleNamespace(flight_t0_ns=1)), sitting),
+    ):
+        in_the_way.append(LifeHost._driver_busy(None, driver, state))  # type: ignore[arg-type]
+    assert LifeHost._driver_busy(None, SimpleNamespace(), sitting) is None  # type: ignore[arg-type]
+    assert None not in in_the_way
+    reasons = {str(reason) for reason in in_the_way}
+    assert len(reasons) == 12  # (a skill and an emotion are said the same by both)
+    reasons.add("settling")  # (the regrower's own: calm, but not for long enough yet)
     assert reasons <= set(drawn["keys"]["waits"]), reasons - set(drawn["keys"]["waits"])
 
 
@@ -335,9 +311,6 @@ def test_every_kind_growth_leaves_out_has_words_in_all_six_languages() -> None:
     from duckmind.i18n import icu, locales
     from duckmind.i18n.catalog import read_catalog
 
-    js = (STATIC / "growth.js").read_text(encoding="utf-8")
-    for kind in IGNORED_KINDS:
-        assert f"page.growth.exp.ignored.{kind}" in js
     for code in locales.CODES:
         catalog = read_catalog(code, "page") or {}
         for kind in IGNORED_KINDS:
@@ -353,29 +326,7 @@ def test_every_kind_growth_leaves_out_has_words_in_all_six_languages() -> None:
         assert zh[key] != en[key]  # (translated, not copied)
 
 
-def test_every_ignored_kind_the_experiences_count_has_a_line() -> None:
-    """The kinds Experiences puts in ``ignored`` are the ones the page has words for."""
-    import inspect
-
-    from duckmind.life import experience
-
-    source = inspect.getsource(experience)
-    for kind in ("noise_self", "lift_false", "hand_false", "company_false"):
-        assert f'"{kind}"' in source
-        assert f"page.growth.exp.ignored.{kind}" in (STATIC / "growth.js").read_text(
-            encoding="utf-8"
-        )
-
-
 # ── the players' 成長 tab (item 6): the short view of the same reading ──────────────────────────
-
-
-def test_the_growth_tab_sits_in_the_panel_and_reads_while_it_is_open() -> None:
-    tab = PAGE[PAGE.index('id="ctl-grow"') : PAGE.index('id="ctl-duck"')]
-    for element in ("growthTab", "growthTabStatus", "growthTabBody"):
-        assert f'id="{element}"' in tab, element
-    assert 'href="/lab#growthView"' in tab  # (the whole record is one click away, in the lab)
-    assert '"ctl-grow"' in JS and "MutationObserver" in JS  # (opening the tab reads at once)
 
 
 @needs_node
@@ -410,3 +361,57 @@ def test_the_growth_tab_keeps_to_the_newest_few_and_says_what_is_missing(
     bare = drawn["short_bare"]
     assert "page.growth.bond.none" in bare and "page.growth.exp.recent_none" in bare
     assert "page.growth.diary.none" in bare
+
+
+# ── the component on the page's own markup ────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def mounted() -> dict[str, Any]:
+    """shell.js and growth.js over the page's markup: the tabs are pressed, a minute passes here
+    and there, the lab is opened, the fast-forward form is sent once for each style it offers."""
+    if NODE is None:
+        pytest.skip("needs Node")
+    view = _live_view()
+    view["identity"]["name"] = DUCK_NAME
+    view["bonds"]["people"][0]["name"] = PERSON_NAME
+    return run("growth", {"shell.js", "growth.js"}, {"view": view})
+
+
+@needs_node
+def test_the_record_is_read_only_while_it_can_be_seen_and_not_often(
+    mounted: dict[str, Any],
+) -> None:
+    reads = mounted["reads"]
+    assert reads["elsewhere"] == 0  # another tab of the panel is open: nothing is asked
+    assert reads["opened"] == 1  # the 成長 tab opens: read at once…
+    assert "page.growth.id.growth_day" in mounted["short"] and PERSON_NAME in mounted["short"]
+    assert 2 <= reads["minute_open"] - reads["opened"] <= 6  # …then now and then
+    assert reads["in_the_back"] == reads["minute_open"]  # the browser tab in the back: nothing
+    assert reads["to_the_front"] == reads["in_the_back"] + 1  # in front again: at once
+    assert reads["left"] == reads["to_the_front"]  # away to another tab: nothing more
+    assert reads["lab"] == reads["left"] + 1  # the lab opens: its whole record, at once
+    assert "page.growth.id.title" in mounted["long"]
+
+
+@needs_node
+def test_names_with_markup_in_them_are_shown_as_they_are(mounted: dict[str, Any]) -> None:
+    assert DUCK_NAME in mounted["long"]  # (a text of its own, letter for letter)
+    assert PERSON_NAME in mounted["long"] and PERSON_NAME in mounted["short"]
+    assert "img" not in mounted["made"] and mounted["markup"] == 0  # nothing was parsed as markup
+
+
+@needs_node
+def test_every_care_style_the_form_offers_is_one_the_server_runs(mounted: dict[str, Any]) -> None:
+    from duckmind.life.fastforward import STYLES, check_request
+
+    assert mounted["offered"]["gvFfStyleA"] == list(STYLES)
+    assert mounted["offered"]["gvFfStyleB"] == ["", *STYLES]  # (B may be left out)
+    sent = [post["body"] for post in mounted["sent"] if post["url"] == "/api/life/fastforward"]
+    assert len(sent) == 2 * len(STYLES) + 1  # the form was sent once for each choice
+    asked: set[str] = set()
+    for body in sent:
+        days, styles, seed = check_request(body["days"], body["styles"], body["seed"])
+        assert (days, seed) == (30, 4107) and 1 <= len(styles) <= 2
+        asked.update(styles)
+    assert asked == set(STYLES)

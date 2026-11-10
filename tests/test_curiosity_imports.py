@@ -64,20 +64,19 @@ def test_the_curiosity_package_loads_nothing_of_the_simulator() -> None:
 
 
 def test_the_act_runner_reads_no_clock_and_no_socket() -> None:
-    """Pure, clock-injected step functions (phase-3 architecture rule): time comes in ActContext."""
+    """Pure, clock-injected step functions (phase-3 architecture rule): time comes in ActContext.
+    Held like the rule above, by what each module imports (and no call of the builtin ``open``)."""
+    problems = []
     for path in sorted(PACKAGE.glob("*.py")):
         if path.name == "curio_calib.py":
             continue  # the records tool reads files; it never runs on the body loop
-        text = path.read_text(encoding="utf-8")
-        for forbidden in (
-            "import time",
-            "import socket",
-            "import threading",
-            "monotonic(",
-            "time.time(",
-            "open(",
-        ):
-            assert forbidden not in text, f"{path.name} uses {forbidden!r}"
+        for name, line in _imports(path):
+            if any(_under(name, module) for module in ("time", "socket", "threading")):
+                problems.append(f"{path.name}:{line} imports {name}")
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "open":
+                problems.append(f"{path.name}:{node.lineno} opens a file")
+    assert not problems, "\n".join(problems)
 
 
 def test_what_the_curiosity_package_loads_is_board_side_too() -> None:

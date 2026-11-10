@@ -21,8 +21,9 @@ Phase 2 changed what moves the body besides its own physics, and these tests wit
   that really carry the body (D1), unless a family member's hand already did it; 「扶起物理身體」
   is the hand too (D2).
 
-Static checks read the page's code; the behavioural ones run ``static/truth.js`` in node and the
-server's bridge with a stand-in body that answers the world ops (no robotd, no MuJoCo).
+The behavioural tests run ``static/truth.js`` and ``static/home3d.js`` (with the page's own
+three.js, on the home the server sends) in node, and the server's bridge with a stand-in body that
+answers the world ops (no robotd, no MuJoCo).
 """
 
 from __future__ import annotations
@@ -30,7 +31,6 @@ from __future__ import annotations
 import heapq
 import json
 import math
-import re
 import shutil
 import subprocess
 import threading
@@ -42,7 +42,6 @@ import pytest
 
 from duckmind.duckcore.api import Config, Session, _motion, dispatch, open_session
 from duckmind.livebody import LivePaths
-from duckmind.simweb import live
 from duckmind.simweb.live import (
     INTERRUPTS,
     HomeFrame,
@@ -57,7 +56,7 @@ from duckmind.simweb.live import (
 
 STATIC = Path(__file__).resolve().parents[1] / "src" / "duckmind" / "simweb" / "static"
 TRUTH_JS = STATIC / "truth.js"
-DUCK3D_JS = STATIC / "duck3d.js"
+HOME3D_HARNESS = Path(__file__).with_name("home3d_node_harness.mjs")
 
 
 def _zh_words() -> dict[str, str]:
@@ -69,230 +68,6 @@ def _zh_words() -> dict[str, str]:
             json.loads(body[body.index("{", body.index("DuckI18n.load(")) : body.rindex("}") + 1])
         )
     return words
-
-
-def _worded(text: str) -> str:
-    """A page source as its words were written before the page spoke six languages: every
-    quoted catalog key replaced by its 繁體中文 words, the data-i18n markup left out."""
-    words = _zh_words()
-    text = re.sub(r'\s+data-i18n(?:-html|-attr)?="[^"]*"', "", text)
-    return re.sub(
-        r"([\"'])((?:page|fmt|web)\.[A-Za-z0-9_.|<>-]+)\1",
-        lambda m: m.group(1) + words.get(m.group(2), m.group(2)) + m.group(1),
-        text,
-    )
-
-
-HOME3D_JS = STATIC / "home3d.js"
-
-
-def _function(source: str, name: str) -> str:
-    """The text of one top-level ``function name(...) {...}`` in a script."""
-    start = source.index(f"function {name}(")
-    depth = 0
-    for index in range(source.index("{", start), len(source)):
-        if source[index] == "{":
-            depth += 1
-        elif source[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start : index + 1]
-    raise AssertionError(f"unterminated function {name}")
-
-
-# ── static: the 3D view draws the solid duck from the truth only ─────────────────
-
-
-def test_the_solid_duck_is_composed_from_the_truth_and_the_plan_moves_only_the_shadow():
-    duck3d = DUCK3D_JS.read_text()
-    assert 'from "./truth.js"' in duck3d and 'from "./home3d.js"' in duck3d
-    step = _function(duck3d, "step")
-    # The frame's truth (and only the frame) decides the solid duck; one applyPose, of it.
-    assert "truthTarget(view.external)" in step
-    assert "compose({ plan, truth: view.live.shown" in step
-    assert step.count("applyPose(") == 1 and "applyPose(drawn.solid)" in step
-    assert "applyShadow(drawn.shadow" in step
-    # Duck Core's position appears once, moved into the world by the home's frame, and goes
-    # into the plan it hands over (the shadow's pose).
-    move = "planToWorld(view.room.frame, view.body.x, view.body.y, view.body.yaw)"
-    assert step.count(move) == 1
-    plan = step[step.index("const plan = {") : step.index("};", step.index("const plan = {"))]
-    assert "[planX, planY," in plan and "yawRollQuat(planYaw," in plan
-    for field in ("x", "y", "yaw"):
-        # (once in the move into the world; x and y once more for the readout's distance)
-        found = len(re.findall(rf"\bview\.body\.{field}\b", step))
-        assert found == (1 if field == "yaw" else 2), field
-        assert f"view.body.{field}" not in plan, field
-    # Gone: the physics lean put on Duck Core's heading and position (the old hybrid), the
-    # demonstration drawn relative to Duck Core's pose, and Duck Core's fall drawn instead
-    # of the physics body.
-    for old in ("withHeading(", "demoPose(", "ownBody", "smoothExternal(", "extMix"):
-        assert old not in duck3d, old
-    # The whole frame reaches the view (truth included), never Duck Core's snapshot position.
-    poll = _function(duck3d, "pollLive")
-    assert "setExternalPose(info.frame)" in poll
-    assert "position" not in _function((TRUTH_JS).read_text(), "truthTarget")
-
-
-def test_the_server_computes_the_truth_from_the_frame_only():
-    """G15: the truth is the frame, in world coordinates — never Duck Core's pose. Duck Core's
-    pose (pose_now) is only ever where a world operation puts the body (x_place: a body that
-    starts, a sync after a fast-forward)."""
-    import ast
-    import inspect
-    import textwrap
-
-    def code(function: Any) -> str:  # (without its docstring and comments)
-        tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
-        body = tree.body[0]
-        assert isinstance(body, ast.FunctionDef)
-        if isinstance(body.body[0], ast.Expr) and isinstance(body.body[0].value, ast.Constant):
-            body.body = body.body[1:]
-        return ast.unparse(body)
-
-    truth = code(LiveBridge.truth)
-    for plan in ("pose_now", "session", "core", "pos_x", ".s.", "frame.to_world", "_anchor"):
-        assert plan not in truth, plan
-    source = inspect.getsource(live)
-    uses = [line.strip() for line in source.splitlines() if "pose_now()" in line]
-    # (only LiveBridge.plan_pose reads it: where a placement puts the body — the plan's pose,
-    # or the physical dock for a duck that sits in its nest; resync and skipped call it)
-    assert uses == ["return self.frame.to_world(core.pose_now())"]
-    assert "pose_now" in code(LiveBridge.plan_pose)
-    assert "self.plan_pose(session)" in code(LiveBridge.resync)
-    assert "self.plan_pose(session)" in code(LiveBridge.skipped)
-    # Phase 0's re-seating anchors and the interim hand anchor are gone.
-    for old in ("def anchor(", "anchor_pose", "hand_pose", "_room_of", "HAND_SETTLE_S", "_settle"):
-        assert old not in source, old
-
-
-def test_the_page_says_what_the_physics_has_and_which_duck_it_draws():
-    duck3d = _worded(DUCK3D_JS.read_text())
-    truth = _worded(TRUTH_JS.read_text())
-    assert "物理真相" in truth and "這是小鴨的計畫，不是物理" in truth
-    # The home is solid (it is in the physics); translucent only while the physics runs
-    # another world, and then the words say so (W07).
-    assert "房子、家具和玩具在物理裡都是真的" in truth
-    assert "只有畫面，物理裡沒有" in truth
-    step = _function(duck3d, "step")
-    assert "setGhost(home, truthMode && !view.room.physical)" in step
-    assert "physicalHome: view.room.physical" in _function(duck3d, "renderMode")
-    # W05: when the plan jumps (walking "into" the nest) the page says the body did not.
-    assert "不會瞬移" in duck3d and "PLACED_ZH" in _function(duck3d, "play")
-    assert "motion.place.length < 3" in _function(duck3d, "play")
-    assert "物理裡還沒有手" not in duck3d  # (phase 2: there is a hand)
-    placed = duck3d[
-        duck3d.index("const PLACED_WHY_ZH = {") : duck3d.index(
-            "};", duck3d.index("const PLACED_WHY_ZH = {")
-        )
-    ]
-    assert "start:" in placed and "sync:" in placed and "hand:" not in placed
-    hands = duck3d[
-        duck3d.index("const HAND_ZH = {") : duck3d.index("};", duck3d.index("const HAND_ZH = {"))
-    ]
-    for do in ("pickup:", "place:", "upright:"):
-        assert do in hands, do
-    # The room comes from the home the physics runs (home3d.js); nothing is hard-coded any more.
-    assert "function buildRoom(" not in duck3d and "furniture(scene" not in duck3d
-    assert "buildHome(view.scene, home" in _function(duck3d, "loadHome")
-    assert '"/api/home"' in _function(duck3d, "loadHome")
-    assert "/api/body?home=" in _function(duck3d, "pollLive")
-    # The lights are the server's (world/lights.py); the page's own rules only for an older server.
-    light = _function(duck3d, "lightTarget")
-    assert light.index("view.serverLight") < light.index("sun.rise")
-    assert 'addEventListener("duck:lights"' in duck3d
-
-
-def test_the_home_is_drawn_from_the_layout_and_walls_in_the_way_fade():
-    """B4 and the physical room: home3d.js draws every element of the layout (page JSON: box,
-    cylinder, frustum, sphere, ellipsoid, capsule, plane), the toys, the hand, the family's
-    bodies and the nest's real AprilTag cells; walls between the camera and the duck fade."""
-    home = HOME3D_JS.read_text()
-    for shape in ('"plane"', '"cylinder"', '"frustum"', '"sphere"', '"ellipsoid"', '"capsule"'):
-        assert f"case {shape}" in home, shape
-    build = _function(home, "buildHome")
-    assert "el.flags.page === false" in build  # camera-only bands and ceilings are not drawn
-    for part in ("payload.hand", "payload.people", "payload.nest_parts", "layout.things"):
-        assert part in build, part
-    fade = _function(home, "fadeWalls")
-    assert "intersectBox" in fade and "FADED_OPACITY" in fade
-    assert 'new Set(["wall", "railing", "gate"])' in home
-    # The hand held by the weld is drawn on the drawn duck's trunk (no lag behind the body).
-    assert "home.handHolding && duck && duck.trunk" in _function(home, "stepWorld")
-    assert "tagTexture(tag.cells" in home  # the same bits as the physics' texture
-    step = _function(DUCK3D_JS.read_text(), "step")
-    assert "fadeWalls(home, view.camera" in step and "stepWorld(home, dt" in step
-
-
-def test_the_duck_eye_window_and_the_trust_badge_work_in_3d_and_2d():
-    page = (STATIC / "index.html").read_text()
-    area = page[page.index('<div class="stage-area">') : page.index('<div class="duck3d-readout"')]
-    three = area[area.index('id="duck3d"') : area.index('id="duckStage"')]
-    for hook in ("stageMode", "trustBadge", "trustWhy", "eyeWindow", "btnEye", "eyeImg", "eyeNote"):
-        assert f'id="{hook}"' in area, hook  # in the stage area…
-        assert f'id="{hook}"' not in three, hook  # …not inside #duck3d (gone in 2D)
-    assert "牠的鏡頭看到的" in page and "每 2 秒一張" in page and "物理不可信" in page
-    script = (STATIC / "app.js").read_text()
-    assert "EYE_EVERY_MS = 2000" in script and '"/api/eye.jpg"' in script
-    wanted = _function(script, "eyeWanted")
-    for gate in ("eyeUi.open", "eyeUi.inView", "document.hidden", "eyeFast()"):
-        assert gate in wanted, gate
-    # F4: the world's camera gives a frame only while the window asks (asking opens it).
-    assert "eye.window" in wanted
-    assert "IntersectionObserver" in script and '"visibilitychange", eyeSchedule' in script
-    # In 2D (no 3D view polling /api/body) the page asks for the body itself.
-    assert "fetch(`/api/body?home=" in _function(script, "askBody")
-
-
-def test_the_phase_2_controls_are_on_the_page_and_wired():
-    """D2 「扶起物理身體」 next to the fallback 「重設物理身體」; E1 the world battery beside Duck
-    Core's; the physical home's line; card 09 (示範 bump/peck/kick, roll a ball, tidy up,
-    set upright) inside [data-scenarios], handled by app.js's delegated clicks."""
-    page = (STATIC / "index.html").read_text()
-    for hook in ('id="liveUpright"', 'id="liveReset"', 'id="worldBattery"', 'id="worldLine"'):
-        assert hook in page, hook
-    lab = page[page.index('id="labTools"') : page.index("</section>", page.index('id="labTools"'))]
-    for button in (
-        'data-world="body_show" data-kind="bump"',
-        'data-world="body_show" data-kind="peck"',
-        'data-world="body_show" data-kind="kick"',
-        'data-world="body_roll"',
-        'data-world="body_tidy"',
-        'data-world="body_upright"',
-    ):
-        assert button in lab, button
-    assert '<span class="num">09</span>' in lab and 'id="worldThing"' in lab
-    script = (STATIC / "app.js").read_text()
-    click = _function(script, "onScenarioClick")
-    assert "button.dataset.world" in click and "safe(button.dataset.world, params)" in click
-    assert "result.deferred" in click  # a family member walks over first (D3)
-    assert "params, visit: true" in click  # (only these buttons: a banner's steps stay in order)
-    world = _function(script, "renderWorld")
-    assert "#worldBattery" in world and "#worldLine" in world and "takeHome(" in world
-    # The toy chooser is filled from the home: /api/body's home_json (2D) and the home the 3D
-    # view drew — the view fetches /api/home itself, so /api/body never carries home_json
-    # there (a chooser left with only the page's one placeholder toy, found by the gate run).
-    assert "#worldThing" in _function(script, "takeHome")
-    assert 'addEventListener("duck:home"' in script
-    duck3d = DUCK3D_JS.read_text()
-    assert 'CustomEvent("duck:home"' in _function(duck3d, "loadHome")
-    assert 'getElementById("liveUpright")' in duck3d and '"body_upright"' in duck3d
-
-
-def test_the_new_page_styles_use_only_the_design_tokens():
-    css = (STATIC / "style.css").read_text()
-    block = css[css.index("/* Live physics overlays") : css.index(".duck3d-fx {")]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", block)  # colours only as tokens
-    assert "border-radius" not in block and "blur(" not in block
-    for token in ("--truth:", "--plan:"):
-        assert token in css
-    assert "var(--truth)" in block and "var(--plan)" in block
-    world = css[css.index("/* The physical home (phase 2)") : css.index(".world-tools select")]
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", world)
-    assert "border-radius" not in world and "blur(" not in world
-    # (a colour written out as rgba()/hsl() is a colour outside the tokens too)
-    for part in (block, world):
-        assert not re.search(r"\b(rgba?|hsla?)\(", part)
 
 
 # ── behaviour: static/truth.js in node ────────────────────────────────────────────
@@ -482,22 +257,160 @@ console.log(JSON.stringify({
     assert "舊版" in out["old"]["detail"] and "舊版" not in out["seating"]["detail"]
 
 
-def test_a_broken_body_raises_the_warning_and_the_2d_duck_is_labelled_the_plan():
-    """Owner decision (2): when the physics is abnormal the page says 「物理不可信」 and why —
-    a dead robotd or body server included. The 2D duck (no 3D view) only plays the plan."""
-    script = (STATIC / "app.js").read_text()
-    trust = _function(script, "renderTrust")
-    assert "info.error" in trust and "error_zh" in trust
-    assert "info.available &&" not in trust  # (it used to hide the badge exactly then)
-    flat = _function(script, "renderMode2d")
-    assert 'contains("has3d")' in flat and "#stageMode" in flat and "PLAN_TITLE" in flat
-    assert "renderMode2d(info)" in _function(script, "takeBody")
-    title = re.search(r'const PLAN_TITLE = "([^"]+)";', script)
-    same = re.search(r'export const PLAN_TITLE = "([^"]+)";', TRUTH_JS.read_text())
-    assert title and same and title.group(1) == same.group(1)
-    duck3d = DUCK3D_JS.read_text()
-    assert "broken: !!info.error" in _function(duck3d, "renderMode")
-    assert "error_zh" in _function(duck3d, "liveText")
+# ── behaviour: static/home3d.js in node, on the home the server sends ───────────────
+
+CAMERA_OUTSIDE = [0.0, -6.0, 1.5]  # south of the home, looking in at the duck (world metres)
+CAMERA_INSIDE = [0.0, -2.0, 1.5]
+DUCK_AT = [0.0, 0.0, 0.1]
+TRUNK = {"trunk": [1.2, -0.4, 0.118], "quat": [1.0, 0.0, 0.0, 0.0]}  # the drawn solid duck
+WORLD = {  # (/api/body's `world`: a toy that rolled away, a hand holding the duck, a person)
+    "things": [{"id": "ball_felt", "pos_mm": [1500, 900, 35], "quat": [1, 0, 0, 0]}],
+    "hand": {"shown": True, "holding": True, "pos_mm": [500, 500, 300], "quat": [1, 0, 0, 0]},
+    "bodies": {"person_owner": {"pos_mm": [2000, 1000, 0], "quat": [1, 0, 0, 0]}},
+}
+
+
+@pytest.fixture(scope="module")
+def home() -> dict[str, Any]:
+    """What /api/home answers for the default home (the layout the physics runs)."""
+    from duckmind.simweb.homeview import home_payload
+
+    return home_payload("default_home")
+
+
+@pytest.fixture(scope="module")
+def built(home: dict[str, Any], tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    if NODE is None:
+        pytest.skip("node is not installed")
+    looks = [{"camera": camera, "duck": DUCK_AT} for camera in (CAMERA_OUTSIDE, CAMERA_INSIDE)]
+    path = tmp_path_factory.mktemp("home3d") / "input.json"
+    path.write_text(
+        json.dumps({"payload": home, "looks": looks, "world": WORLD, "trunk": TRUNK}),
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [str(NODE), str(HOME3D_HARNESS), str(STATIC), str(path)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
+@needs_node
+def test_the_home_is_drawn_from_the_layout_the_physics_runs(home, built):
+    """The physical room: home3d.js draws every element of the layout the page may show, where
+    the physics has it, with the toys, the hand, the family's bodies and the dock's real
+    AprilTag cells; a home the physics does not run is drawn translucent (W07)."""
+    layout = home["layout"]
+    on_page = [el for el in layout["elements"] if el["flags"]["page"]]
+    assert len(on_page) < len(layout["elements"])  # (camera-only bands and the ceiling: not drawn)
+    assert [el["id"] for el in built["elements"]] == [el["id"] for el in on_page]
+    drawn = {el["id"]: el for el in built["elements"]}
+    for el in on_page:
+        x0, y0, z0, x1, y1, z1 = drawn[el["id"]]["box"]
+        # over its place on the floor, standing on its lowest point, as big as it is
+        assert ((x0 + x1) / 2, (y0 + y1) / 2) == pytest.approx(el["pos_mm"][:2], abs=1), el["id"]
+        assert z0 == pytest.approx(el["pos_mm"][2], abs=1), el["id"]
+        if el["shape"] == "box" and not el["yaw_mrad"]:
+            assert [x1 - x0, y1 - y0, z1 - z0] == pytest.approx(el["size_mm"], abs=1), el["id"]
+    assert [(toy["id"], toy["at"], toy["parts"]) for toy in built["things"]] == [
+        (toy["id"], toy["pos_mm"], len(toy["parts"])) for toy in layout["things"]
+    ]
+    # the hand and the family's bodies are there, hidden until the world shows them
+    assert built["hand"] == {"parts": len(home["hand"]["parts"]), "visible": False}
+    bodies = [body for person in home["people"].values() for body in person["bodies"]]
+    assert [body["body"] for body in built["people"]] == bodies
+    assert not any(body["visible"] for body in built["people"])
+    # the dock's tags have the same bits as the physics' texture
+    tags = home["nest_parts"]["tags"]
+    assert len(tags) == 2 and built["tags"] == [tag["cells"] for tag in tags]
+    assert built["contacts"] == [contact["id"] for contact in home["nest_parts"]["contacts"]]
+    # only on the page (the physics runs another world): translucent, all but the floor
+    for el in on_page:
+        assert built["solid"][el["id"]] == el["opacity"], el["id"]
+        if el["kind"] == "floor":
+            assert built["ghost"][el["id"]] == 1
+        elif el["kind"] != "wall":  # (the walls' opacity is the fading's, below)
+            assert built["ghost"][el["id"]] < 0.3, el["id"]
+
+
+@needs_node
+def test_walls_in_the_way_fade_and_the_world_puts_its_things_where_they_are(home, built):
+    """B4: a wall between the camera and the duck fades, and comes back when it is no longer
+    between. The toys, the family and the hand are drawn where the world's truth has them; a
+    hand that holds the duck is drawn on the drawn duck's own trunk (no lag behind the body)."""
+    walls = [el for el in home["layout"]["elements"] if el["kind"] == "wall"]
+    between = {
+        wall["id"]
+        for wall in walls  # (the look runs north along x = 0, from the camera to the duck)
+        if abs(wall["pos_mm"][0]) <= wall["size_mm"][0] / 2
+        and CAMERA_OUTSIDE[1] * 1000 < wall["pos_mm"][1] < DUCK_AT[1] * 1000
+    }
+    assert len(between) == 1 and len(walls) >= 4
+    outside, inside = built["looks"]
+    assert set(outside) == {wall["id"] for wall in walls}
+    for wall, seen in outside.items():
+        if wall in between:
+            assert seen["faded"] and seen["transparent"] and seen["opacity"] < 0.2
+        else:
+            assert not seen["faded"] and not seen["transparent"] and seen["opacity"] == 1
+    for seen in inside.values():  # the camera came inside: no wall is in the way
+        assert not seen["faded"] and not seen["transparent"] and seen["opacity"] == 1
+    held, released, gone = built["held"], built["released"], built["gone"]
+    assert held["things"] == {"ball_felt": [1500, 900, 35]}
+    assert held["hand"] == {"visible": True, "at": [1200, -400, 118]}  # on the duck's trunk
+    here = {body: at for body, at in held["people"].items() if at is not None}
+    assert here == {"person_owner": [2000, 1000, 0]}
+    assert released["hand"] == {"visible": True, "at": [500, 500, 300]}  # the hand's own place
+    assert not gone["hand"]["visible"] and not any(gone["people"].values())
+
+
+def test_every_world_button_on_the_page_asks_for_something_the_server_does():
+    """D2 「扶起物理身體」 and card 09 (示範 and 用眼睛做 bump/peck/kick, roll a ball, tidy up):
+    what each button of the page sends — its name, its kind and the chosen toy — is a call the
+    server's world buttons take, and it reaches the world (never Duck Core, W05)."""
+    from page_tree_node_harness import elements_with
+
+    from duckmind.simweb.server import WORLD_BUTTONS, world_button
+
+    class World:
+        neuro = None
+
+        def __init__(self) -> None:
+            self.asked: list[tuple[Any, ...]] = []
+
+        def upright(self) -> dict[str, Any]:
+            self.asked.append(("upright",))
+            return {"ok": True, "eta_s": 2.5}
+
+        def demo(self, kind: str, thing: str, side: str | None) -> dict[str, Any]:
+            self.asked.append(("demo", kind, thing))
+            return {"ok": True}
+
+        def eye_demo(self, kind: str, thing: str) -> dict[str, Any]:
+            self.asked.append(("eye_demo", kind, thing))
+            return {"ok": True}
+
+        def world_action(self, op: str, **params: Any) -> dict[str, Any]:
+            self.asked.append((op, params))
+            return {"ok": True}
+
+    world = World()
+    toy = elements_with("value", inside="worldThing")[0]["value"]  # the chooser's first toy
+    for button in elements_with("data-world"):
+        assert button["data-world"] in WORLD_BUTTONS, button
+        sent = {"kind": button.get("data-kind", ""), "thing": toy}  # (app.js: the button's click)
+        assert world_button(world, button["data-world"], sent)["note"], button  # type: ignore[arg-type]
+    assert world.asked == [
+        *[("demo", kind, toy) for kind in ("bump", "peck", "kick")],
+        *[("eye_demo", kind, toy) for kind in ("bump", "peck", "kick")],
+        ("x_roll_ball", {"toward": "duck", "id": toy}),
+        ("x_tidy", {"to": "toy_corner"}),
+        ("upright",),
+    ]
 
 
 # ── behaviour: the server's truth, placements and the hand, with a stand-in body ────
@@ -985,27 +898,6 @@ def test_the_bridge_and_the_view_take_both_engines_ducks_and_their_falls(tmp_pat
     assert laid["v4_0"] == laid["v4_1"]  # the same duck, the same fall, the same place
 
 
-def test_the_view_lays_a_v4_1_fall_down_where_duck_core_says():
-    """LANDING §3b: v4 put where the duck fell on its ``body.fell``; v4_1 puts it on Duck Core's
-    own ``duck.posture(fallen)``, which ``api._motion`` hands the page as ``at``. The 3D view lays
-    the fallen body there either way — when the fall is played (``nextBodyAction``) and when it is
-    applied at once after a fast-forward (``settle``) — and a posture item carries ``at`` along
-    (``play``, ``queueItem``), so the plan duck does not wait for the next snapshot to lie where
-    it fell."""
-    source = DUCK3D_JS.read_text(encoding="utf-8")
-    settle = _function(source, "settle")
-    assert 'if (item.posture === "fallen") placeAt(b, item.at);' in settle
-    assert 'if (item.fall || item.posture === "fallen") placeAt(b, item.at);' in _function(
-        source, "nextBodyAction"
-    )
-    assert "{ posture: motion.posture, at: motion.at, caption: text }" in _function(
-        source, "queueItem"
-    )
-    assert "b.queue.push({ posture: motion.posture, at: motion.at, caption: motion.caption })" in (
-        _function(source, "play")
-    )
-
-
 @needs_node
 def test_beak_provenance_survives_unpack_interpolation_and_frame_pose():
     out = _node(
@@ -1052,9 +944,3 @@ console.log(JSON.stringify({
             {"key": "page.duck3d.readout.beak.unavailable", "params": None},
         ],
     }
-
-
-def test_truth_beak_caption_uses_provenance_and_no_longer_claims_no_jaw():
-    duck3d = DUCK3D_JS.read_text()
-    assert "beakCaption(window.I18N, source, beakValue)" in duck3d
-    assert "模擬身體沒有嘴巴關節" not in duck3d

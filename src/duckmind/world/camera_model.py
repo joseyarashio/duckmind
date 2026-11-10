@@ -169,7 +169,9 @@ CEILING_M = world_lights.DEFAULT_CEILING_M
 # variable. Only the camera follows it: the simulator's robotd keeps its default board, whose other
 # effects (the body IMU's mount, a head IMU robotd reads itself) the simulator does not model.
 BOARD_ENV = "DUCKMIND_BOARD"
-# (camera-dock 2026-11-09, owner 「換」) the production camera by default: production ducks carry the GC2093
+# (camera-dock 2026-11-09, owner 「換」) the production camera by default: production ducks carry the GC2093.
+# This is the simulator's choice when nothing names a board; it is not what robotd takes a real
+# robot's board to be when its robotd.toml names none (robotd_config.ROBOTD_UNSET_BOARD, "zero3").
 DEFAULT_SIM_BOARD = "beta"
 # robotd's camera frame (kinematics ``SITE_TO_CV2``: the head_camera site → OpenCV axes) is the
 # upright picture's on every board (duck-eye turns it by the frame's ``rotate`` into the sensor:
@@ -182,7 +184,8 @@ HALF_TURN_X = (0.0, 1.0, 0.0, 0.0)
 
 
 def sim_board(board: str | None = None) -> str:
-    """The simulated duck's board: ``board``, else ``$DUCKMIND_BOARD``, else :data:`DEFAULT_SIM_BOARD` (beta)."""
+    """The simulated duck's board: ``board``, else ``$DUCKMIND_BOARD``, else :data:`DEFAULT_SIM_BOARD` (beta:
+    the simulator's default, not robotd's reading of an unset ``[board] version``)."""
     if board is None:
         board = os.environ.get(BOARD_ENV, "").strip() or DEFAULT_SIM_BOARD
     if board not in BOARD_CAMERAS:
