@@ -36,8 +36,17 @@ pytestmark = pytest.mark.skipif(
 def test_edge_node_tests_pass() -> None:
     files = sorted(str(p.relative_to(EDGE)) for p in (EDGE / "test").glob("*.test.ts"))
     assert files, "no edge tests found"
+    # The reporter is named: Node's default differs by version (22 writes TAP when the output is not a
+    # terminal, 24 writes "spec"), and the summary lines below are TAP's.
     run = subprocess.run(
-        [NODE, "--test", *files], cwd=EDGE, capture_output=True, text=True, timeout=120, check=False
+        [NODE, "--test", "--test-reporter=tap", *files],
+        cwd=EDGE,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
     )
     assert run.returncode == 0, run.stdout[-4000:] + run.stderr[-2000:]
-    assert re.search(r"^ℹ fail 0$", run.stdout, re.M), run.stdout[-2000:]
+    assert re.search(r"^# fail 0$", run.stdout, re.M), run.stdout[-2000:]
+    passed = re.search(r"^# pass (\d+)$", run.stdout, re.M)
+    assert passed and int(passed.group(1)) > 0, run.stdout[-2000:]
