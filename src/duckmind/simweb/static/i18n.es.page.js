@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / page (1990 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "page", {
 "fmt.sep.and_then": " y además ",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("es", "page", {
 "page.body.state.offline": "No se puede conectar con el servidor; se volverá a intentar pronto.",
 "page.body.state.real": "Conectado al pato de verdad ({url}), unos {ms} ms de ida y vuelta.",
 "page.body.state.real_new": "Conectado al pato de verdad ({url}).",
+"page.body.state.real_off": "Conectado al pato ({url}), pero aún no está encendido. Enciéndelo con su propio control; este programa nunca lo enciende, y cuando esté encendido el cerebro se hace cargo solo.",
 "page.body.state.rehearsal": "Conectado al pato de ensayo de este ordenador ({url}), unos {ms} ms de ida y vuelta: hace de pato de verdad, sin mundo simulado.",
 "page.body.state.rehearsal_new": "Conectado al pato de ensayo de este ordenador ({url}): hace de pato de verdad, sin mundo simulado.",
 "page.body.state.remote_down": "Se cortó la conexión con el cuerpo de la otra máquina ({url}); volviendo a conectar. Mientras tanto, el patito se detiene y se sienta.",
@@ -1854,6 +1855,7 @@ DuckI18n.load("es", "page", {
 "page.real.live.held": "En brazos: las patas en pausa",
 "page.real.live.toggle": "Movimientos del propio pato",
 "page.real.live.toggle_title": "La vista sigue las articulaciones y la odometría que mide el propio pato (no es física); apágalo para ver la animación de muestra",
+"page.real.live.turn_on": "El pato no está encendido: enciéndelo con su propio control (este programa nunca lo enciende)",
 "page.real.live.waiting": "Esperando los datos de las articulaciones del pato…",
 "page.real.no_world": "Este es el pato de verdad: no hay mundo simulado, así que esto no se puede hacer",
 "page.real.note.gothere": "Este es el pato de verdad: no hay mundo simulado, así que todavía no se puede señalar el suelo para mandarlo allí.",

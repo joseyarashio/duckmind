@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: es / core (2118 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: es / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("es", "core", {
 "bodyhost.assess.07fced96": "El programa de control (robotd) lleva {seconds, number, ::.0} s sin enviar órdenes: la física se ha detenido",
 "bodyhost.assess.1428e8f9": "El ordenador está muy ocupado y la simulación va más lenta",
@@ -1753,6 +1753,7 @@ DuckI18n.load("es", "core", {
 "livebody.LiveBody.monitor_view.walk_backlash": "La red de caminar se entrenó con un cuerpo cuyos engranajes tienen algo de holgura; este cuerpo simulado no la tiene, así que las cifras de la marcha no son fiables",
 "livebody.no_world": "Este es el pato de verdad: no hay mundo simulado, así que esto no se puede hacer",
 "livebody.real_no_camera": "La cámara del pato no está en la conexión (el puente del pato no ofrece la cámara)",
+"livebody.real_turn_on": "El pato aún no está encendido: enciéndelo con su propio control. Este programa nunca lo enciende; cuando esté encendido, el cerebro se hace cargo solo",
 "world.apartment.ZH.ball": "pelota",
 "world.apartment.ZH.bed_base": "cama",
 "world.apartment.ZH.bed_blanket": "edredón",

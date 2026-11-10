@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hant / core (2118 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hant / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hant", "core", {
 "bodyhost.assess.07fced96": "控制程式（robotd）已經 {seconds, number, ::.0} 秒沒有送指令，物理停住了",
 "bodyhost.assess.1428e8f9": "電腦太忙，模擬變慢了",
@@ -1753,6 +1753,7 @@ DuckI18n.load("zh-Hant", "core", {
 "livebody.LiveBody.monitor_view.walk_backlash": "走路網路是在齒輪有一點鬆的身體上練的，這次的模擬身體沒有：走路的數字不準",
 "livebody.no_world": "這是真的小鴨：沒有模擬的世界，這件事做不到",
 "livebody.real_no_camera": "小鴨沒有把相機接上連線（小鴨那邊的橋沒有開相機）",
+"livebody.real_turn_on": "這隻小鴨還沒開：請用牠自己的控制把牠開起來。這個程式不會替你開；開好以後，腦會自己接手",
 "world.apartment.ZH.ball": "球",
 "world.apartment.ZH.bed_base": "床",
 "world.apartment.ZH.bed_blanket": "被子",

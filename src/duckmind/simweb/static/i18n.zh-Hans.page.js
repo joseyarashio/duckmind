@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hans / page (1990 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hans / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hans", "page", {
 "fmt.sep.and_then": "，又",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("zh-Hans", "page", {
 "page.body.state.offline": "连不上服务器，稍后会再试。",
 "page.body.state.real": "连着真的小鸭（{url}），来回大约 {ms} 毫秒。",
 "page.body.state.real_new": "连着真的小鸭（{url}）。",
+"page.body.state.real_off": "连上小鸭了（{url}），但它还没开。请用它自己的控制把它开起来；这个程序不会替你开，开好以后脑会自己接手。",
 "page.body.state.rehearsal": "连着这台电脑上的演练小鸭（{url}），来回大约 {ms} 毫秒：它扮演真的小鸭，没有模拟的世界。",
 "page.body.state.rehearsal_new": "连着这台电脑上的演练小鸭（{url}）：它扮演真的小鸭，没有模拟的世界。",
 "page.body.state.remote_down": "另一台机器上的身体（{url}）断线了，正在重新连；这段时间那只小鸭会停下来坐好。",
@@ -1854,6 +1855,7 @@ DuckI18n.load("zh-Hans", "page", {
 "page.real.live.held": "被抱起来了，脚先停着",
 "page.real.live.toggle": "小鸭自己的动作",
 "page.real.live.toggle_title": "画面照小鸭自己量到的关节和里程计画（不是物理）；关掉则显示示意动画",
+"page.real.live.turn_on": "小鸭还没开：请用它自己的控制把它开起来（这个程序不会替你开）",
 "page.real.live.waiting": "正在等小鸭的关节数据…",
 "page.real.no_world": "这是真的小鸭：没有模拟的世界，这件事做不到",
 "page.real.note.gothere": "这是真的小鸭：没有模拟的世界，点地板叫它过去还做不到。",

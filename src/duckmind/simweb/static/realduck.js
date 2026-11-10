@@ -1,6 +1,8 @@
 /* 真的小鴨 on the simulator page (docs/real-microduck.md): the brain drives a real Microduck (or a
  * rehearsal body that plays one) over the link, with the duck's own senses only. It reads
  *   GET /api/body           real: null for a simulated body, else {rehearsal, reason, refuses: [codes],
+ *                           turn_on: words while the duck is not on and waits for a person to turn it
+ *                           on (duck3d.js's line, bodylink.js's card) | null,
  *                           battery: {percent, volts, charging, source, age_s} | null}; remote: the
  *                           link's stats (up, rtt_ms_p50, drops, max_gap_ms, …)   (app.js takeBody)
  *   /api/neuro telemetry    real: the same, without the battery; left out while the brain has no

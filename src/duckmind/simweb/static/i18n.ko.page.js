@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ko / page (1990 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ko / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ko", "page", {
 "fmt.sep.and_then": ", 그리고 ",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("ko", "page", {
 "page.body.state.offline": "서버에 연결할 수 없어요. 잠시 후 다시 시도할게요.",
 "page.body.state.real": "진짜 오리({url})와 연결됨, 왕복 약 {ms}ms.",
 "page.body.state.real_new": "진짜 오리({url})와 연결됨.",
+"page.body.state.real_off": "오리({url})와 연결됐지만 아직 켜지지 않았어요. 오리 자체의 조작으로 켜 주세요. 이 프로그램은 대신 켜지 않고, 켜지면 뇌가 알아서 이어받아요.",
 "page.body.state.rehearsal": "이 컴퓨터의 연습용 오리({url})와 연결됨, 왕복 약 {ms}ms. 진짜 오리 역할이고, 시뮬레이션 세계는 없어요.",
 "page.body.state.rehearsal_new": "이 컴퓨터의 연습용 오리({url})와 연결됨. 진짜 오리 역할이고, 시뮬레이션 세계는 없어요.",
 "page.body.state.remote_down": "다른 기계에 있는 몸({url})과 연결이 끊겼어요. 다시 연결하는 중이고, 그동안 오리는 멈춰서 앉아요.",
@@ -1854,6 +1855,7 @@ DuckI18n.load("ko", "page", {
 "page.real.live.held": "누가 안아 들었어요 (다리는 잠시 멈춤)",
 "page.real.live.toggle": "오리 자신의 움직임",
 "page.real.live.toggle_title": "화면은 오리가 직접 잰 관절과 주행 거리계대로 그려요(물리가 아니에요). 끄면 설명용 애니메이션이 나와요",
+"page.real.live.turn_on": "오리가 아직 꺼져 있어요. 오리 자체의 조작으로 켜 주세요(이 프로그램은 켜지 않아요)",
 "page.real.live.waiting": "오리의 관절 정보를 기다리는 중…",
 "page.real.no_world": "진짜 오리예요: 시뮬레이션 세계가 없어서 이건 할 수 없어요",
 "page.real.note.gothere": "진짜 오리예요: 시뮬레이션 세계가 없어서 바닥을 눌러 그쪽으로 보내는 건 아직 안 돼요.",

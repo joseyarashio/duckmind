@@ -33,8 +33,10 @@
       if (!remote.up) return { state: "remote_down", key: "page.body.state.remote_down", params: { url }, stats };
       const ms = remote.rtt_ms_p50;
       const known = typeof ms === "number";
-      // A real duck (or the rehearsal that plays one): said as such, with the same numbers.
+      // A real duck (or the rehearsal that plays one): said as such, with the same numbers — or, while
+      // it is not on yet (`turn_on`), that a person turns it on with the duck's own control.
       if (answer.real && typeof answer.real === "object") {
+        if (answer.real.turn_on) return { state: "real_off", key: "page.body.state.real_off", params: { url }, stats };
         const [withMs, without] = answer.real.rehearsal
           ? ["page.body.state.rehearsal", "page.body.state.rehearsal_new"]
           : ["page.body.state.real", "page.body.state.real_new"];

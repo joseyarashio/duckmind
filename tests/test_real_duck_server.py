@@ -140,6 +140,7 @@ def test_the_snapshot_tells_the_page_it_is_a_real_duck_and_draws_no_world(tmp_pa
         "rehearsal": True,
         "reason": NO_WORLD,
         "refuses": sorted(REAL_REFUSES),
+        "turn_on": None,
         "battery": body.pack,
     }
     assert snap["remote"]["up"] is True  # (the link's own numbers stay)
@@ -181,8 +182,46 @@ def test_the_body_snapshot_keeps_the_real_mode_while_the_link_dials_again(tmp_pa
         "rehearsal": True,
         "reason": NO_WORLD,
         "refuses": sorted(REAL_REFUSES),
+        "turn_on": None,
         "battery": None,
     }
+
+
+def test_the_snapshot_asks_a_person_to_turn_a_real_duck_on_while_the_body_waits(tmp_path):
+    """A real duck that is not on is never enabled by the brain: the body waits and the page is
+    told, in plain words, that a person turns it on with the duck's own control."""
+    bridge, body = _bridge(tmp_path)
+    bridge.ready = False  # (the body's start has not returned: it waits)
+    body.waits_turn_on = True
+    snap = bridge.snapshot()
+    assert snap["starting"] is True and snap["available"] is False
+    assert snap["real"]["turn_on"] == str(msg("livebody.real_turn_on"))
+    assert snap["real"]["turn_on"].key == "livebody.real_turn_on"
+    body.waits_turn_on = False  # (a person turned it on)
+    assert bridge.snapshot()["real"]["turn_on"] is None
+
+
+def test_the_live_bridge_waits_for_a_real_duck_to_be_turned_on(tmp_path, duck):  # noqa: F811
+    """End to end over a fake real bridge: the duck is not on, the page's body says so and is not
+    ready; nothing enables it; once a person has, the bridge is ready and drives it."""
+    duck.robotd.state = {**duck.robotd.state, "policy": "off"}
+    paths = LivePaths(*(tmp_path / n for n in ("m", "r", "p", "robotd", "ort")))
+    url = f"remote://127.0.0.1:{duck.bridge.port}"
+    bridge = LiveBridge(paths, remote=RemoteBodySpec(url, duck.token))
+    bridge.start()
+    try:
+        assert _wait_for(lambda: (bridge.snapshot()["real"] or {}).get("turn_on") is not None, 10.0)
+        snap = bridge.snapshot()
+        assert snap["starting"] is True and snap["error"] is None and bridge.ready is False
+        assert snap["real"]["turn_on"] == str(msg("livebody.real_turn_on"))
+        time.sleep(0.4)
+        assert "robot.enable" not in duck.robotd.methods
+        duck.robotd.state = {**duck.robotd.state, "policy": "sit"}  # a person turned it on
+        assert _wait_for(lambda: bridge.ready or bridge.error is not None, 10.0), "never ready"
+        assert bridge.error is None and bridge.snapshot()["real"]["turn_on"] is None
+        assert not {"robot.enable", "robot.init", "robot.poseJoints"} & set(duck.robotd.methods)
+    finally:
+        bridge.stop()
 
 
 def test_every_world_action_of_the_bridge_is_refused_with_the_plain_reason(tmp_path):

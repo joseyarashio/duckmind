@@ -44,6 +44,7 @@ import {
   playoutArrive,
   playoutTime,
   policyKey,
+  realWaitKey,
   poseGap,
   sampleFrames,
   trailPush,
@@ -1181,7 +1182,7 @@ function liveText(info) {
   const said = (info.error_zh && F(info, "error_zh")) || info.error;
   // (a real duck: the robot itself, never "the physics body")
   if (info.error) return T(info.real ? "page.real.live.error" : "page.duck3d.liveText.9a7698", { error_zh: said });
-  if (info.real && (info.starting || !info.available)) return T("page.real.live.waiting");
+  if (info.real && (info.starting || !info.available)) return T(realWaitKey(info.real));
   if (info.starting || !info.available) return T("page.duck3d.liveText.34fa2a");
   const key = policyKey(info.policy, !!info.real);
   const policy = key ? T(key) : info.real ? "" : info.policy || "";

@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: ja / page (1990 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: ja / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("ja", "page", {
 "fmt.sep.and_then": "、それに",
 "fmt.sep.babble": "・",
@@ -382,6 +382,7 @@ DuckI18n.load("ja", "page", {
 "page.body.state.offline": "サーバーにつながりません。しばらくしてまた試します。",
 "page.body.state.real": "本物のアヒル（{url}）とつながっています。往復およそ {ms} ミリ秒。",
 "page.body.state.real_new": "本物のアヒル（{url}）とつながっています。",
+"page.body.state.real_off": "アヒル（{url}）とつながっていますが、まだ起動していません。アヒル自身の操作で起動してください。このプログラムが代わりに起動することはなく、起動すると脳が自分で引き継ぎます。",
 "page.body.state.rehearsal": "このパソコンのリハーサル用アヒル（{url}）とつながっています。往復およそ {ms} ミリ秒。本物のアヒル役で、シミュレーションの世界はありません。",
 "page.body.state.rehearsal_new": "このパソコンのリハーサル用アヒル（{url}）とつながっています。本物のアヒル役で、シミュレーションの世界はありません。",
 "page.body.state.remote_down": "別の機械の体（{url}）との接続が切れました。つなぎなおしています。そのあいだアヒルは止まって座ります。",
@@ -1854,6 +1855,7 @@ DuckI18n.load("ja", "page", {
 "page.real.live.held": "抱き上げられています（足は止めています）",
 "page.real.live.toggle": "アヒル自身の動き",
 "page.real.live.toggle_title": "画面はアヒル自身が測った関節とオドメトリ（歩いた道のり）どおりに描きます（物理ではありません）。オフにすると説明用のアニメーションになります",
+"page.real.live.turn_on": "アヒルはまだ起動していません。アヒル自身の操作で起動してください（このプログラムは起動しません）",
 "page.real.live.waiting": "アヒルの関節のデータを待っています…",
 "page.real.no_world": "これは本物のアヒル：シミュレーションの世界がないので、これはできません",
 "page.real.note.gothere": "これは本物のアヒル：シミュレーションの世界がないので、床を指してそこへ行かせることはまだできません。",

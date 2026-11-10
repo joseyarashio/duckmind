@@ -123,6 +123,9 @@ RISE_WAIT_S = 6.0  # a walk waits this long for the body to finish standing up
 REMOTE_DIAL_S = 20.0  # a remote body's bridge must answer within this at start
 REMOTE_STATE_WAIT_S = 10.0  # ... and its robotd's first state frame within this
 UP_POLICIES = frozenset({"walk", "stand", "sit"})  # an enabled body (no enable needed)
+# SAFETY.md: duckmind never turns a real duck on. The operator (robot.enable, robot.init,
+# robot.poseJoints) is for simulated bodies only; a real duck's bridge refuses them as well.
+REAL_NO_OPERATOR = "a real duck is turned on, homed and posed only by a person, never by duckmind"
 REMOTE_RETRY_S = (0.1, 0.2, 0.5)  # a remote body's link dials again on its own: try sooner
 # Owner decisions 2026-09-26 (phase 0): the whole body collides, and the physics advances
 # only when robotd has written that tick's targets (see duckmind.bodyhost).
@@ -743,6 +746,10 @@ class LiveBody:
         # and no simulated world at all (no oracle, no x_world, no world ops: NoWorld).
         self.real = False
         self.rehearsal = False  # a real-mode rehearsal: sim-body --as-real on a computer
+        # A real duck that is not on yet: the body waits (start() has not returned) until a person
+        # turns it on with the duck's own control. The page says so (LiveBridge.real_view).
+        self.waits_turn_on = False
+        self._operator_refused: set[str] = set()  # (each said once on the console)
 
     # ── lifecycle ───────────────────────────────────────────────────────
 
@@ -896,7 +903,9 @@ class LiveBody:
     def _attach(self, sock: Path, timeout_s: float) -> None:
         """Connect to a running body's robotd (and the world's oracle on ``body_port``), start the
         body threads and bring it up: enabled, standing, then seated when asked. A real duck has
-        no oracle and no world: its frames come from robotd's own state (_read_state)."""
+        no oracle and no world: its frames come from robotd's own state (_read_state). It gets no
+        operator either and is never enabled from here: one that is not on yet is waited for
+        (:meth:`_wait_turned_on`)."""
         assert self.real or self.body_port is not None
         self._port = RobotdBodyPort(sock, backend=self._backend, hz=25)
         if self._port.capabilities.get("walk") != "velstand.onnx":
@@ -906,24 +915,30 @@ class LiveBody:
         if missing_skills and not self.real:
             # (a real duck's robotd runs the skills it loaded itself: this computer's table is not on it)
             raise RuntimeError(f"robotd did not load the trained skills {missing_skills}")
-        self._operator = RobotdOperatorClient(sock)
+        self._operator = None if self.real else RobotdOperatorClient(sock)
         if self.real:
-            threads = [self._read_state, self._control]
+            # (its command thread starts only once the duck is known to be on: until a person has
+            # turned it on, nothing but the state subscription is sent to it)
+            threads = [self._read_state]
         else:
             self._oracle = SimOracle(self.body_port)
             threads = [self._read_state, self._control, self._sample, self._watch]
         if self.home:
             threads.append(self._world_watch)
         for target in threads:
-            thread = threading.Thread(target=target, daemon=True)
-            thread.start()
-            self._threads.append(thread)
+            self._spawn(target)
         if self.remote is not None:
             # A remote body was brought up by its own launcher (and may have been driven by an
-            # earlier brain): enable it only when it is not up yet.
+            # earlier brain): enable it only when it is not up yet — and only a simulated one.
             self._wait(lambda: self.policy != "starting", REMOTE_STATE_WAIT_S, "a state frame")
+            if self._operator is None:
+                if self.policy not in UP_POLICIES:
+                    self._wait_turned_on()
+                self._spawn(self._control)
+                return
             if self.policy in UP_POLICIES:
                 return
+        assert self._operator is not None  # (a real duck is always a remote body)
         ack = self._operator.enable(True)
         if not ack.accepted:
             raise RuntimeError(f"robotd refused enable: {ack.reason}")
@@ -933,6 +948,29 @@ class LiveBody:
         if self.seated_start:
             self.request_posture("sit")
             self._wait(lambda: self.policy == "sit", 15.0, "sit")
+
+    def _spawn(self, target: Callable[[], None]) -> None:
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        self._threads.append(thread)
+
+    def _wait_turned_on(self) -> None:
+        """A real duck whose walking policy is not on: wait, for as long as it takes, until a
+        person has turned it on with the duck's own control (robotd then reports walk, stand or
+        sit) and the brain takes it from there. Nothing is sent to it meanwhile but the state
+        subscription; a link that drops dials again on its own and the wait goes on."""
+        self.waits_turn_on = True
+        print(
+            f"live body: the real duck is not on (policy {self.policy}): waiting for a person to "
+            "turn it on with the duck's own control (duckmind never turns the robot on)",
+            flush=True,
+        )
+        try:
+            while self.policy not in UP_POLICIES:
+                if self._stop.wait(0.05):
+                    raise RuntimeError("stopped while the real duck was not turned on")
+        finally:
+            self.waits_turn_on = False
 
     def _body_command(self, port: int) -> list[str]:
         """How the official body server is started: through duckmind.bodyhost, or through
@@ -1045,8 +1083,13 @@ class LiveBody:
     def pose_joints(
         self, targets: Sequence[float | None], off: Sequence[str], *, gain: int, ramp_s: float
     ) -> bool:
-        """The operator's ``robot.poseJoints`` (play dead's scripted pose); False when this robotd has none or refuses."""
-        if self._operator is None or not self.pose_joints_ok:
+        """The operator's ``robot.poseJoints`` (play dead's scripted pose); False when this robotd has none or refuses,
+        and always on a real duck (:meth:`_no_operator`)."""
+        if (
+            self._no_operator("robot.poseJoints")
+            or self._operator is None
+            or not self.pose_joints_ok
+        ):
             return False
         try:
             return bool(
@@ -1058,6 +1101,16 @@ class LiveBody:
             self.error = f"poseJoints: {error}"
             self.pose_joints_ok = False
             return False
+
+    def _no_operator(self, method: str) -> bool:
+        """True on a real duck, where no operator request is ever sent (:data:`REAL_NO_OPERATOR`;
+        said once per method on the console)."""
+        if not self.real:
+            return False
+        if method not in self._operator_refused:
+            self._operator_refused.add(method)
+            print(f"live body: {method} not sent: {REAL_NO_OPERATOR}", flush=True)
+        return True
 
     def _operator_call(self, call: Callable[[RobotdOperatorClient], Any]) -> Any:
         """One operator request; a remote body's operator connection that went with a dropped
@@ -1077,8 +1130,8 @@ class LiveBody:
         return call(operator)
 
     def operator_init(self) -> bool:
-        """The operator's ``robot.init`` (torque back on everywhere, the ramp home)."""
-        if self._operator is None:
+        """The operator's ``robot.init`` (torque back on everywhere, the ramp home); never on a real duck."""
+        if self._no_operator("robot.init") or self._operator is None:
             return False
         try:
             return bool(self._operator_call(lambda op: op.init()).accepted)
@@ -1087,8 +1140,8 @@ class LiveBody:
             return False
 
     def operator_enable(self, on: bool = True) -> bool:
-        """The operator's ``robot.enable`` (the walking policy back on)."""
-        if self._operator is None:
+        """The operator's ``robot.enable`` (the walking policy back on); never on a real duck."""
+        if self._no_operator("robot.enable") or self._operator is None:
             return False
         try:
             return bool(self._operator_call(lambda op: op.enable(bool(on))).accepted)
@@ -1774,6 +1827,7 @@ class LiveBody:
             "held": self._held,
             "real": self.real,
             "rehearsal": self.rehearsal,
+            "waits_turn_on": self.waits_turn_on,
         }
         if self._link is not None:
             status["remote"] = self._link.stats()

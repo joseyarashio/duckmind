@@ -28,8 +28,16 @@ These layers are there to reduce risk. None of them is a certified safety functi
 - **duckmind never turns the robot on.** Its body link refuses to send
   `robot.enable`, `robot.torque`, `robot.policy`, `robot.gains`, `robot.servo`,
   `robot.calibrate` and `robot.reboot_motors`. A person enables the robot's walking
-  policy through the robot's own controls. (Only the simulator and commissioning
-  tools use a separate operator client that can enable a simulated robot.)
+  policy through the robot's own controls. The same holds when the brain runs on a
+  home computer and reaches the robot over the remote-body bridge
+  ([docs/real-microduck.md](docs/real-microduck.md)): the bridge on a real robot
+  answers `robot.enable`, `robot.init` and `robot.poseJoints` with an error, logs
+  it, and never passes them to robotd, and the brain opens no operator connection to
+  a real robot. If the robot is not on when the brain connects, the brain waits and
+  the page asks you to turn it on with its own control; once you have, the brain
+  takes over. (Only a simulated robot is ever enabled by duckmind: the simulator,
+  the simulated remote body and the commissioning tools use a separate operator
+  client for it.)
 - **Play starts locked.** After every boot the body is marked lost until checks
   pass. On a real board, play stays locked until a supervised bench trial of the
   head profile has been recorded and an operator installs an approval tied to that

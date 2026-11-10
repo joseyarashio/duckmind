@@ -27,10 +27,11 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
 
 | | |
 |---|---|
-| 聽在哪裡 | 預設只聽本機；你要給小鴨的區網位址（或 `0.0.0.0`）。兩端都拒絕不在本機、私有、link-local 範圍的位址。 |
+| 聽在哪裡 | 預設只聽本機，別台機器連不到；你要給小鴨自己的區網位址（第 4 步說怎麼找）。`0.0.0.0` 也可以，但小鴨連著的每個網路都會聽到——不要用。兩端都拒絕不在本機、私有、link-local 範圍的位址。 |
 | 誰能開 | 證明自己有共用密鑰的那**一個**大腦（雙方互相出題的 HMAC；密鑰從不上網路）。另一個有密鑰的大腦連進來會接手。 |
 | 防竄改 | 握手之後每一框都有序號和簽章（每次連線自己的金鑰，HMAC-SHA256）；壞掉或順序不對的框會斷線並停車。連線**沒有加密**——只在區網用。 |
-| 大腦可以送什麼 | robotd：`hello`、`robot.subscribe`、`move`、`head`、`mouth`、`pose`、`look`、`do`、`stop`、`health`、`model`、`modelApi`、`policies`、`safeToRestart`，以及操作員的 `enable`、`init`、`poseJoints`。其他的（`robot.relax`、`loadPolicy`、`shutdown`、`setMode`、`rebootMotors`、`system.*`、`net.*`…）一律回錯誤，不會到 robotd。 |
+| 大腦可以送什麼 | robotd：`hello`、`robot.subscribe`、`move`、`head`、`mouth`、`pose`、`look`、`do`、`stop`、`health`、`model`、`modelApi`、`policies`、`safeToRestart`。其他的（`robot.relax`、`loadPolicy`、`shutdown`、`setMode`、`rebootMotors`、`system.*`、`net.*`…）一律回錯誤，不會到 robotd。 |
+| 把小鴨開起來 | **Duck Mind 絕不做這件事；要由人用小鴨自己的控制來開。** 操作員的 `robot.enable`、`robot.init`、`robot.poseJoints` 只有在 bridge 後面是模擬身體（`sim-body`）時才會轉過去。真的小鴨上的 bridge（`--backend real`，也是預設）和 `sim-body --as-real` 一律回錯誤（`… is never sent to a real duck; a person turns the duck on with its own control`）、在事件檔記一筆 `refused_operator`，不會送到 robotd。大腦這邊也不會送：接真的小鴨時，它根本不開操作員的連線。 |
 | 斷線 | 大腦每 100 ms 打一次招呼。**1.0 秒**沒收到任何東西（或連線斷了、或收到壞框），bridge 關掉所有串流——大腦之前送的東西不會晚到——送 `robot.stop`，小鴨還站著就送 `robot.do sit_toggle`（一直重試到坐下；坐著或跌倒時絕不送）。robotd 自己在最後一個 `robot.move` 之後 0.5 秒就已經把走路歸零。 |
 | 連回來 | 大腦重新撥號（0.1 → 1 秒漸慢），在小鴨現在的樣子（坐著）接手。 |
 
@@ -75,14 +76,16 @@ RemoteLink ══ 區網上的一條 TCP 連線 ══════════�
    ```
 
    （`duckctl scp` 自己會找小鴨；開頭的 `:` 是小鴨上的路徑，在 `--user` 的家目錄，沒給就用 `DUCK_BOARD_USER`，再沒有就是 `microduck`。資料夾先用 `duckctl ssh` 建好。）
-4. **在小鴨上啟動 bridge**，用 `robot` 群組裡的使用者（這樣才打得開 `/run/robotd.sock`）：
+4. **在小鴨上啟動 bridge**，用 `robot` 群組裡的使用者（這樣才打得開 `/run/robotd.sock`），聽在小鴨自己在家裡網路上的位址：
 
    ```sh
-   python -m duckmind.remotebody bridge --listen 0.0.0.0:8797 \
+   python -m duckmind.remotebody bridge --listen <小鴨位址>:8797 \
        --token-file ~/.duckmind/remote-body.token --backend real \
        --robotd /run/robotd.sock --tofd /run/tofd/tof.sock --media /run/mediad/media.sock \
        --events ~/remote-body-events.jsonl
    ```
+
+   `<小鴨位址>` 就是第 1 步的位址：在電腦上跑 `duckctl ip`，或在小鴨上跑 `ip -4 addr`（看 Wi-Fi 那個介面的 `inet` 那一行，不要後面的 `/24`）。不加 `--listen` 的話 bridge 只聽本機（`127.0.0.1`），電腦連不到。請給小鴨自己的位址，不要用 `0.0.0.0`：那樣小鴨連著的每個網路都會聽到。路由器換了小鴨的位址，就用新的位址重開 bridge。
 
    接的是真的小鴨時，bridge 一啟動就會把 **Pollen 的匿名使用資料**（遙測）關掉一次（主人決定的；0.18.3 起小鴨預設會送）。這個開關在 `updaterd` 手上：bridge 對 `/run/updaterd.sock` 送 `telemetry.set {"enabled": false}`（權限 `0660 root:robot`，bridge 的使用者就能送）。關掉之後重開機、更新都會保持關著，隨機的機器人編號也會刪掉。bridge 會在事件檔記一筆 `telemetry`，寫它看到什麼、做了什麼。加 `--keep-pollen-telemetry` 就不碰這個開關。模擬器沒有跑 `updaterd`，所以這台電腦什麼都不會送出去。
 
@@ -114,12 +117,14 @@ python -m duckmind.simweb --live --brain neuro --life ~/.duckmind/lives/<你的�
 
 頁面看到 bridge 說「這是真的小鴨」（backend real），就換成**真的小鴨模式**：大腦只用小鴨自己量到、經過連線送來的東西開牠，沒有任何東西來自模擬世界——因為根本沒有模擬世界。
 
+**小鴨要由你來開，Duck Mind 絕不替你開**（[SAFETY.md](../SAFETY.md)）。頁面啟動時如果小鴨的走路策略還沒開（robotd 回報的不是 walk、stand 或 sit），大腦就等：除了訂閱小鴨的狀態，什麼都不送；3D 畫面那一行會寫「小鴨還沒開：請用牠自己的控制把牠開起來（這個程式不會替你開）」（照頁面的語言），「我的小鴨」的「真的小鴨」卡片也寫一樣的話，`/api/body` 的 `real.turn_on` 帶著這句話。請用小鴨自己的控制把牠開起來（Pollen 自己的工具；出貨的小鴨用哪一個，**待驗**）。等 robotd 回報 walk、stand 或 sit，大腦就自己接手，頁面上不用按任何東西。終端機也會印出它在等（`live body: the real duck is not on …`）。
+
 | | 真的小鴨模式 |
 |---|---|
 | 3D 畫面 | 小鴨自己的 15 個關節（`robot.state`），位置用 robotd 的接觸里程計（x、y 和高度），傾斜用 IMU、方向用里程計的方向。牠站在一片空的地板格子上：沒有房間、沒有家具、沒有平面圖。里程計會慢慢偏，所以格子上的位置是小鴨「以為」自己在的地方。畫面的標籤寫「小鴨自己的關節和里程計」，不說是物理真相。 |
 | 鴨眼小窗 | 小鴨的相機，經過連線送來（mediad 的 `media.frame`，走 bridge 的 `media` 通道）。bridge 沒開相機的話，小窗會說相機沒接上連線。 |
 | 狀態 | 跑馬燈上有「真的小鴨」（演練時是「演練」）、連線（來回時間、斷線次數、最久沒消息多久；連著或斷了）、電量（robotd 的 `robot.health`；robotd 還沒回答前是「還不知道」；有沒有在充電不知道）。「我的小鴨」的「真的小鴨」卡片也一樣。 |
-| 可以用 | 遙控（腳）、指令列（說話、稱讚、點心、不對）、小鴨的 robotd 會做的動作和把戲、情緒、一天的時間、說話面板。大腦從 robotd 來的感覺也都在：姿勢、跌倒、被抱起來（robotd 的 `safety.picked_up`）、bridge 有開 `tofd` 時的 ToF。 |
+| 可以用 | 遙控（腳）、指令列（說話、稱讚、點心、不對）、小鴨的 robotd 會做的動作和把戲、情緒、一天的時間、說話面板。大腦從 robotd 來的感覺也都在：姿勢、跌倒、被抱起來（robotd 的 `safety.picked_up`）、bridge 有開 `tofd` 時的 ToF。「裝死」只有坐著的那一種：躺下去的那一種要用 `robot.poseJoints`、`robot.init`、`robot.enable`，這三個絕不會送給真的小鴨。 |
 | 不能用，而且頁面會說為什麼 | 所有模擬世界做的事：逗逗牠的情境（聲音、玩具、人、燈）、世界的手（扶牠起來、抱到地墊上）、家人來訪和換電池、實驗室的世界按鈕（放東西、滾球、收拾、示範）、示範走路、「扶正」和「重設身體」、把擺設套用到家裡、點地板叫牠過去。這些按鈕會變灰，寫著「這是真的小鴨：沒有模擬的世界，這件事做不到」（照頁面的語言），下面還有一行說明；伺服器收到這些要求也用同一句話拒絕。 |
 | 還沒從機器人來 | 麥克風和觸覺（見下面）。 |
 
@@ -156,6 +161,7 @@ robotd 0.18.5 裡**沒有任何一個程式把麥克風的聲音給別的程式*
 - [ ] **相機走連線**：`media.frame` 經過 bridge——一張 720p UYVY 是 1.8 MB；`check` 會印出透過連線每秒拿到幾張（抽 3 秒；bridge 後面的模擬小鴨、中間墊片 20 ± 5 ms、掉包 0.2 %：每秒 5.2 張 720p、77 Mbit/s），或要求小一點的畫質。量產的相機是直立裝的 GC2093，大約 85° × 55°：duck-eye 要加 `--board beta`（或 `face-board-v1`）。
 - [ ] **麥克風、觸覺**：沒有程式把麥克風給別人，小鴨也沒有觸覺感測器（見上面「量產小鴨的麥克風和觸覺」）；今天大腦的聽覺和觸覺是模擬世界的。
 - [ ] **頁面的真的小鴨模式**：3D 畫面跟著真的關節、里程計和傾斜（程式好了，用 `sim-body --as-real` 演練過）；在機器人上確認畫出來的姿勢跟小鴨一樣（坐、站、走、被抱起來），鴨眼小窗有牠的相機畫面，走幾分鐘里程計偏多少。
+- [ ] **由人把牠開起來**：小鴨關著的時候開頁面：3D 畫面那一行和「真的小鴨」卡片會請你把牠開起來，小鴨不會動，bridge 的事件檔裡沒有 `refused_operator`（大腦什麼都沒要求）。用牠自己的控制把牠開起來：頁面會自己接下去。把用的是 Pollen 的哪一個控制記下來。
 - [ ] **小鴨上的其他門**：官方 `mediad` 聽在 `0.0.0.0:8443`／`8080`、沒有認證，區網上的人都能開；藍牙配對（`btd`）預設關著。`check` 會說 8443／8080 從電腦敲不敲得開；`docs/deploy/board.md` 第 5 節有 bridge 使用時把它們關起來的 nftables 設定（只在記憶體裡；預設不會改小鴨上的任何東西）。
 - [ ] **小鴨板子的 CPU**：在電腦上量過（Apple M5 Pro，一顆核心的百分比；`tools/measure_bridge_cpu.py`：bridge 自己一個程序，假的 robotd／tofd／mediad 送照 robotd 0.18.5 格式、每行 5.4 kB 的 `robot.state`，tofd 的 8×8 畫面，mediad 的 720p UYVY 畫面）：只有連線 0.4 %，加上 50 Hz 的 `robot.state` 0.6 %，再加 15 Hz 的 ToF 0.6 %，再加相機每秒 2 張 1.2 %、每秒 5 張 2.2 %；不限速時每秒轉了 205 張（3 Gbit/s）用掉 60 %，一張 1.8 MB 的畫面大約 3 ms CPU（其中 0.6 ms 是簽章）。板子上的 RK3566（四顆 1.8 GHz 的 Cortex-A55）**是估的**、沒量過：這種 Python 工作每顆核心慢 15–30 倍（依公開的單核跑分，循序執行的 A55 對 Apple 的效能核心）：狀態加 ToF 大約一顆核心的 10–20 %（整塊板子的 3–5 %），相機每秒多一張再多一顆核心的 5–9 %。相機真正的限制是 Wi-Fi：沒壓縮的 720p UYVY 每秒 2 張就是 29.5 Mbit/s、5 張是 74 Mbit/s。到小鴨上：在小鴨上跑 `tools/measure_bridge_cpu.py`（只要裝了 Duck Mind 就能跑），大腦在開的時候用 `top` 看 bridge。
 - [ ] **時鐘**：大腦用 robotd 自己的 `t_ns`（不需要對時）；`check` 會印小鴨的時鐘跟電腦差多少（誤差是來回時間的一半）。

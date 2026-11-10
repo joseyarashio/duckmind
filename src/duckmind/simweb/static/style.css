@@ -1674,6 +1674,7 @@ line.mm-fixed { fill: none; stroke-linecap: round; }
 .body-link-state[data-state="remote_up"], .body-link-state[data-state="real"] { border-left-color: var(--green); }
 .body-link-state[data-state="remote_down"], .body-link-state[data-state="error"], .body-link-state[data-state="offline"] { border-left-color: var(--magenta); }
 .body-link-state[data-state="off"], .body-link-state[data-state="loading"], .body-link-state[data-state="starting"] { border-left-color: var(--muted); }
+.body-link-state[data-state="real_off"] { border-left-color: var(--yellow); }
 /* the lab: its jump list, then the brain beside the body, the motions and the emotions */
 .lab-jump { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .lab-jump .btn { margin-top: 0; min-height: 40px; }

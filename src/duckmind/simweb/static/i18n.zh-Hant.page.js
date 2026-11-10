@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: zh-Hant / page (1990 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: zh-Hant / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("zh-Hant", "page", {
 "fmt.sep.and_then": "，又",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("zh-Hant", "page", {
 "page.body.state.offline": "連不上伺服器，稍後會再試。",
 "page.body.state.real": "連著真的小鴨（{url}），來回大約 {ms} 毫秒。",
 "page.body.state.real_new": "連著真的小鴨（{url}）。",
+"page.body.state.real_off": "連上小鴨了（{url}），但牠還沒開。請用牠自己的控制把牠開起來；這個程式不會替你開，開好以後腦會自己接手。",
 "page.body.state.rehearsal": "連著這台電腦上的演練小鴨（{url}），來回大約 {ms} 毫秒：牠扮演真的小鴨，沒有模擬的世界。",
 "page.body.state.rehearsal_new": "連著這台電腦上的演練小鴨（{url}）：牠扮演真的小鴨，沒有模擬的世界。",
 "page.body.state.remote_down": "另一台機器上的身體（{url}）斷線了，正在重新連；這段時間那隻小鴨會停下來坐好。",
@@ -1854,6 +1855,7 @@ DuckI18n.load("zh-Hant", "page", {
 "page.real.live.held": "被抱起來了，腳先停著",
 "page.real.live.toggle": "小鴨自己的動作",
 "page.real.live.toggle_title": "畫面照小鴨自己量到的關節和里程計畫（不是物理）；關掉則顯示示意動畫",
+"page.real.live.turn_on": "小鴨還沒開：請用牠自己的控制把牠開起來（這個程式不會替你開）",
 "page.real.live.waiting": "正在等小鴨的關節資料…",
 "page.real.no_world": "這是真的小鴨：沒有模擬的世界，這件事做不到",
 "page.real.note.gothere": "這是真的小鴨：沒有模擬的世界，點地板叫牠過去還做不到。",

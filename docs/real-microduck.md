@@ -40,10 +40,11 @@ RemoteLink ══ one TCP connection on the LAN ══► bridge ──► the u
 
 | | |
 |---|---|
-| Where it listens | loopback by default; you give the duck's LAN address (or `0.0.0.0`). Both ends refuse addresses outside loopback, private and link-local ranges. |
+| Where it listens | loopback by default, where no other machine can reach it; you give the duck's own LAN address (step 4 says how to find it). `0.0.0.0` also works but listens on every network the duck is on — do not use it. Both ends refuse addresses outside loopback, private and link-local ranges. |
 | Who may drive | the one brain that proves it holds the shared token (HMAC challenge both ways; the token never crosses the network). A new brain with the token replaces the old one. |
 | Tampering | every frame after the handshake carries a sequence number and a signature (HMAC-SHA256 with a per-session key); a bad or out-of-order frame ends the link and stops the duck. The link is **not encrypted** — LAN only. |
-| What a brain may send | robotd: `hello`, `robot.subscribe`, `move`, `head`, `mouth`, `pose`, `look`, `do`, `stop`, `health`, `model`, `modelApi`, `policies`, `safeToRestart`, and the operator's `enable`, `init`, `poseJoints`. Everything else (`robot.relax`, `loadPolicy`, `shutdown`, `setMode`, `rebootMotors`, `system.*`, `net.*`, …) is refused with an error and never reaches robotd. |
+| What a brain may send | robotd: `hello`, `robot.subscribe`, `move`, `head`, `mouth`, `pose`, `look`, `do`, `stop`, `health`, `model`, `modelApi`, `policies`, `safeToRestart`. Everything else (`robot.relax`, `loadPolicy`, `shutdown`, `setMode`, `rebootMotors`, `system.*`, `net.*`, …) is refused with an error and never reaches robotd. |
+| Turning the duck on | **Never done by Duck Mind; a person does it with the duck's own control.** The operator's `robot.enable`, `robot.init` and `robot.poseJoints` pass only when the bridge's body is simulated (`sim-body`). The bridge on a real duck (`--backend real`, the default) and `sim-body --as-real` answer them with an error (`… is never sent to a real duck; a person turns the duck on with its own control`), log a `refused_operator` event and never pass them to robotd. The brain does not ask either: for a real duck it opens no operator connection. |
 | Link lost | the brain pings every 100 ms. After **1.0 s** without a frame (or a broken connection, or a bad frame) the bridge closes every stream — nothing the brain sent earlier can arrive late — sends `robot.stop`, then `robot.do sit_toggle` while the duck stands (retried until it sits; never while it sits or lies fallen). robotd's own deadman has already zeroed a walk 0.5 s after its last `robot.move`. |
 | Coming back | the brain dials again (0.1 → 1 s backoff) and takes the duck back where it is (seated). |
 
@@ -111,14 +112,20 @@ brain whose duck has none (or the reverse) behaves differently (`sim-body --tof 
    `--user`, else `DUCK_BOARD_USER`, else `microduck`. Make the folder first with `duckctl ssh`.)
 
 4. **Start the bridge on the duck**, as a user in the `robot` group (that is what opens
-   `/run/robotd.sock`):
+   `/run/robotd.sock`), listening on the duck's own address on your home network:
 
    ```sh
-   python -m duckmind.remotebody bridge --listen 0.0.0.0:8797 \
+   python -m duckmind.remotebody bridge --listen <duck-address>:8797 \
        --token-file ~/.duckmind/remote-body.token --backend real \
        --robotd /run/robotd.sock --tofd /run/tofd/tof.sock --media /run/mediad/media.sock \
        --events ~/remote-body-events.jsonl
    ```
+
+   `<duck-address>` is the address from step 1: `duckctl ip` on the computer, or `ip -4 addr` on
+   the duck (the `inet` line of its Wi-Fi interface, without the `/24`). Without `--listen` the
+   bridge listens on loopback only (`127.0.0.1`) and the computer cannot reach it. Give the
+   duck's own address, not `0.0.0.0`: that would listen on every network the duck is on. If the
+   router gives the duck a new address, start the bridge again with it.
 
    On a real duck the bridge also turns **Pollen's anonymous usage data** off once when it starts
    (the owner's choice; it is on by default since daemon 0.18.3). `updaterd` holds that switch
@@ -186,12 +193,22 @@ The page sees that the bridge's backend is real and switches to **real-duck mode
 drives the duck with only what the duck itself measures and sends over the link. Nothing comes
 from a simulated world: there is none.
 
+**You turn the duck on; Duck Mind never does** ([SAFETY.md](../SAFETY.md)). If the duck's walking
+policy is not on when the page starts (robotd reports something other than walk, stand or sit),
+the brain waits: it sends the duck nothing but its state subscription, the 3D line says
+「小鴨還沒開：請用牠自己的控制把牠開起來（這個程式不會替你開）」 (in the page's language), the *real duck*
+card in 我的小鴨 says the same, and `/api/body` carries the words in `real.turn_on`. Turn the duck
+on with its own control (Pollen's own tools; **verify** on the first robot which one a shipped
+duck uses). When robotd reports walk, stand or sit, the brain takes the duck from there by
+itself; there is nothing to press on the page. The terminal prints the same wait
+(`live body: the real duck is not on …`).
+
 | | In real-duck mode |
 |---|---|
 | 3D view | The duck's own 15 joints from `robot.state`, placed by robotd's contact odometry (x, y and height) and tilted by its IMU, turned to the odometry's heading. It stands on an empty floor grid: no rooms, no furniture, no minimap. Odometry drifts, so the place on the grid is where the duck *thinks* it is. The view's label says "the duck's own joints and odometry", never physics truth. |
 | Eye window | The duck's camera through the link (mediad's `media.frame` on the bridge's `media` channel). If the bridge offers no camera, the window says so. |
 | Status | Ticker chips for *real duck* (or *rehearsal*), the link (round trip, drops, longest silence; up or down) and the battery from robotd's `robot.health` (a placeholder until robotd answers; charging is unknown). The *real duck* card in 我的小鴨 shows the same. |
-| Works | The remote control (legs), the command bar (words, praise, treat, no), the motions and tricks the duck's robotd runs, emotions, the time of day, the talk panel. The brain's own senses that come from robotd work too: posture, falls, being lifted (robotd's `safety.picked_up`), the ToF when the bridge offers `tofd`. |
+| Works | The remote control (legs), the command bar (words, praise, treat, no), the motions and tricks the duck's robotd runs, emotions, the time of day, the talk panel. The brain's own senses that come from robotd work too: posture, falls, being lifted (robotd's `safety.picked_up`), the ToF when the bridge offers `tofd`. *Play dead* stays the sitting one: the lying one needs `robot.poseJoints`, `robot.init` and `robot.enable`, which are never sent to a real duck. |
 | Refused, and the page says why | Everything the simulated world did: the play stimuli (sounds, toys, people, lights), the world's hand (help up, carry to the mat), family visits and battery swaps, the lab's world buttons (place, roll, tidy, show), the demo walk, *upright* and *reset the body*, applying a layout to the home, and pointing at the floor for go-there. Each such button is greyed out with the reason 「這是真的小鴨：沒有模擬的世界，這件事做不到」 (in the page's language) and a note under it; the server refuses the same requests with the same words. |
 | Not from the robot yet | The microphone and touch (below). |
 
@@ -289,6 +306,10 @@ the microphone.
   code is ready and rehearsed with `sim-body --as-real`); check on the robot that the drawn pose
   matches the duck (seated, standing, walking, lifted), that the eye window shows its camera, and
   how far the odometry drifts in a few minutes of walking.
+- [ ] **A person turns it on:** start the page while the duck is off: the 3D line and the *real
+  duck* card ask you to turn it on, the duck does not move, and the bridge's events file has no
+  `refused_operator` line (the brain asked for nothing). Turn it on with its own control: the
+  page goes on by itself. Record which of Pollen's controls that is.
 - [ ] **Other doors on the duck:** the official `mediad` listens on `0.0.0.0:8443`/`8080` with no
   authentication and lets a LAN peer drive the robot; Bluetooth pairing (`btd`) is off by default.
   `check` says whether 8443/8080 answer from the computer; `docs/deploy/board.md` §5 has the

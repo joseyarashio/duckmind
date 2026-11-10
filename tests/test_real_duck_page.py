@@ -318,6 +318,58 @@ def test_the_real_duck_card_says_real_or_rehearsal_with_its_numbers() -> None:
 
 
 @needs_node
+def test_the_card_and_the_3d_line_ask_a_person_to_turn_a_real_duck_on() -> None:
+    """A real duck that is not on (``real.turn_on`` in ``/api/body``): the brain never turns it on
+    (SAFETY.md), so the card and the 3D line say a person does, with the duck's own control — in
+    all six languages."""
+    link = {"url": "remote://duck.local:8797", "up": True, "rtt_ms_p50": 40.2}
+    off = {**REAL, "turn_on": "小鴨還沒開"}
+    answers = {
+        "off": {"enabled": True, "starting": True, "remote": link, "real": off},
+        "down": {"enabled": True, "starting": True, "remote": {**link, "up": False}, "real": off},
+        "on": {
+            "enabled": True,
+            "available": True,
+            "remote": link,
+            "real": {**REAL, "turn_on": None},
+        },
+    }
+    truth = STATIC / "truth.js"
+    source = (
+        'import { createRequire } from "node:module";\n'
+        f'import * as T from "{truth.as_uri()}";\n'
+        "const require = createRequire(import.meta.url);\n"
+        f"const api = require({json.dumps(str(STATIC / 'bodylink.js'))});\n"
+        f"const answers = {json.dumps(answers)};\n"
+        "const out = { card: {}, line: {} };\n"
+        "for (const [name, answer] of Object.entries(answers)) {\n"
+        "  out.card[name] = api.linkState(answer);\n"
+        "  out.line[name] = T.realWaitKey(answer.real);\n"
+        "}\n"
+        "console.log(JSON.stringify(out));\n"
+    )
+    run = subprocess.run(
+        [str(NODE), "--input-type=module", "-e", source], capture_output=True, text=True, timeout=60
+    )
+    assert run.returncode == 0, run.stderr
+    said = json.loads(run.stdout)
+    assert said["card"]["off"]["state"] == "real_off"
+    assert said["card"]["off"]["key"] == "page.body.state.real_off"
+    assert said["card"]["off"]["params"] == {"url": "remote://duck.local:8797"}
+    assert said["card"]["down"]["state"] == "remote_down"  # (a broken link says so first)
+    assert said["card"]["on"]["key"] == "page.body.state.real"
+    assert said["line"]["off"] == said["line"]["down"] == "page.real.live.turn_on"
+    assert said["line"]["on"] == "page.real.live.waiting"
+    from duckmind.i18n import CODES
+    from duckmind.i18n.catalog import read_catalog
+
+    for code in CODES:
+        page = read_catalog(code, "page") or {}
+        assert page.get("page.real.live.turn_on") and "{url}" in page["page.body.state.real_off"]
+        assert (read_catalog(code, "core") or {}).get("livebody.real_turn_on"), code
+
+
+@needs_node
 def test_the_3d_label_says_the_ducks_own_joints_and_odometry_never_physics() -> None:
     truth = STATIC / "truth.js"
     source = (

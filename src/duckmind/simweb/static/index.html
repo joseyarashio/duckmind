@@ -430,7 +430,7 @@
         <ol class="body-link-steps">
           <li><span data-i18n="page.body.step.wifi">先用 Pollen 自己的工具讓小鴨連上家裡的 Wi-Fi，記下牠的位址（IP）。</span></li>
           <li><span data-i18n="page.body.step.token">在這台電腦做一把共用密鑰，複製到小鴨上：</span><pre><code>python -m duckmind.remotebody token ~/.duckmind/remote-body.token</code></pre></li>
-          <li><span data-i18n="page.body.step.bridge">在小鴨上開 bridge：</span><pre><code>python -m duckmind.remotebody bridge --listen 0.0.0.0:8797 --token-file ~/.duckmind/remote-body.token --backend real</code></pre></li>
+          <li><span data-i18n="page.body.step.bridge">在小鴨上開 bridge：</span><pre><code>python -m duckmind.remotebody bridge --listen IP:8797 --token-file ~/.duckmind/remote-body.token --backend real</code></pre></li>
           <li><span data-i18n="page.body.step.check">先檢查連線（只讀，小鴨不會動）：</span><pre><code>python -m duckmind.remotebody check remote://IP:8797</code></pre></li>
           <li><span data-i18n="page.body.step.restart">關掉模擬器，加上這一段重新開：</span><pre><code>--body remote://IP:8797</code></pre></li>
         </ol>

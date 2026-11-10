@@ -6,6 +6,13 @@ their unix sockets — robotd, and optionally tofd, mediad's frame socket and (a
 the world server. It forwards only what a brain needs: requests outside :data:`ROBOTD_METHODS` (and
 the other channels' lists) are refused with an error, never passed on.
 
+**duckmind never turns a real duck on** (SAFETY.md). The brain's operator methods
+(:data:`OPERATOR_METHODS`: ``robot.enable``, ``robot.init``, ``robot.poseJoints``) pass only when
+the bridge's body is a simulated one (``body_info`` says ``backend: simulator``). For every other
+body — a real duck, ``sim-body --as-real``, a bridge that does not say — they are refused with a
+JSON-RPC error that says why, never reach robotd, and the bridge logs ``refused_operator``. A person
+turns a real duck on with the duck's own control.
+
 **The deadman.** The brain pings every :data:`~duckmind.remotebody.link.HEARTBEAT_S`. When nothing
 has come from it for ``deadman_s`` (:data:`~duckmind.remotebody.link.DEADMAN_S`), or the
 connection breaks, or a frame fails its signature, the bridge drops the link — every stream closes,
@@ -56,11 +63,15 @@ ROBOTD_METHODS = frozenset(
         "robot.modelApi",
         "robot.policies",
         "robot.safeToRestart",
-        # the brain's operator: the walking policy on/off, the ramp home, play dead's pose
-        "robot.enable",
-        "robot.init",
-        "robot.poseJoints",
     }
+)
+# The brain's operator: the walking policy on/off, torque on and the ramp home, play dead's
+# scripted pose. Passed on for a simulated body only: a real duck is turned on, homed and posed
+# by a person, never through this bridge (SAFETY.md).
+OPERATOR_METHODS = frozenset({"robot.enable", "robot.init", "robot.poseJoints"})
+OPERATOR_REFUSAL = (
+    "refused by the remote-body bridge: {method} is never sent to a real duck; "
+    "a person turns the duck on with its own control"
 )
 CHANNEL_METHODS: dict[str, frozenset[str]] = {
     "robotd": ROBOTD_METHODS,
@@ -104,9 +115,17 @@ class Channel:
         return sock
 
 
-def check_request(channel: str, line: bytes) -> tuple[bool, bytes | None]:
+def check_request(
+    channel: str,
+    line: bytes,
+    *,
+    operator: bool = False,
+    refused_operator: Callable[[str], None] | None = None,
+) -> tuple[bool, bytes | None]:
     """(forward it, the refusal to answer the brain with). A refused notification gets no answer,
-    exactly like robotd's own notifications."""
+    exactly like robotd's own notifications. ``operator``: the body is a simulated one, so the
+    brain's :data:`OPERATOR_METHODS` pass; otherwise they are refused (``refused_operator`` is
+    told which, for the bridge's log)."""
     try:
         request = json.loads(line)
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -120,15 +139,20 @@ def check_request(channel: str, line: bytes) -> tuple[bool, bytes | None]:
         answer = {"error": f"refused by the remote-body bridge: op {op!r}"}
         return False, json.dumps(answer).encode() + b"\n"
     method = request.get("method")
-    if isinstance(method, str) and method in CHANNEL_METHODS.get(channel, frozenset()):
-        return True, None
+    refusal = "refused by the remote-body bridge: {method!r}"
+    if isinstance(method, str):
+        if method in CHANNEL_METHODS.get(channel, frozenset()):
+            return True, None
+        if channel == "robotd" and method in OPERATOR_METHODS:
+            if operator:
+                return True, None
+            if refused_operator is not None:
+                refused_operator(method)
+            refusal = OPERATOR_REFUSAL
     if "id" not in request:
         return False, None
-    answer = {
-        "jsonrpc": "2.0",
-        "id": request.get("id"),
-        "error": {"code": -32601, "message": f"refused by the remote-body bridge: {method!r}"},
-    }
+    error = {"code": -32601, "message": refusal.format(method=method)}
+    answer = {"jsonrpc": "2.0", "id": request.get("id"), "error": error}
     return False, json.dumps(answer).encode() + b"\n"
 
 
@@ -354,6 +378,13 @@ class Bridge:
         link = self._link
         return link is not None and not link.dead
 
+    @property
+    def simulated(self) -> bool:
+        """The body is a simulated one (its ``body_info`` says ``backend: simulator``): only then
+        do the brain's :data:`OPERATOR_METHODS` reach robotd. A real duck, ``sim-body --as-real``
+        and a bridge that does not say are never enabled, homed or posed through the link."""
+        return self.body_info.get("backend") == "simulator"
+
     # ── accepting a brain ──
 
     def _accept(self) -> None:
@@ -452,10 +483,17 @@ class Bridge:
             stream = link.streams.get(sid)
             if stream is None:
                 return
+
+            def refused(method: str) -> None:
+                self.log("refused_operator", method=method, peer=link.peer)
+
             try:
                 lines = stream.lines.feed(payload)
+                operator = self.simulated
                 for line in lines:
-                    ok, answer = check_request(stream.channel, line)
+                    ok, answer = check_request(
+                        stream.channel, line, operator=operator, refused_operator=refused
+                    )
                     if ok:
                         with link.lock:
                             stream.forward(line)
@@ -671,7 +709,14 @@ def bridge_parser() -> argparse.ArgumentParser:
     parser.add_argument("--robotd", default="/run/robotd.sock")
     parser.add_argument("--tofd", help="tofd's socket (e.g. /run/tofd/tof.sock)")
     parser.add_argument("--media", help="mediad's frame socket (e.g. /run/mediad/media.sock)")
-    parser.add_argument("--backend", choices=("real", "simulator"), default="real")
+    parser.add_argument(
+        "--backend",
+        choices=("real", "simulator"),
+        default="real",
+        help="what robotd drives. real (default): robot.enable, robot.init and robot.poseJoints "
+        "are refused, a person turns the duck on. simulator: a simulated robotd only, never a "
+        "real duck (the brain's operator may then enable it)",
+    )
     parser.add_argument(
         "--updaterd",
         default=telemetry.UPDATERD_SOCKET,

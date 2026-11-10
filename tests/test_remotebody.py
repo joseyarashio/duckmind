@@ -338,6 +338,93 @@ def test_the_bridge_refuses_what_a_brain_never_needs(rig: dict[str, Any]) -> Non
     assert "robot.relax" not in rig["robotd"].methods()
 
 
+OPERATOR = ("robot.enable", "robot.init", "robot.poseJoints")
+
+
+def _rpc(sock: socket.socket, reader: Any, rid: int, method: str) -> dict[str, Any]:
+    request = {"jsonrpc": "2.0", "id": rid, "method": method, "params": {}}
+    sock.sendall(json.dumps(request).encode() + b"\n")
+    return dict(json.loads(reader.readline()))
+
+
+@pytest.mark.parametrize("info", [{"backend": "real"}, {"backend": "real", "rehearsal": True}, {}])
+def test_a_real_ducks_bridge_never_passes_enable_init_or_a_scripted_pose(
+    rig: dict[str, Any], info: dict[str, Any]
+) -> None:
+    """Before: the bridge forwarded the operator's ``robot.enable``, ``robot.init`` and
+    ``robot.poseJoints`` to robotd for any brain holding the token, whatever its backend — so the
+    code could turn a real duck on (SAFETY.md says it never does). A bridge that says real
+    (``sim-body --as-real`` too), or does not say, refuses them."""
+    robotd = rig["robotd"]
+    rig["bridge"].body_info = info
+    link = rig["connect"](via_shim=False)
+    link.start(timeout_s=3)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(str(link.robotd_socket))
+    sock.settimeout(2)
+    reader = sock.makefile("rb")
+    try:
+        for rid, method in enumerate(OPERATOR):
+            reply = _rpc(sock, reader, rid, method)
+            assert reply["id"] == rid and "result" not in reply
+            assert method in reply["error"]["message"]
+            assert "never sent to a real duck" in reply["error"]["message"]
+        # (a notification gets no answer, and is not passed on either)
+        sock.sendall(b'{"jsonrpc":"2.0","method":"robot.enable","params":{"on":true}}\n')
+        # everything else a brain needs still goes through
+        assert _rpc(sock, reader, 20, "robot.health")["result"]["healthy"] is True
+        assert _rpc(sock, reader, 21, "robot.stop")["result"] == {"accepted": True}
+        sock.sendall(b'{"jsonrpc":"2.0","method":"robot.move","params":{"vx":0.1}}\n')
+        assert wait_for(lambda: "robot.move" in robotd.methods())
+    finally:
+        sock.close()
+    assert not set(OPERATOR) & set(robotd.methods())
+    said = [fields["method"] for _, event, fields in rig["events"] if event == "refused_operator"]
+    assert said == [*OPERATOR, "robot.enable"]
+
+
+def test_a_simulated_bodys_bridge_still_passes_the_operator(rig: dict[str, Any]) -> None:
+    """(the rig's bridge says ``backend: simulator``: ``sim-body`` keeps what it had)"""
+    link = rig["connect"](via_shim=False)
+    link.start(timeout_s=3)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(str(link.robotd_socket))
+    sock.settimeout(2)
+    reader = sock.makefile("rb")
+    try:
+        for rid, method in enumerate(OPERATOR):
+            assert _rpc(sock, reader, rid, method) == {
+                "jsonrpc": "2.0",
+                "id": rid,
+                "result": {"accepted": True},
+            }
+    finally:
+        sock.close()
+    assert [m for m in rig["robotd"].methods() if m in OPERATOR] == list(OPERATOR)
+    assert not any(event == "refused_operator" for _, event, _ in rig["events"])
+
+
+def test_check_request_passes_the_operator_only_for_a_simulated_body() -> None:
+    for method in OPERATOR:
+        line = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": {}}).encode()
+        told: list[str] = []
+        ok, answer = check_request("robotd", line, refused_operator=told.append)
+        assert not ok and told == [method]
+        assert json.loads(answer)["error"]["message"].startswith("refused by the remote-body")
+        assert check_request("robotd", line, operator=True, refused_operator=told.append) == (
+            True,
+            None,
+        )
+        assert told == [method]
+    # (the flag opens nothing else: what a brain never needs stays refused for every body)
+    relax = b'{"jsonrpc":"2.0","id":4,"method":"robot.relax","params":{}}\n'
+    assert check_request("robotd", relax, operator=True)[0] is False
+    assert check_request("tofd", b'{"jsonrpc":"2.0","id":4,"method":"robot.enable"}\n')[0] is False
+    assert (
+        check_request("robotd", b'{"jsonrpc":"2.0","id":4,"method":["robot.enable"]}\n')[0] is False
+    )
+
+
 def test_a_tampered_frame_ends_the_link_and_stops_the_duck(rig: dict[str, Any]) -> None:
     robotd = rig["robotd"]
     sock = socket.create_connection(("127.0.0.1", rig["bridge"].port))

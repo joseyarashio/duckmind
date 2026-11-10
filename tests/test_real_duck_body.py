@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 
+from duckmind import livebody
 from duckmind.i18n import msg
 from duckmind.livebody import (
     LiveBody,
@@ -29,11 +30,13 @@ from duckmind.livebody import (
     real_frame_pose,
 )
 from duckmind.remotebody.bridge import Bridge, Channel
+from duckmind.remotebody.client import RemoteLink
 from duckmind.remotebody.simbody import body_info, channels_for
 from duckmind.tmpdir import short_tmp
 
 TOKEN = b"0123456789abcdef0123456789abcdef0123456789abcdef"
 JOINTS = [0.01 * (index + 1) for index in range(15)]
+OPERATOR = {"robot.enable", "robot.init", "robot.poseJoints"}
 
 
 def _yaw_quat(yaw: float) -> list[float]:
@@ -41,7 +44,8 @@ def _yaw_quat(yaw: float) -> list[float]:
 
 
 class StateRobotd:
-    """hello / subscribe / anything answered; robot.state at ~50 Hz from a settable ``state``."""
+    """hello / subscribe / anything answered; robot.state at ~50 Hz from a settable ``state``.
+    Every method asked of it is kept (``methods``); ``robot.enable`` brings its policy up."""
 
     def __init__(self, path: str) -> None:
         self.path = path
@@ -54,6 +58,7 @@ class StateRobotd:
             "imu": {"quat": _yaw_quat(2.0), "gyro": [0, 0, 0]},
         }
         self.skills: list[str] = []  # robot.do asked of it (sit_toggle: change posture)
+        self.methods: list[str] = []  # every request and notification, in order
         self._server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._server.bind(path)
         self._server.listen(16)
@@ -89,6 +94,7 @@ class StateRobotd:
             while b"\n" in buffer:
                 line, buffer = buffer.split(b"\n", 1)
                 message = json.loads(line)
+                self.methods.append(str(message.get("method")))
                 if "id" not in message:
                     continue
                 result: dict[str, Any] = {"accepted": True}
@@ -99,6 +105,8 @@ class StateRobotd:
                     result = {"api_version": 49}
                 elif message["method"] == "robot.do":
                     self.skills.append(str((message.get("params") or {}).get("skill")))
+                elif message["method"] == "robot.enable":
+                    self.state = {**self.state, "policy": "stand"}
                 reply = {"jsonrpc": "2.0", "id": message["id"], "result": result}
                 try:
                     conn.sendall(json.dumps(reply).encode() + b"\n")
@@ -238,6 +246,148 @@ def test_a_simulated_body_without_a_world_is_still_refused(tmp_path: Path, duck:
     with pytest.raises(RuntimeError, match="offers no simulated world"):
         body.start(timeout_s=8.0)
     body.stop()
+
+
+# ── duckmind never turns a real duck on (SAFETY.md) ─────────────────────────────────────────────
+
+
+def _start_behind(body: LiveBody) -> tuple[threading.Thread, list[BaseException]]:
+    """``body.start()`` on a thread of its own (it waits while the duck is not on)."""
+    errors: list[BaseException] = []
+
+    def start() -> None:
+        try:
+            body.start(timeout_s=3.0)
+        except BaseException as error:  # noqa: BLE001 - the test reads it
+            errors.append(error)
+
+    thread = threading.Thread(target=start, daemon=True)
+    thread.start()
+    return thread, errors
+
+
+def test_a_real_duck_that_is_not_on_is_waited_for_and_never_enabled(
+    tmp_path: Path, duck: Any
+) -> None:
+    """Before: a real duck whose walking policy was not on yet got the operator's ``robot.enable``
+    from the brain as it attached, against SAFETY.md ("duckmind never turns the robot on")."""
+    refused: list[str] = []
+    duck.bridge.log = lambda event, **fields: (
+        refused.append(str(fields.get("method"))) if event == "refused_operator" else None
+    )
+    duck.robotd.state = {**duck.robotd.state, "policy": "off"}
+    body = _body(tmp_path, duck)
+    starting, errors = _start_behind(body)
+    try:
+        assert _wait_for(lambda: body.policy != "starting")  # (robotd's first state frame)
+        time.sleep(0.6)
+        # Nothing but the handshake and the state subscription reached the duck, and the brain
+        # did not even ask its bridge for more.
+        assert set(duck.robotd.methods) <= {"hello", "robot.subscribe"}, duck.robotd.methods
+        assert refused == []
+        assert starting.is_alive() and errors == []  # (still waiting for a person)
+        assert body.waits_turn_on is True and body.status()["waits_turn_on"] is True
+        assert body._operator is None
+        # A person turns the duck on with its own control: the brain takes it from there.
+        duck.robotd.state = {**duck.robotd.state, "policy": "sit"}
+        starting.join(timeout=4.0)
+        assert not starting.is_alive() and errors == []
+        assert body.waits_turn_on is False and body.status()["waits_turn_on"] is False
+        body.consume([{"sync": "stand"}])
+        assert _wait_for(lambda: "sit_toggle" in duck.robotd.skills)
+        assert not OPERATOR & set(duck.robotd.methods) and refused == []
+    finally:
+        body.stop()
+        starting.join(timeout=4.0)
+
+
+def test_a_real_duck_gets_no_operator_request_from_any_helper(tmp_path: Path, duck: Any) -> None:
+    """Play dead's scripted pose and its wake (``robot.poseJoints``, ``robot.init``,
+    ``robot.enable``) go through these helpers: on a real duck each one answers False and sends
+    nothing, whatever the caller believes the robotd can do."""
+    refused: list[str] = []
+    duck.bridge.log = lambda event, **fields: (
+        refused.append(str(fields.get("method"))) if event == "refused_operator" else None
+    )
+    body = _body(tmp_path, duck)
+    try:
+        body.start(timeout_s=8.0)
+        assert body.real and body._operator is None and body.pose_joints_ok is False
+        body.pose_joints_ok = True  # (a caller that thinks this robotd can lie the duck down)
+        assert body.pose_joints([None] * 15, [], gain=160, ramp_s=1.0) is False
+        assert body.operator_init() is False
+        assert body.operator_enable(True) is False
+        assert body.error is None
+        time.sleep(0.3)
+        assert not OPERATOR & set(duck.robotd.methods) and refused == []
+    finally:
+        body.stop()
+
+
+def test_stopping_ends_the_wait_for_a_real_duck_that_is_never_turned_on(
+    tmp_path: Path, duck: Any
+) -> None:
+    duck.robotd.state = {**duck.robotd.state, "policy": "off"}
+    body = _body(tmp_path, duck)
+    starting, errors = _start_behind(body)
+    assert _wait_for(lambda: body.waits_turn_on)
+    body.stop()
+    starting.join(timeout=4.0)
+    assert not starting.is_alive() and body.waits_turn_on is False
+    assert len(errors) == 1 and "not turned on" in str(errors[0])
+    assert not OPERATOR & set(duck.robotd.methods)
+
+
+def test_a_simulated_remote_body_that_is_not_up_is_still_enabled(
+    tmp_path: Path, duck: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The simulated remote body (``sim-body``) keeps what it had: the brain's operator enables a
+    body that is not up yet, through a bridge that says ``backend: simulator``."""
+    duck.bridge.body_info = {"backend": "simulator"}
+    duck.robotd.state = {**duck.robotd.state, "policy": "off"}
+    monkeypatch.setattr(livebody, "SimOracle", lambda port: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(LiveBody, "_sample", lambda self: None)
+    monkeypatch.setattr(LiveBody, "_watch", lambda self: None)
+    url = f"remote://127.0.0.1:{duck.bridge.port}"
+    link = RemoteLink(url, TOKEN)
+    link.start(timeout_s=3)
+    paths = LivePaths(*(tmp_path / n for n in ("m", "r", "p", "robotd", "ort")))
+    body = LiveBody(paths, seated=False, remote=RemoteBodySpec(url, duck.token))
+    # (what _start_remote sets from the bridge's words; the world's oracle is a stand-in here)
+    body._link, body.body_port, body.home = link, 1, None
+    try:
+        body._attach(link.robotd_socket, 4.0)
+        assert body.real is False
+        assert "robot.enable" in duck.robotd.methods and body.policy == "stand"
+    finally:
+        body.stop()
+
+
+def _ask(robotd_socket: Path, method: str) -> dict[str, Any]:
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.connect(str(robotd_socket))
+        sock.settimeout(2)
+        request = {"jsonrpc": "2.0", "id": 7, "method": method, "params": {}}
+        sock.sendall(json.dumps(request).encode() + b"\n")
+        return dict(json.loads(sock.makefile("rb").readline()))
+
+
+def test_sim_body_as_real_is_never_enabled_through_its_bridge(duck: Any) -> None:
+    """``sim-body --as-real`` behaves like a real duck's bridge here too: the operator's three
+    methods are refused and never reach its robotd."""
+    hashes = {"walk_sha256": "w", "sitstand_sha256": "s"}
+    duck.bridge.body_info = body_info(SimpleNamespace(policy_hashes=lambda: hashes), as_real=True)
+    link = RemoteLink(f"remote://127.0.0.1:{duck.bridge.port}", TOKEN)
+    link.start(timeout_s=3)
+    try:
+        for method in sorted(OPERATOR):
+            reply = _ask(link.robotd_socket, method)
+            assert "result" not in reply and "real duck" in reply["error"]["message"], reply
+        assert _ask(link.robotd_socket, "robot.health")["result"] == {"accepted": True}
+        assert not OPERATOR & set(duck.robotd.methods)
+        assert "robot.health" in duck.robotd.methods
+    finally:
+        link.close()
 
 
 def test_the_real_pose_keeps_the_imu_tilt_and_takes_the_odometry_heading() -> None:

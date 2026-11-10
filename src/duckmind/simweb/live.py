@@ -143,6 +143,12 @@ def no_world() -> Msg:
     return msg("livebody.no_world")
 
 
+def turn_on() -> Msg:
+    """What the page says while a real duck is not on (``livebody.real_turn_on``): a person turns
+    it on with the duck's own control; duckmind never does (SAFETY.md)."""
+    return msg("livebody.real_turn_on")
+
+
 def is_real(body: Any) -> bool:
     """Whether ``body`` is a real Microduck (``LiveBody.real``; False for every simulated body)."""
     return bool(getattr(body, "real", False))
@@ -713,9 +719,11 @@ class LiveBridge:
     def real_view(self) -> dict[str, Any] | None:
         """What the page must know of a real duck (None: a simulated body): ``rehearsal`` (the
         bridge is ``sim-body --as-real`` on this Mac), ``reason`` (the plain words every disabled
-        control shows), ``refuses`` (the features the page disables, :data:`REAL_REFUSES`) and
-        ``battery`` (the duck's own pack from robotd, None until it says). A body known to be real
-        stays real while its link dials again (the page never flips to the simulated mode)."""
+        control shows), ``refuses`` (the features the page disables, :data:`REAL_REFUSES`),
+        ``turn_on`` (:func:`turn_on`'s words while the duck is not on and the body waits for a
+        person to turn it on, else None) and ``battery`` (the duck's own pack from robotd, None
+        until it says). A body known to be real stays real while its link dials again (the page
+        never flips to the simulated mode)."""
         body = self.body
         if is_real(body):
             self._known_rehearsal = bool(getattr(body, "rehearsal", False))
@@ -732,6 +740,7 @@ class LiveBridge:
             "rehearsal": self._known_rehearsal,
             "reason": no_world(),
             "refuses": sorted(REAL_REFUSES),
+            "turn_on": turn_on() if getattr(body, "waits_turn_on", False) else None,
             "battery": dict(battery) if isinstance(battery, dict) else None,
         }
 

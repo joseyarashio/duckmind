@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / core (2118 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / core (2119 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "core", {
 "bodyhost.assess.07fced96": "The control program (robotd) hasn't sent a command for {seconds, number, ::.0} s, so the physics stopped",
 "bodyhost.assess.1428e8f9": "The computer is too busy, so the simulation slowed down",
@@ -1753,6 +1753,7 @@ DuckI18n.load("en", "core", {
 "livebody.LiveBody.monitor_view.walk_backlash": "The walking network was trained on a body whose gears have a little play; this simulated body has none, so walking numbers are off",
 "livebody.no_world": "This is the real duck: there is no simulated world, so this can't be done",
 "livebody.real_no_camera": "The duck's camera is not on the link (the bridge on the duck did not offer the camera)",
+"livebody.real_turn_on": "The duck is not on yet: turn it on with its own control. This program never turns it on; once it is on, the brain takes over by itself",
 "world.apartment.ZH.ball": "ball",
 "world.apartment.ZH.bed_base": "bed",
 "world.apartment.ZH.bed_blanket": "blanket",

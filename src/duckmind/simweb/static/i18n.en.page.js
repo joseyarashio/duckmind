@@ -1,4 +1,4 @@
-/* duckmind i18n catalog: en / page (1990 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
+/* duckmind i18n catalog: en / page (1992 messages). Generated and checked by `python -m duckmind.i18n` (docs/i18n.md): strict JSON between the first '{' and the last '}'. */
 DuckI18n.load("en", "page", {
 "fmt.sep.and_then": ", and also ",
 "fmt.sep.babble": "·",
@@ -382,6 +382,7 @@ DuckI18n.load("en", "page", {
 "page.body.state.offline": "Can't reach the server; trying again soon.",
 "page.body.state.real": "Connected to the real duck ({url}), about {ms} ms there and back.",
 "page.body.state.real_new": "Connected to the real duck ({url}).",
+"page.body.state.real_off": "Connected to the duck ({url}), but it is not on yet. Turn it on with its own control; this program never turns it on, and once it is on the brain takes over by itself.",
 "page.body.state.rehearsal": "Connected to the rehearsal duck on this computer ({url}), about {ms} ms there and back: it plays the real duck, with no simulated world.",
 "page.body.state.rehearsal_new": "Connected to the rehearsal duck on this computer ({url}): it plays the real duck, with no simulated world.",
 "page.body.state.remote_down": "The body on the other machine ({url}) is cut off; reconnecting. Meanwhile the duck stops and sits down.",
@@ -1854,6 +1855,7 @@ DuckI18n.load("en", "page", {
 "page.real.live.held": "Picked up — legs paused",
 "page.real.live.toggle": "The duck's own moves",
 "page.real.live.toggle_title": "The view follows the duck's own measured joints and odometry (not physics); turn it off for the sketch animation",
+"page.real.live.turn_on": "The duck is not on: turn it on with its own control (this program never turns it on)",
 "page.real.live.waiting": "Waiting for the duck's joint readings…",
 "page.real.no_world": "This is the real duck: there is no simulated world, so this can't be done",
 "page.real.note.gothere": "This is the real duck: there is no simulated world, so pointing at the floor to send it there doesn't work yet.",

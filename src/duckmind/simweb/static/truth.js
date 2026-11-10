@@ -40,6 +40,13 @@ export function policyKey(policy, real) {
   return Object.hasOwn(POLICY_KEYS, policy) ? POLICY_KEYS[policy] : null;
 }
 
+// A real duck's 3D line while its body is not there yet (/api/body `real`): the duck is not on — a
+// person turns it on with the duck's own control, duckmind never does (`turn_on`) — or its joint
+// readings are still on their way.
+export function realWaitKey(real) {
+  return real && real.turn_on ? "page.real.live.turn_on" : "page.real.live.waiting";
+}
+
 // The heading (about the vertical) of a MuJoCo quaternion [w, x, y, z].
 export function yawOf(q) {
   const [w, x, y, z] = q;
