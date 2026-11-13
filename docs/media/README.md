@@ -57,6 +57,19 @@ python3 docs/media/hero/src/generate.py
 The banners are under the same CC BY-NC-SA 4.0 licence as everything in `docs/media/`,
 because they show Pollen's Microduck 3D model; the fonts in them stay under the OFL.
 
+The public play front's pages are this banner as a page (`deploy/public/edge/src/core/pages.ts`,
+the same layout and CSS approach as `template.html`). They show smaller WebP copies of
+`duck.png` and `screenshot.webp` from `deploy/public/edge/static/img/` (same licence); after
+drawing either picture again, make the copies again:
+
+```bash
+S=docs/media/hero/src O=deploy/public/edge/static/img
+cwebp -resize 0 420 -q 82 -alpha_q 85 -m 6 -metadata none $S/duck.png -o $O/duck-420.webp
+cwebp -resize 0 840 -q 78 -alpha_q 80 -m 6 -metadata none $S/duck.png -o $O/duck-840.webp
+cwebp -resize 600 0 -q 72 -m 6 -metadata none $S/screenshot.webp -o $O/screenshot-600.webp
+cwebp -resize 1200 0 -q 68 -m 6 -metadata none $S/screenshot.webp -o $O/screenshot-1200.webp
+```
+
 ## Video (`video/`)
 
 A real screen recording of the simulator page as you see it in the browser (desktop,

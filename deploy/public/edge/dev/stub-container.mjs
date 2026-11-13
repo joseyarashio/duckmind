@@ -52,7 +52,7 @@ const server = createServer(async (req, res) => {
 	const path = url.pathname;
 	if (path === "/__stub/start" && req.method === "POST") {
 		const env = JSON.parse((await readBody(req)) || "{}");
-		const minutes = Number(env.DUCKMIND_PUBLIC_MINUTES ?? 15);
+		const minutes = Number(env.DUCKMIND_PUBLIC_MINUTES ?? 5);
 		duck = {
 			seed: Number(env.DUCKMIND_PUBLIC_SEED),
 			minutes,

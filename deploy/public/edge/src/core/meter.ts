@@ -9,6 +9,9 @@
  * Budget: `monthUsd` per billing month (from `billingDay` 00:00 UTC to the same day next month;
  * day 1 is the calendar month). Each day may spend (monthUsd - spent before today) / days left in the
  * month, today included: an unused day carries over to the rest of the month.
+ *
+ * The same state also meters other amounts per day and month (book()): the EC2 host keeps the bytes it
+ * sends to the internet in one (GateState.egress), against a calendar-month cap.
  */
 
 export interface MeterState {
@@ -16,6 +19,14 @@ export interface MeterState {
 	months: Record<string, number>;
 	/** Day (YYYY-MM-DD, UTC) -> US$ spent. */
 	days: Record<string, number>;
+}
+
+/** A cap on bytes sent to the internet per calendar month (UTC), as the EC2 host has it. */
+export interface EgressCap {
+	/** Bytes the calendar month may send. */
+	monthBytes: number;
+	/** The most one session may send (its page load, play, the download time), reserved while it runs. */
+	sessionBytes: number;
 }
 
 export interface BudgetSettings {
@@ -29,6 +40,8 @@ export interface BudgetSettings {
 	usdPerSecond: number;
 	/** The longest one session's container can be metered for (s): its whole lease. */
 	sessionWorstS: number;
+	/** Bytes sent to the internet, capped per calendar month (the EC2 host); absent: not metered. */
+	egress?: EgressCap;
 }
 
 export const DAY_MS = 86_400_000;
@@ -59,6 +72,19 @@ export function sessionWorstUsd(b: BudgetSettings): number {
 	return b.sessionWorstS * b.usdPerSecond;
 }
 
+/** Book `amount` at time `t` (ms) to its UTC day and its billing month. */
+export function book(m: MeterState, t: number, amount: number, billingDay: number): void {
+	const day = isoDate(t);
+	const month = billingMonth(t, billingDay).key;
+	m.days[day] = (m.days[day] ?? 0) + amount;
+	m.months[month] = (m.months[month] ?? 0) + amount;
+}
+
+/** What the billing month holding `now` has booked so far. */
+export function monthSpent(m: MeterState, now: number, billingDay: number): number {
+	return m.months[billingMonth(now, billingDay).key] ?? 0;
+}
+
 /** Book a container's running time [from, to) (ms), split at UTC midnights. Returns the US$ booked. */
 export function charge(m: MeterState, from: number, to: number, b: BudgetSettings): number {
 	let total = 0;
@@ -66,10 +92,7 @@ export function charge(m: MeterState, from: number, to: number, b: BudgetSetting
 	while (t < to) {
 		const next = Math.min(to, dayStart(t) + DAY_MS);
 		const usd = ((next - t) / 1000) * b.usdPerSecond;
-		const day = isoDate(t);
-		const month = billingMonth(t, b.billingDay).key;
-		m.days[day] = (m.days[day] ?? 0) + usd;
-		m.months[month] = (m.months[month] ?? 0) + usd;
+		book(m, t, usd, b.billingDay);
 		total += usd;
 		t = next;
 	}
@@ -86,12 +109,12 @@ export interface BudgetLeft {
 /** What is left this month and today, before any running session's reservation. */
 export function budgetLeft(m: MeterState, now: number, b: BudgetSettings): BudgetLeft {
 	const bm = billingMonth(now, b.billingDay);
-	const monthSpent = m.months[bm.key] ?? 0;
+	const spent = m.months[bm.key] ?? 0;
 	const today = dayStart(now);
 	const daySpent = m.days[isoDate(today)] ?? 0;
 	const daysLeft = Math.round((bm.end - today) / DAY_MS);
-	const dayCap = (b.monthUsd - (monthSpent - daySpent)) / daysLeft;
-	return { month: b.monthUsd - monthSpent, day: dayCap - daySpent };
+	const dayCap = (b.monthUsd - (spent - daySpent)) / daysLeft;
+	return { month: b.monthUsd - spent, day: dayCap - daySpent };
 }
 
 /**

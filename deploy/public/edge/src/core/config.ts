@@ -133,7 +133,7 @@ export function readConfig(bindings: object): EdgeConfig {
 	return {
 		maxLive: int(env.MAX_LIVE, 3, 1, 200),
 		maxQueue: int(env.MAX_QUEUE, 100, 0, 10_000),
-		sessionMinutes: int(env.SESSION_MINUTES, 15, 1, 120),
+		sessionMinutes: int(env.SESSION_MINUTES, 5, 1, 120),
 		exportMinutes: int(env.EXPORT_MINUTES, 3, 0, 60),
 		startTimeoutS: int(env.START_TIMEOUT_S, 180, 10, 900),
 		pingIntervalS: int(env.PING_INTERVAL_S, 2, 1, 30),

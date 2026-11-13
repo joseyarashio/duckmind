@@ -296,11 +296,11 @@ def test_the_visit_ends_writes_410_the_duck_file_still_downloads_then_the_server
     status, _, body = call(visit.url + public.SESSION_ROUTE)
     view = json.loads(body)
     assert status == 200 and view["ok"] and view["seed"] == SEED and view["name"] == visit.plan.name
-    assert view["left_s"] == 15 * 60 and not view["ended"]
+    assert view["left_s"] == visit.plan.minutes * 60 and not view["ended"]
     assert set(public.REFUSES) <= set(view["refuses"])
     assert visit.session.check() == "play" and visit.rested == []
 
-    visit.wall[0] += 15 * 60  # the time is up
+    visit.wall[0] += visit.plan.minutes * 60  # the time is up
     assert visit.session.check() == "ended" and visit.rested == ["sat"]
     assert visit.session.check() == "ended" and visit.rested == ["sat"]  # (once)
     view = json.loads(call(visit.url + public.SESSION_ROUTE)[2])
@@ -385,7 +385,7 @@ def test_public_play_picks_the_duck_itself_and_needs_its_seed(home: Path) -> Non
             public.apply_args(args_for(), DEFAULTS.get, {public.SEED_ENV: bad})
     with pytest.raises(public.PublicConfigError, match=public.MINUTES_ENV):
         public.minutes_from_env({public.MINUTES_ENV: "0"})
-    assert public.minutes_from_env({}) == 15.0
+    assert public.minutes_from_env({}) == 5.0
     assert list(Path(os.environ["TMPDIR"]).iterdir()) == []  # (no folder made for a refused start)
     args = args_for()
     plan = public.apply_args(args, DEFAULTS.get, {public.SEED_ENV: "7", public.MINUTES_ENV: "3"})

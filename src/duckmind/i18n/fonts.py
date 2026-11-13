@@ -6,9 +6,10 @@ Mono and Noto Sans TC: the same WOFF2 slices and ``unicode-range`` rules, unmodi
 CDN link.
 
 ``subset`` makes Noto Sans JP, SC and KR for the other CJK languages: only the glyphs their catalogs
-use (plus kana, punctuation and the demo names), so the repository does not carry three full CJK
-fonts. The family names stay "Noto Sans JP/SC/KR" (the OFL Reserved Font Name is "Source"). Run it
-again after new words in those languages; ``tests/test_i18n_fonts.py`` fails until you do:
+use (plus kana, punctuation and the demo names) and the public play front's words (the front serves
+these fonts too), so the repository does not carry three full CJK fonts. The family names stay
+"Noto Sans JP/SC/KR" (the OFL Reserved Font Name is "Source"). Run it again after new words in those
+languages; ``tests/test_i18n_fonts.py`` fails until you do:
 
     uv run --with fonttools --with brotli python -m duckmind.i18n.fonts subset
 
@@ -28,6 +29,10 @@ from .checks import allowlist, load_all
 
 FONTS = STATIC / "fonts"
 COVERAGE = FONTS / "subsets.json"
+# The public play front's words (deploy/public/edge, one TypeScript catalog per language): only in a
+# checkout of the repository.
+EDGE_CATALOG = STATIC.parents[3] / "deploy" / "public" / "edge" / "src" / "core" / "i18n.ts"
+EDGE_CONSTS = {"ja": "ja", "zh-Hans": "zhHans", "ko": "ko"}
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/130.0 Safari/537.36"
@@ -97,10 +102,26 @@ def vendor(fonts: Path = FONTS) -> list[Path]:
     return written
 
 
+def edge_words(lang: str, catalog: Path = EDGE_CATALOG) -> list[str]:
+    """The public play front's words in ``lang`` (none outside a checkout)."""
+    if not catalog.is_file() or lang not in EDGE_CONSTS:
+        return []
+    source = catalog.read_text(encoding="utf-8")
+    block = re.search(
+        rf"^const {EDGE_CONSTS[lang]}: Catalog = \{{\n(.*?)^\}};", source, re.M | re.S
+    )
+    if block is None:
+        raise ValueError(f"{catalog.name}: no catalog for {lang}")
+    return [
+        json.loads(f'"{value}"')
+        for value in re.findall(r'^\s*"[^"]+":\s*"((?:[^"\\]|\\.)*)",?$', block.group(1), re.M)
+    ]
+
+
 def wanted_chars(lang: str, static: Path = STATIC) -> str:
     """Every character a subset for ``lang`` must hold, sorted."""
     chars: set[str] = set()
-    for message in load_all(static).get(lang, {}).values():
+    for message in [*load_all(static).get(lang, {}).values(), *edge_words(lang)]:
         chars.update(message)
     for name in allowlist().get("names", []):
         chars.update(name)

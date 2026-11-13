@@ -1,7 +1,7 @@
 #!/bin/sh
 # The public duck's container: one duck for one visitor (deploy/public/image/Dockerfile).
 #   DUCKMIND_PUBLIC_SEED     the duck's seed (a non-negative integer; the edge picks it)    required
-#   DUCKMIND_PUBLIC_MINUTES  the visit's length (simweb --public reads it)                  default 15
+#   DUCKMIND_PUBLIC_MINUTES  the visit's length (simweb --public reads it)                  default 5
 # Everything the duck writes goes under /tmp; the app files are read-only.
 set -eu
 seed="${DUCKMIND_PUBLIC_SEED:-}"

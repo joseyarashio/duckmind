@@ -10,6 +10,10 @@
  *     reason (page.public.refused) as its title and, for a card, as a visible line inside it (touch has no hover);
  *   - when the time is up: body.public-ended, the play controls greyed out with page.public.ended_grace, and the end
  *     card with the duck file's download until export_until; after that, the thanks.
+ *   - when the visit is over (the download time is about to end, or the duck answers 404/502 for its session): the
+ *     page goes quiet (no poll, no stream, nothing new asked: see quieter) and, once the front says the session is
+ *     gone (GET /_edge/status → phase "gone"), opens "/", the front's own page. A page left open logs no errors.
+ *     Without the front (no /_edge/status) it stays quiet on the thanks.
  * Words: page.public.* (catalog keys; the server says the same in web.public.*). */
 "use strict";
 
@@ -34,6 +38,12 @@
   const CARDS = new Set(["neuroPicker", "neuroDay", "bodyLink", "neuroStim", "trickBook"]);
   // A held control whose reason is said on a line right after it (a folded <details> would hide a line inside).
   const AFTER = new Set(["duckFileSwitch"]);
+  // Go quiet this long before the download time ends: no poll may reach a duck that is already gone.
+  const LEAVE_EARLY_S = 2;
+  // The duck's answer for a session that is over (the front: 404 once the session is gone, 502 a dead duck).
+  const GONE = new Set([404, 502]);
+  const STATUS_EVERY_MS = 1000;
+  const STATUS_TRIES = 60;
 
   /* m:ss of a number of seconds (never below 0). */
   function clock(seconds) {
@@ -52,7 +62,49 @@
     el.setAttribute("title", t(key, params));
   }
 
-  const api = { REFUSED, ENDED, GATES, PLAY, clock };
+  /* Wrap win.fetch and win.EventSource (before any other script takes them) so the page can go quiet at the end.
+     Until armed it passes everything through unchanged (the normal page never arms it). Armed, an answer in GONE
+     calls onGone. Closed, a new fetch never settles (its caller just waits; nothing is sent) and every stream is
+     closed and stays closed. */
+  function quieter(win) {
+    const q = { armed: false, closed: false, onGone: null, fetch: null };
+    if (typeof win.fetch !== "function") return q;
+    const nativeFetch = win.fetch.bind(win);
+    q.fetch = nativeFetch;
+    win.fetch = function fetch(input, init) {
+      if (q.closed) return new Promise(() => {});
+      const answer = nativeFetch(input, init);
+      if (q.armed) {
+        answer.then(
+          (response) => {
+            if (GONE.has(response.status) && q.onGone) q.onGone();
+          },
+          () => {},
+        );
+      }
+      return answer;
+    };
+    const NativeSource = win.EventSource;
+    const sources = new Set();
+    if (typeof NativeSource === "function") {
+      win.EventSource = class EventSource extends NativeSource {
+        constructor(url, config) {
+          // Closed: a stream that never connects (a derived constructor may hand back its own object).
+          if (q.closed) return { url: String(url), readyState: 2, close() {}, addEventListener() {}, removeEventListener() {} };
+          super(url, config);
+          sources.add(this);
+        }
+      };
+    }
+    q.close = () => {
+      q.closed = true;
+      for (const source of sources) source.close();
+      sources.clear();
+    };
+    return q;
+  }
+
+  const api = { REFUSED, ENDED, GATES, PLAY, LEAVE_EARLY_S, clock, quieter };
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
     return;
@@ -62,7 +114,9 @@
   const I18N = () => window.I18N;
   const t = (key, params) => (I18N() ? I18N().t(key, params) : key);
   const $ = (selector) => document.querySelector(selector);
-  const st = { session: null, at: 0, ended: false, timer: 0 };
+  const st = { session: null, at: 0, ended: false, timer: 0, sync: 0, leaving: false, checking: false };
+  // Before app.js and the other scripts take fetch and EventSource.
+  const quiet = quieter(window);
 
   // One visible line with the reason inside a held card, or right after a held control of AFTER (once).
   function note(el, key, after, params) {
@@ -128,12 +182,56 @@
       }
       if (download && download.hidden !== (now.grace <= 0)) download.hidden = now.grace <= 0;
     }
+    if (ended && now.grace <= LEAVE_EARLY_S) leave();
+  }
+
+  /* The front's word on this session: "gone", "on", or null without a front. Its status answers 200 either way. */
+  async function frontSays() {
+    try {
+      const response = await quiet.fetch("/_edge/status", { cache: "no-store", credentials: "same-origin" });
+      const type = response.headers.get("content-type") || "";
+      if (!response.ok || !type.includes("json")) return null;
+      const view = await response.json();
+      return view && view.phase === "gone" ? "gone" : "on";
+    } catch {
+      return null;
+    }
+  }
+
+  /* An answer said the session may be over: ask the front once, leave if it is. */
+  async function check() {
+    if (st.leaving || st.checking) return;
+    st.checking = true;
+    try {
+      if ((await frontSays()) === "gone") leave();
+    } finally {
+      st.checking = false;
+    }
+  }
+
+  /* The visit is over: quiet now, then the front's page once the front has let the duck go. */
+  async function leave() {
+    if (st.leaving) return;
+    st.leaving = true;
+    quiet.close();
+    clearInterval(st.timer);
+    clearInterval(st.sync);
+    for (let i = 0; i < STATUS_TRIES; i++) {
+      const said = await frontSays();
+      if (said === null) return; // no front: stay on the thanks, quiet
+      if (said === "gone") break;
+      await new Promise((resolve) => setTimeout(resolve, STATUS_EVERY_MS));
+    }
+    window.location.replace("/");
   }
 
   async function sync() {
     try {
       const response = await fetch("/api/public/session", { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) {
+        if (GONE.has(response.status)) check();
+        return;
+      }
       const session = await response.json();
       if (!session || !session.ok) return;
       st.session = session;
@@ -154,11 +252,13 @@
       ping = null;
     }
     if (!ping || ping.public !== true) return;
+    quiet.armed = true;
+    quiet.onGone = check;
     document.body.classList.add("public-play");
     for (const el of document.querySelectorAll("[data-public]")) el.hidden = false;
     await sync();
     st.timer = setInterval(paint, 1000);
-    setInterval(sync, SYNC_MS);
+    st.sync = setInterval(sync, SYNC_MS);
     if (I18N()) I18N().onChange(() => paint());
   }
 

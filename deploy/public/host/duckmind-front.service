@@ -1,0 +1,45 @@
+# The public play front (deploy/public/edge/src/host): landing page, Turnstile, the line, one duck
+# container at a time, the proxy. Listens on 127.0.0.1:8780 (the owner's own door) and on
+# /run/duckmind-front/tunnel.sock (cloudflared only). Settings: /etc/duckmind-public/front.env
+# (`systemctl reload duckmind-front` re-reads it); secrets: /etc/duckmind-public/secrets.env (root only,
+# handed over by systemd).
+[Unit]
+Description=duckmind public play front
+After=network-online.target docker.service duckmind-firewall.service
+Wants=network-online.target
+Requires=docker.service duckmind-firewall.service
+
+[Service]
+Type=simple
+User=duckfront
+Group=duckfront
+SupplementaryGroups=docker
+ExecStart=/opt/duckmind-front/node /opt/duckmind-front/app/host/main.ts /etc/duckmind-public/front.env
+ExecReload=/bin/kill -HUP $MAINPID
+LoadCredential=secrets.env:/etc/duckmind-public/secrets.env
+Environment=NODE_ENV=production DOCKER_CONFIG=/run/duckmind-front/docker
+RuntimeDirectory=duckmind-front
+RuntimeDirectoryMode=0750
+# The month's bytes sent (egress.json), kept across restarts.
+StateDirectory=duckmind-front
+StateDirectoryMode=0750
+# SIGTERM to the front only: it removes its ducks itself before it exits.
+KillMode=mixed
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

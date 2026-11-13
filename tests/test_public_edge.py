@@ -1,10 +1,12 @@
-"""Public play edge (deploy/public/edge): its Node tests run inside the Python suite.
+"""Public play front (deploy/public/edge): its Node tests run inside the Python suite.
 
-The edge is a TypeScript Worker; its logic (the 10-slot gate and its line, one visitor's session and
-container lifecycle, the proxy's path filter, the Turnstile check, the six-language words) lives in
-plain modules under deploy/public/edge/src/core and is tested with Node's own test runner
-(deploy/public/edge/test/*.test.ts, no packages, no network). Node 22.18 or later runs TypeScript
-directly; older or missing Node skips.
+The front is TypeScript with two hosts: a Cloudflare Worker (src/index.ts) and the EC2 host
+(src/host/, one Docker duck at a time). Their shared logic (the gate and its line, one visitor's
+session and container lifecycle, the routes and pages including the guiding page, the proxy's path
+filter, the Turnstile check, the six-language words) lives in plain modules under src/core; the host's
+own parts (its gate/session wiring, the docker runner, the client-address rule) under src/host. All of
+it is tested with Node's own test runner (deploy/public/edge/test/*.test.ts, fake docker, no packages,
+no network). Node 22.18 or later runs TypeScript directly; older or missing Node skips.
 """
 
 from __future__ import annotations

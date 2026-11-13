@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { verifyTurnstile } from "../src/core/turnstile.ts";
+import { TEST_SECRET_PASS, verifyTurnstile } from "../src/core/turnstile.ts";
 
 const base = { secret: "s3cret", remoteIp: "198.51.100.7", hostnames: ["duck.example.test"] };
 
@@ -40,4 +40,13 @@ test("no token, an oversized token or a missing secret fail without asking Sitev
 	assert.deepEqual(await verifyTurnstile({ ...base, secret: "", token: "tok", fetchFn: f.fetchFn }), { ok: false, why: "config" });
 	assert.deepEqual(await verifyTurnstile({ ...base, hostnames: [], token: "tok", fetchFn: f.fetchFn }), { ok: false, why: "config" });
 	assert.equal(f.calls.length, 0);
+});
+
+test("Cloudflare's test answer (example.com, no action) passes only with the always-pass test secret", async () => {
+	const testAnswer = { success: true, hostname: "example.com", "error-codes": [] };
+	const pass = answering(testAnswer);
+	assert.deepEqual(await verifyTurnstile({ ...base, secret: TEST_SECRET_PASS, token: "XXXX.DUMMY.TOKEN.XXXX", fetchFn: pass.fetchFn }), { ok: true });
+	assert.deepEqual(await verifyTurnstile({ ...base, token: "XXXX.DUMMY.TOKEN.XXXX", fetchFn: answering(testAnswer).fetchFn }), { ok: false, why: "action" });
+	const failing = answering({ success: false, "error-codes": ["invalid-input-response"] });
+	assert.deepEqual(await verifyTurnstile({ ...base, secret: TEST_SECRET_PASS, token: "t", fetchFn: failing.fetchFn }), { ok: false, why: "rejected" });
 });

@@ -1,0 +1,27 @@
+# Cloudflare Tunnel for public play: carries duck.<domain> to the front's socket
+# (/run/duckmind-front/tunnel.sock; the tunnel's public hostname has service unix:/run/duckmind-front/tunnel.sock).
+# The tunnel token is never in the repository: put it, alone, in /etc/duckmind-public/tunnel-token
+# (root:root 0600); systemd hands it to cloudflared, which runs as a throwaway user in the front's group.
+# Needs cloudflared 2025.4.0 or later (--token-file).
+[Unit]
+Description=duckmind public play: Cloudflare Tunnel
+After=network-online.target duckmind-front.service
+Wants=network-online.target
+ConditionPathExists=/etc/duckmind-public/tunnel-token
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel --metrics 127.0.0.1:20241 run --token-file %d/tunnel-token
+LoadCredential=tunnel-token:/etc/duckmind-public/tunnel-token
+DynamicUser=yes
+SupplementaryGroups=duckfront
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target

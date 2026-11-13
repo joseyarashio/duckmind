@@ -31,6 +31,9 @@ were checked against their primary sources on 2026-10-29.
   Apache-2.0.** They are renders of the simulator, so they show the Microduck 3D model
   (Pollen Robotics, CC BY-NC-SA 4.0). They are shared under the same licence, with
   attribution, for non-commercial use only. See [docs/media/README.md](docs/media/README.md).
+  The public play front's pictures in `deploy/public/edge/static/img/` are smaller copies of
+  the banner's duck and screenshot (`docs/media/hero/src/`), under the same licence; the front's
+  pages carry the attribution and the non-commercial notice.
 - **The MJCF robot descriptions are Apache-2.0.** Upstream `LICENSE-MODELS.md` says:
   "Everything else in this repository, including the MJCF robot descriptions
   (`.xml`), the export configs (`config_mjcf_*.json`, `config.json`) and the Onshape

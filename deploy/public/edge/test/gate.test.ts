@@ -299,3 +299,43 @@ test("the meter survives a JSON round trip with the gate (what the Durable Objec
 	close(again.release("a", T + 500 * S)!, 0.5);
 	close(spentOn(again, "2026-11-01"), 0.5);
 });
+
+/** The EC2 host's gate: no money meter, a byte cap per calendar month (1000 a month, 100 per session). */
+const CAPPED: BudgetSettings = {
+	open: true, monthUsd: 0, billingDay: 1, usdPerSecond: 0, sessionWorstS: 1380,
+	egress: { monthBytes: 1000, sessionBytes: 100 },
+};
+const NOV = Date.parse("2026-11-20T12:00:00Z");
+
+test("bytes sent count per calendar month; a newcomer comes in only while one more session fits", () => {
+	const g = new GateCore(emptyGate(), { ...LIMITS, maxLive: 1, maxQueue: 10 }, CAPPED);
+	g.bookEgress(850, NOV);
+	assert.deepEqual(g.egressMonth(NOV), { sentBytes: 850, capBytes: 1000 });
+	assert.deepEqual(g.join("a", "ip-a", NOV), { ok: true, state: "live" }); // 150 left: a's 100 fits
+	// a's reservation leaves 50: no place in line either (it could never be paid for)
+	assert.deepEqual(g.availability(NOV), { state: "month", reopensAt: Date.parse("2026-12-01T00:00:00Z") });
+	assert.deepEqual(g.join("b", "ip-b", NOV), { ok: false, reason: "month" });
+	g.release("a", NOV + 1);
+	g.bookEgress(60, NOV + 2); // what a really sent
+	assert.deepEqual(g.availability(NOV + 3), { state: "month", reopensAt: Date.parse("2026-12-01T00:00:00Z") });
+	// a new calendar month (UTC) opens again
+	const DEC = Date.parse("2026-12-01T00:00:01Z");
+	assert.deepEqual(g.availability(DEC), { state: "open" });
+	assert.deepEqual(g.join("c", "ip-c", DEC), { ok: true, state: "live" });
+	g.bookEgress(5, DEC);
+	assert.deepEqual(g.egressMonth(DEC), { sentBytes: 5, capBytes: 1000 });
+});
+
+test("people already in line are owed a session's bytes each; the line is not promoted past the cap", () => {
+	const g = new GateCore(emptyGate(), { ...LIMITS, maxLive: 1, maxQueue: 10 }, CAPPED);
+	g.bookEgress(700, NOV);
+	g.join("a", "ip-a", NOV); // reserves 100 → 200 room
+	assert.deepEqual(g.join("b", "ip-b", NOV), { ok: true, state: "queued", place: 1 });
+	assert.deepEqual(g.join("c", "ip-c", NOV), { ok: true, state: "queued", place: 2 });
+	assert.equal(g.availability(NOV).state, "month", "a, b and c are owed all 300");
+	g.bookEgress(250, NOV + 1); // a sends more than its share: 50 left
+	assert.deepEqual(g.poll("b", NOV + 1), { state: "full" }, "nothing can come back for b: the wait is over now");
+	g.release("a", NOV + 2);
+	assert.deepEqual(g.poll("c", NOV + 2), { state: "full" });
+	assert.deepEqual(g.stats(), { live: 0, queued: 0, max: 1 });
+});

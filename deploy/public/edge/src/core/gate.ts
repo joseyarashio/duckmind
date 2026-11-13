@@ -14,14 +14,21 @@
  * lease never reaches past one session's worst case, so a lost stop costs at most what was reserved.
  * Every live slot reserves one whole session at the worst case; a newcomer gets a slot (or a place in
  * line) only if what is left today and this month, minus those reservations, pays for it as well.
+ *
+ * Bytes (the EC2 host, budget.egress): what the host sends to the internet is booked as it goes
+ * (bookEgress) per calendar month (UTC). The same rule holds: every live slot reserves one session's worst
+ * case, and nobody new comes in unless this month's cap still holds them all; it reopens next month.
  */
 
 import {
+	billingMonth,
+	book,
 	budgetLeft,
 	type BudgetSettings,
 	charge,
 	emptyMeter,
 	type MeterState,
+	monthSpent,
 	nextOpening,
 	prune,
 	sessionWorstUsd,
@@ -58,6 +65,8 @@ export interface GateState {
 	/** addr -> start times (ms) inside the rate window. */
 	starts: Record<string, number[]>;
 	meter: MeterState;
+	/** Bytes sent to the internet per day and calendar month (only with budget.egress). */
+	egress?: MeterState;
 }
 
 /** Why nobody new can come in: kill switch, today's or this month's budget, or slots and line full. */
@@ -139,13 +148,40 @@ export class GateCore {
 		return sessionWorstUsd(this.budget);
 	}
 
-	/** Closed whatever the live sessions do: kill switch, or today's / this month's money spent. */
+	/** Bytes this calendar month may still send, before reservations (Infinity without a cap). */
+	private egressLeft(now: number): number {
+		const cap = this.budget.egress;
+		if (!cap) return Infinity;
+		return cap.monthBytes - monthSpent(this.state.egress ?? emptyMeter(), now, 1);
+	}
+
+	/** Bytes left this month after every live session's reservation (Infinity without a cap). */
+	private egressRoom(now: number): number {
+		const cap = this.budget.egress;
+		if (!cap) return Infinity;
+		return this.egressLeft(now) - this.count("live") * cap.sessionBytes;
+	}
+
+	private egressShut(now: number): Availability {
+		return { state: "month", reopensAt: billingMonth(now, 1).end };
+	}
+
+	/** Closed whatever the live sessions do: kill switch, today's / this month's money spent, or this
+	 * month's bytes. */
 	private shut(now: number): Availability | null {
 		if (!this.budget.open) return { state: "closed" };
 		const left = budgetLeft(this.state.meter, now, this.budget);
 		if (left.month < this.worstUsd) return { state: "month", reopensAt: nextOpening(this.state.meter, now, this.budget) };
 		if (left.day < this.worstUsd) return { state: "day", reopensAt: nextOpening(this.state.meter, now, this.budget) };
+		if (this.budget.egress && this.egressLeft(now) < this.budget.egress.sessionBytes) return this.egressShut(now);
 		return null;
+	}
+
+	/** The host sent `bytes` to the internet (booked now, to its UTC day and calendar month). */
+	bookEgress(bytes: number, now: number): void {
+		if (bytes <= 0) return;
+		this.state.egress ??= emptyMeter();
+		book(this.state.egress, now, bytes, 1);
 	}
 
 	/** US$ still free for new sessions now: today's and this month's money minus every live reservation. */
@@ -166,6 +202,8 @@ export class GateCore {
 			const why = room.month < owed && room.month <= room.day ? "month" : "day";
 			return { state: why, reopensAt: nextOpening(this.state.meter, now, this.budget) };
 		}
+		const cap = this.budget.egress;
+		if (cap && this.egressRoom(now) < (this.count("queued") + 1) * cap.sessionBytes) return this.egressShut(now);
 		if (this.count("live") >= this.limits.maxLive && this.count("queued") >= this.limits.maxQueue) return { state: "busy" };
 		return { state: "open" };
 	}
@@ -173,6 +211,7 @@ export class GateCore {
 	private canAdmit(now: number): boolean {
 		if (this.shut(now)) return false;
 		const room = this.room(now);
+		if (this.budget.egress && this.egressRoom(now) < this.budget.egress.sessionBytes) return false;
 		return Math.min(room.day, room.month) >= this.worstUsd;
 	}
 
@@ -280,6 +319,7 @@ export class GateCore {
 			return true;
 		});
 		prune(this.state.meter, now);
+		if (this.state.egress) prune(this.state.egress, now);
 		this.promote(now);
 		return dropped;
 	}
@@ -311,6 +351,14 @@ export class GateCore {
 
 	/** For the owner's log only (never shown to visitors): US$ spent this month and today, and what
 	 * is left today and this month before reservations. */
+	/** For the owner's log: bytes sent this calendar month, and the cap (null without one). */
+	egressMonth(now: number): { sentBytes: number; capBytes: number | null } {
+		return {
+			sentBytes: monthSpent(this.state.egress ?? emptyMeter(), now, 1),
+			capBytes: this.budget.egress?.monthBytes ?? null,
+		};
+	}
+
 	spending(now: number): { monthUsd: number; dayUsd: number; dayLeftUsd: number; monthLeftUsd: number } {
 		const left = budgetLeft(this.state.meter, now, this.budget);
 		const day = new Date(now).toISOString().slice(0, 10);

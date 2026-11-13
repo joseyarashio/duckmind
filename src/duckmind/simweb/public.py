@@ -32,7 +32,7 @@ from duckmind.i18n import boundary, msg
 
 SEED_ENV = "DUCKMIND_PUBLIC_SEED"
 MINUTES_ENV = "DUCKMIND_PUBLIC_MINUTES"
-DEFAULT_MINUTES = 15.0
+DEFAULT_MINUTES = 5.0  # (owner 2026-11-14: one visitor at a time, 5 minutes each)
 MAX_MINUTES = 120.0
 # After the time is up, the duck file can still be downloaded this long; then the process ends (owner budget
 # decision 2026-11-10: 3 minutes).

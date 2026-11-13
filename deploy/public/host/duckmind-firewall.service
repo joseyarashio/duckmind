@@ -1,0 +1,15 @@
+# The ducks' Docker network and the host firewall rules that keep them off the internet
+# (deploy/public/host/firewall.sh). Re-applied whenever docker restarts.
+[Unit]
+Description=duckmind public play: the ducks' network and firewall
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/duckmind-front/firewall.sh duckmind-public dm-duck0
+
+[Install]
+WantedBy=multi-user.target

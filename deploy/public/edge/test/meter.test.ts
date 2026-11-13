@@ -3,10 +3,12 @@ import { test } from "node:test";
 import { PRICING, readConfig, sessionWorstSeconds, worstUsdPerSecond } from "../src/core/config.ts";
 import {
 	billingMonth,
+	book,
 	type BudgetSettings,
 	budgetLeft,
 	charge,
 	emptyMeter,
+	monthSpent,
 	nextOpening,
 	prune,
 } from "../src/core/meter.ts";
@@ -25,7 +27,7 @@ test("the worst-case price is memory + vCPU + disk of the instance type at the p
 	close(worstUsdPerSecond("standard-3"), 8 * 0.0000025 + 2 * 0.00002 + 16 * 0.00000007);
 	close(worstUsdPerSecond({ vcpu: 2, memoryMib: 6144, diskMb: 12000 }), 6 * 0.0000025 + 2 * 0.00002 + 12 * 0.00000007);
 	// one session's whole lease: start timeout, 15 min play (+60 s clock allowance), 3 min download, 2 lease margins
-	assert.equal(sessionWorstSeconds(readConfig({ EXPORT_MINUTES: "3" })), 180 + 900 + 180 + 120);
+	assert.equal(sessionWorstSeconds(readConfig({ SESSION_MINUTES: "15", EXPORT_MINUTES: "3" })), 180 + 900 + 180 + 120);
 });
 
 test("budget settings: default US$25, kill switch only opens on an explicit true, a typo closes", () => {
@@ -96,4 +98,14 @@ test("old days and months are forgotten", () => {
 	prune(m, at("2026-11-10T00:00:00Z"));
 	assert.deepEqual(Object.keys(m.days), ["2026-11-02"]);
 	assert.deepEqual(Object.keys(m.months).sort(), ["2026-01-01", "2026-11-01"]);
+});
+
+test("any amount can be booked to its UTC day and billing month (the host's bytes)", () => {
+	const m = emptyMeter();
+	book(m, at("2026-11-30T23:59:59Z"), 10, 1);
+	book(m, at("2026-12-01T00:00:00Z"), 5, 1);
+	assert.deepEqual(m.days, { "2026-11-30": 10, "2026-12-01": 5 });
+	assert.equal(monthSpent(m, at("2026-11-15T00:00:00Z"), 1), 10);
+	assert.equal(monthSpent(m, at("2026-12-31T23:00:00Z"), 1), 5);
+	assert.equal(monthSpent(m, at("2027-01-01T00:00:00Z"), 1), 0);
 });

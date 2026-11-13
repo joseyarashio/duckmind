@@ -101,7 +101,7 @@ export default defineConfig(({ mode }) => {
 				SESSIONS: bindings.durableObject({ worker: "duckmind-public", exportName: "DuckSession" }),
 				MAX_LIVE: bindings.text(env.DUCK_EDGE_MAX_LIVE?.trim() || "3"),
 				MAX_QUEUE: bindings.text("100"),
-				SESSION_MINUTES: bindings.text("15"),
+				SESSION_MINUTES: bindings.text("5"),
 				EXPORT_MINUTES: bindings.text("3"),
 				START_TIMEOUT_S: bindings.text("180"),
 				IDLE_END_S: bindings.text("120"),

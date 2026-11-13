@@ -1,8 +1,17 @@
 /**
- * Server-side Turnstile check before a duck is started (browser → this Worker → Siteverify).
+ * Server-side Turnstile check before a duck is started (browser → this front → Siteverify).
  * Fails closed: a missing secret, a network error, a non-2xx answer, a wrong action or a hostname
  * outside the list all mean "no".
+ *
+ * Test mode: with Cloudflare's documented always-pass test secret, Siteverify answers every dummy
+ * token with hostname "example.com" and no action (developers.cloudflare.com/turnstile/troubleshooting/
+ * testing/). That answer is accepted only with that secret, which lets everyone in anyway; with any
+ * other secret the same answer fails the action check.
  */
+
+/** Cloudflare's always-pass test secret (public, documented; never a real gate). */
+export const TEST_SECRET_PASS = "1x0000000000000000000000000000000AA";
+const TEST_HOSTNAME = "example.com";
 
 export const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 export const WIDGET_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -41,6 +50,9 @@ export async function verifyTurnstile(c: TurnstileCheck): Promise<TurnstileResul
 		return { ok: false, why: "network" };
 	}
 	if (result.success !== true) return { ok: false, why: "rejected" };
+	if (c.secret === TEST_SECRET_PASS && result.action === undefined && result.hostname === TEST_HOSTNAME) {
+		return { ok: true };
+	}
 	if (result.action !== TURNSTILE_ACTION) return { ok: false, why: "action" };
 	if (typeof result.hostname !== "string" || !c.hostnames.includes(result.hostname.toLowerCase())) {
 		return { ok: false, why: "hostname" };

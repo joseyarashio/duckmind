@@ -62,7 +62,8 @@ const RATE = 0.001;
 
 function setup(opts: { maxLive?: number; bootMs?: number; monthUsd?: number } = {}) {
 	const clock = { t: Date.parse("2026-11-01T08:00:00Z") };
-	const config = readConfig({ MAX_LIVE: String(opts.maxLive ?? 10), START_TIMEOUT_S: "60", OPEN: "true" });
+	// (15-minute visits: these tests' timings and money are written for that length, not for the default)
+	const config = readConfig({ MAX_LIVE: String(opts.maxLive ?? 10), START_TIMEOUT_S: "60", OPEN: "true", SESSION_MINUTES: "15" });
 	const core = new GateCore(
 		emptyGate(),
 		{
@@ -231,12 +232,13 @@ test("a visitor whose page sends nothing for 2 minutes while playing ends early 
 	assert.deepEqual(env.gate.released, ["a:idle"]);
 });
 
-test("the defaults: 3 ducks at once, a 3-minute download tail, a 2-minute idle stop", () => {
+test("the defaults: 3 ducks at once, 5 minutes of play, a 3-minute download tail, a 2-minute idle stop", () => {
 	const cfg = readConfig({});
 	assert.equal(cfg.maxLive, 3);
 	assert.equal(cfg.exportMinutes, 3);
 	assert.equal(cfg.idleEndS, 120);
-	assert.equal(sessionWorstSeconds(cfg), 180 + 15 * 60 + 3 * 60 + 120);
+	assert.equal(cfg.sessionMinutes, 5);
+	assert.equal(sessionWorstSeconds(cfg), 180 + 5 * 60 + 3 * 60 + 120);
 });
 
 test("a queued visitor whose page goes away loses the place", async () => {

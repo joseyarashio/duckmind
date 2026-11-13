@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CATALOGS, LANGS, pickLang, t } from "../src/core/i18n.ts";
-import { esc, landingPage, waitingPage } from "../src/core/pages.ts";
+import { esc, guidingPage, landingPage, QUICK_START_URL, waitingPage } from "../src/core/pages.ts";
 
 const values = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -52,4 +52,39 @@ test("a visitor whose duck has ended sees why, in their language", () => {
 	});
 	assert.ok(html.includes(esc(t("es", "gone.title"))));
 	assert.ok(html.includes(esc(t("es", "gone.crash"))));
+});
+
+test("time up: the page says so, thanks the visitor and offers another duck", () => {
+	const html = landingPage({
+		lang: "zh-Hant", nonce: "n", minutes: 5, stats: { live: 0, queued: 0, max: 1 }, sitekey: "k", scriptUrl: "https://x.test/api.js",
+		ended: { phase: "gone", reason: "time" },
+	});
+	assert.match(html, /<h1[^>]*>時間到了<\/h1>/);
+	assert.ok(html.includes(esc(t("zh-Hant", "gone.note"))));
+	assert.match(html, /id="startBtn"[^>]*>再來一隻<svg[^>]*>.*?<\/svg><\/button>/);
+});
+
+test("the landing page says what a visit is: a fresh duck, its minutes, one at a time or a few, the .duck file", () => {
+	const page = (max: number) =>
+		landingPage({ lang: "en", nonce: "n", minutes: 5, stats: { live: 0, queued: 0, max }, sitekey: "k", scriptUrl: "https://x.test/api.js" });
+	const one = page(1);
+	assert.ok(one.includes("brand-new random duck to play with in its own simulator for 5 minutes"));
+	assert.ok(one.includes("One visitor at a time; the others wait in line."));
+	assert.ok(one.includes("download it as a .duck file"));
+	assert.ok(one.includes('id="startBtn"') && one.includes('href="https://github.com/joseyarashio/duckmind"'), "play and the repository");
+	const three = page(3);
+	assert.ok(three.includes("Up to 3 visitors at a time; the others wait in line."));
+	assert.ok(!three.includes("One visitor at a time"));
+});
+
+test("the guiding page says the ducks are adopted and links the README quick start, in each language", () => {
+	for (const lang of LANGS) {
+		const html = guidingPage({ lang, nonce: "n", minutes: 5 });
+		for (const key of ["guide.title", "guide.later", "guide.home.title", "guide.home.text", "guide.home.link"]) {
+			assert.ok(html.includes(esc(t(lang, key))), `${lang} ${key}`);
+		}
+		assert.ok(html.includes(`href="${QUICK_START_URL}"`), lang);
+		assert.ok(html.includes("Pollen Robotics"), lang);
+		assert.ok(!html.includes("<form"), `${lang}: nothing to start`);
+	}
 });
