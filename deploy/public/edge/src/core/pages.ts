@@ -111,6 +111,8 @@ white-space:nowrap;text-decoration:none;cursor:pointer;gap:.4em}
 .btn-primary[disabled]{opacity:.55;cursor:not-allowed}
 .btn-secondary.small{font-size:u(14);padding:u(8) u(14)}
 .hint,.stats,.offline{font-size:u(12.5);color:rgba(255,255,255,.7);margin-top:u(14)}
+.hint.warn{color:var(--yellow);font-weight:700}
+.ts-box.shown{margin:0 0 u(14)}
 .stats{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:u(12);color:rgba(255,255,255,.6);margin-top:u(8)}
 .offline{color:var(--magenta);font-weight:700;min-height:1.5em;margin-top:0}
 .alert,.notice{background:var(--paper);color:var(--ink);border:3px solid var(--ink-deep);box-shadow:6px 6px 0 var(--magenta);
@@ -321,17 +323,27 @@ ${title}
 <button class="btn-primary" type="submit" id="startBtn" disabled>${esc(t(L, p.ended ? "gone.again" : "land.start"))}${ARROW}</button>
 <a class="btn-secondary" href="${REPO_URL}" rel="noopener">${esc(t(L, "land.repo"))}${STAR}</a>
 </div>
-<p class="hint" id="verifyHint">${esc(t(L, "land.checking"))}</p>
+<p class="hint" id="verifyHint" role="status">${esc(t(L, "land.checking"))}</p>
 </form>
 <p class="stats" id="stats">${esc(t(L, "land.stats", p.stats))}</p>`;
 	// Explicit render: the button unlocks only with a token; the token goes with the form. The onload
 	// callback is defined before the widget script loads and waits for the page if it comes early. The
-	// widget shows itself only when the visitor has to do something (appearance "interaction-only").
+	// widget first shows itself only when the visitor has to do something (appearance
+	// "interaction-only"). If the check fails, expires, times out or brings no token within 8 s, the
+	// widget is drawn again visibly (Cloudflare's own box and message, its retries) with one plain line
+	// under the buttons, so nobody waits on a disabled button with nothing to do.
+	const words = { retry: t(L, "land.check.retry"), browser: t(L, "land.check.browser") };
 	const ready = `
-window.dmTurnstileReady=function(){function go(){var box=document.getElementById("turnstile"),btn=document.getElementById("startBtn"),hint=document.getElementById("verifyHint");
-window.turnstile.render(box,{sitekey:box.dataset.sitekey,action:"start",language:${JSON.stringify(TURNSTILE_LANG[L])},appearance:"interaction-only",
-callback:function(){btn.disabled=false;hint.hidden=true},"expired-callback":function(){btn.disabled=true;hint.hidden=false},
-"error-callback":function(){btn.disabled=true;hint.hidden=false}});}
+window.dmTurnstileReady=function(){function go(){var box=document.getElementById("turnstile"),btn=document.getElementById("startBtn"),hint=document.getElementById("verifyHint"),
+W=${JSON.stringify(words)},id=null,shown=false,timer=null;
+function opts(appearance,retry){return{sitekey:box.dataset.sitekey,action:"start",language:${JSON.stringify(TURNSTILE_LANG[L])},appearance:appearance,retry:retry,
+callback:function(){clearTimeout(timer);btn.disabled=false;hint.hidden=true},
+"expired-callback":function(){say(W.retry)},"timeout-callback":function(){say(W.retry)},
+"error-callback":function(code){say(/^1105/.test(String(code))?W.browser:W.retry)}}}
+function say(text){clearTimeout(timer);btn.disabled=true;hint.textContent=text;hint.hidden=false;hint.classList.add("warn");
+if(shown)return;shown=true;try{if(id!==null)window.turnstile.remove(id)}catch(e){}
+box.classList.add("shown");id=window.turnstile.render(box,opts("always","auto"))}
+id=window.turnstile.render(box,opts("interaction-only","never"));timer=setTimeout(function(){say(W.retry)},8000);}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();};`;
 	const script = `document.getElementById("startForm").addEventListener("submit",function(){document.getElementById("startBtn").disabled=true;});`;
 	const head = `<script nonce="${p.nonce}">${ready}</script>
