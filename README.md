@@ -9,6 +9,11 @@ memories, the people it knows, what it wants to do, and what it learns. It is wr
 for robots compatible with Microduck, and comes with a simulator you can open in your
 browser.
 
+**Try it online, nothing to install:** [duck.joseyarashio.com](https://duck.joseyarashio.com).
+You get a brand-new random duck for 5 minutes, one visitor at a time (others wait in line).
+At the end you can download it as a `.duck` file and keep raising it at home
+([Quick start](#quick-start)).
+
 > **Unofficial project.** duckmind is not affiliated with, endorsed by, or sponsored
 > by Pollen Robotics. Microduck is a name of Pollen Robotics. duckmind uses Pollen's
 > open-source code, robot model and policies, which you download from their upstream

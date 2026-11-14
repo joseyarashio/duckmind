@@ -7,6 +7,10 @@
 duckmind 讓一隻小機器鴨有自己的心：牠是誰、牠的心情、牠的記憶、牠認得的人、牠想做什麼，
 還有牠學到的東西。它是為相容 Microduck 的機器人寫的，附一個在瀏覽器裡就能打開的模擬器。
 
+**線上試玩，不用安裝：**[duck.joseyarashio.com](https://duck.joseyarashio.com)。
+每人拿到一隻全新的隨機小鴨，玩 5 分鐘，一次一位（其他人排隊）。時間到可以把牠下載成 `.duck` 檔，
+帶回家繼續養（[快速開始](#快速開始)）。
+
 > **非官方專案。** duckmind 與 Pollen Robotics 無關，沒有得到 Pollen Robotics 的認可或贊助。
 > Microduck 是 Pollen Robotics 的名稱。duckmind 會用到 Pollen 的開源程式、機器人模型和政策，
 > 這些都是安裝時從上游來源下載的。

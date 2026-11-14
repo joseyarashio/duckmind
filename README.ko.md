@@ -8,6 +8,10 @@ duckmind는 작은 로봇 오리에게 자기만의 마음을 줍니다. 자기�
 하고 싶은 일, 그리고 배운 것. Microduck 호환 로봇을 위해 만들었고, 브라우저에서 바로 열 수 있는
 시뮬레이터가 함께 들어 있습니다.
 
+**설치 없이 온라인 체험:** [duck.joseyarashio.com](https://duck.joseyarashio.com).
+새로운 랜덤 오리와 5분 동안 놀 수 있습니다. 한 번에 한 사람씩이고, 다른 사람은 줄을 서서 기다립니다.
+끝나면 `.duck` 파일로 내려받아 집에서 계속 키울 수 있습니다([빠른 시작](#빠른-시작)).
+
 > **비공식 프로젝트입니다.** duckmind는 Pollen Robotics와 관계가 없으며, Pollen Robotics의 승인이나
 > 후원을 받지 않았습니다. Microduck은 Pollen Robotics의 이름입니다. duckmind는 Pollen의 오픈 소스
 > 코드, 로봇 모델, 정책을 사용하며, 이것들은 설치할 때 원래 배포처에서 내려받습니다.

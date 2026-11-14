@@ -9,6 +9,11 @@ duckmind le da a un pequeño pato robot una mente propia: quién es, su estado d
 Está escrito para robots compatibles con Microduck e incluye un simulador que se abre
 en el navegador.
 
+**Pruébalo en línea, sin instalar nada:** [duck.joseyarashio.com](https://duck.joseyarashio.com).
+Te toca un pato nuevo y al azar durante 5 minutos, una persona a la vez (los demás esperan en
+fila). Al final puedes descargarlo como archivo `.duck` y seguir criándolo en casa
+([Inicio rápido](#inicio-rápido)).
+
 > **Proyecto no oficial.** duckmind no está afiliado a Pollen Robotics, ni cuenta con
 > su aprobación o patrocinio. Microduck es un nombre de Pollen Robotics. duckmind usa
 > el código abierto, el modelo del robot y las políticas de Pollen, que se descargan

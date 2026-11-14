@@ -9,6 +9,12 @@ souvenirs, les personnes qu'il connaît, ce qu'il veut faire et ce qu'il apprend
 est écrit pour les robots compatibles avec Microduck et fournit un simulateur qui
 s'ouvre dans le navigateur.
 
+**Essayez en ligne, sans rien installer :** [duck.joseyarashio.com](https://duck.joseyarashio.com)
+(la page existe en six langues, pas encore en français). Vous recevez un canard tout neuf, tiré
+au hasard, pour 5 minutes, une personne à la fois (les autres attendent leur tour). À la fin, vous
+pouvez le télécharger en fichier `.duck` et continuer à l'élever chez vous
+([Démarrage rapide](#démarrage-rapide)).
+
 > **Projet non officiel.** duckmind n'est ni affilié à Pollen Robotics, ni approuvé,
 > ni parrainé par Pollen Robotics. Microduck est un nom de Pollen Robotics. duckmind
 > utilise le code open source, le modèle du robot et les politiques de Pollen, que
